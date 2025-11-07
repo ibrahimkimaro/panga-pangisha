@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:panga_pangisha/authScreens/loginScreen.dart';
 import 'package:panga_pangisha/CustomeControl/CustomInputField.dart';
@@ -33,7 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     print("FULL NAME: ${_fullName.text}");
     print("PHONE NUMBWE: ${emailOrPhone.text}");
     print("PASSWORD: ${password.text}");
-    // final String role;
+
     if (isLandlord == true || isRenter == true) {
       if (isLandlord) {
         print("is landlord");
@@ -122,6 +123,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ],
                           ),
                           Switch(
+                            splashRadius: 12.8,
+                            materialTapTargetSize: MaterialTapTargetSize.padded,
+                            activeColor: Colors.black,
                             value: isLandlord,
                             onChanged: (value) {
                               setState(() {
@@ -146,6 +150,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ],
                           ),
                           Switch(
+                            materialTapTargetSize: MaterialTapTargetSize.padded,
+                            activeColor: Colors.black,
                             value: isRenter,
                             onChanged: (value) {
                               setState(() {

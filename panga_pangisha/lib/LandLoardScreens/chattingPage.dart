@@ -11,7 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_chat_ui/src/chat_message/chat_message.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:google_maps_webservice/directions.dart';
 import 'package:hive/hive.dart';
 import 'package:image_picker/image_picker.dart';
@@ -65,43 +65,43 @@ class _ChattingpageState extends State<Chattingpage> {
   String? _ImageName;
   bool isDoc = false;
   bool _isimg = false;
-  Future<void> showNotification(id, text) async {
-    if (Platform.isAndroid) {
-      final status = await Permission.notification.status;
-      if (status.isGranted) {
-        const AndroidNotificationDetails androidDetails =
-            AndroidNotificationDetails(
-              'channel_id',
-              'channel_name',
-              channelDescription: 'description of the channel',
-              importance: Importance.max,
-              priority: Priority.high,
-              showWhen: true,
-              channelShowBadge: true,
-            );
+  // Future<void> showNotification(id, text) async {
+  //   if (Platform.isAndroid) {
+  //     final status = await Permission.notification.status;
+  //     if (status.isGranted) {
+  //       const AndroidNotificationDetails androidDetails =
+  //           AndroidNotificationDetails(
+  //             'channel_id',
+  //             'channel_name',
+  //             channelDescription: 'description of the channel',
+  //             importance: Importance.max,
+  //             priority: Priority.high,
+  //             showWhen: true,
+  //             channelShowBadge: true,
+  //           );
 
-        const NotificationDetails platformDetails = NotificationDetails(
-          android: androidDetails,
-        );
+  //       const NotificationDetails platformDetails = NotificationDetails(
+  //         android: androidDetails,
+  //       );
 
-        await flutterLocalNotificationsPlugin.show(
-          0, // Notification ID
-          id.toString(),
-          text.toString(),
-          platformDetails,
-        );
-      } else if (status.isDenied) {
-        await openAppSettings();
-      } else if (status.isPermanentlyDenied) {
-        openAppSettings();
-      } else {
-        await Permission.notification.request();
-      }
-    } else if (Platform.isIOS) {
-      // Handle iOS notification permission request
-      // For iOS, you might want to use a different package or method
-    }
-  }
+  //       await flutterLocalNotificationsPlugin.show(
+  //         0, // Notification ID
+  //         id.toString(),
+  //         text.toString(),
+  //         platformDetails,
+  //       );
+  //     } else if (status.isDenied) {
+  //       await openAppSettings();
+  //     } else if (status.isPermanentlyDenied) {
+  //       openAppSettings();
+  //     } else {
+  //       await Permission.notification.request();
+  //     }
+  //   } else if (Platform.isIOS) {
+  //     // Handle iOS notification permission request
+  //     // For iOS, you might want to use a different package or method
+  //   }
+  // }
 
   Future<void> pickImage() async {
     final pickedFile = await ImagePicker().pickImage(
@@ -219,7 +219,7 @@ class _ChattingpageState extends State<Chattingpage> {
             text: decode['text'],
             createdAt: DateTime.tryParse(decode['timestamp']),
           );
-          showNotification(widget.username, decode['text']);
+          // showNotification(widget.username, decode['text']);
           chatController.insertMessage(messages);
         },
         onError: (err) {

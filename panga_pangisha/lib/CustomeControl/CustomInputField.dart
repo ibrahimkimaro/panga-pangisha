@@ -26,11 +26,13 @@ class CustomTextField extends StatelessWidget {
       controller: Textcontroller,
       obscureText: secureText ?? false,
       keyboardType: keybord_type,
+      // style: TextStyle(fontSize: 8),dsa
       decoration: InputDecoration(
         prefixIcon: Icon(icon),
         suffixIcon: iconPsswrd,
         labelText: labelText,
         filled: true,
+        labelStyle: TextStyle(fontSize: 14),
         errorText: ErrorMsg,
         fillColor: Colors.white,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

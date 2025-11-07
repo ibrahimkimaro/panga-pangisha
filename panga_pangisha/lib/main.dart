@@ -6,22 +6,22 @@ import 'package:panga_pangisha/LandLoardScreens/manageRoom.dart';
 import 'package:panga_pangisha/RenterScreens/MainScreen.dart';
 import 'package:panga_pangisha/authScreens/regScreen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:panga_pangisha/LandLoardScreens/createHouse.dart';
 
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
+// final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+//     FlutterLocalNotificationsPlugin();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  const AndroidInitializationSettings androidInitSettings =
-      AndroidInitializationSettings('@mipmap/ic_launcher'); // App icon
+  // const AndroidInitializationSettings androidInitSettings =
+  //     AndroidInitializationSettings('@mipmap/ic_launcher'); // App icon
 
-  const InitializationSettings initSettings = InitializationSettings(
-    android: androidInitSettings,
-    // iOS: IOSInitializationSettings() // Add if you support iOS
-  );
+  // const InitializationSettings initSettings = InitializationSettings(
+  //   android: androidInitSettings,
+  //   // iOS: IOSInitializationSettings() // Add if you support iOS
+  // );
 
-  await flutterLocalNotificationsPlugin.initialize(initSettings);
+  // await flutterLocalNotificationsPlugin.initialize(initSettings);
   runApp(const PangaNaKupangishaApp());
 }
 

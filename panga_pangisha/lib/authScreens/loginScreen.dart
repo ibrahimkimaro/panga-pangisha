@@ -73,7 +73,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   final String LocalIp = '10.171.86.138';
-  final String wifiIP = '192.168.1.154';
+  final String wifiIP = '192.168.2.232';
 
   Future<void> login() async {
     setState(() {

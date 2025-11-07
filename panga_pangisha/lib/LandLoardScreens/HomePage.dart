@@ -3,7 +3,7 @@
 import 'dart:io';
 // import 'package:local_auth/local_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:panga_pangisha/CustomeControl/Network&Tokens.dart';
 import 'package:panga_pangisha/main.dart';
 import 'package:http/http.dart' as http;
@@ -25,50 +25,50 @@ class _HomepageState extends State<Homepage> {
 
   Future<void> requestNotificationPermission() async {}
 
-  Future<void> showNotification() async {
-    if (Platform.isAndroid) {
-      final status = await Permission.notification.status;
-      if (status.isGranted) {
-        const AndroidNotificationDetails androidDetails =
-            AndroidNotificationDetails(
-              'channel_id',
-              'channel_name',
-              channelDescription: 'description of the channel',
-              importance: Importance.max,
-              priority: Priority.high,
-            );
+  // Future<void> showNotification() async {
+  //   if (Platform.isAndroid) {
+  //     final status = await Permission.notification.status;
+  //     if (status.isGranted) {
+  //       const AndroidNotificationDetails androidDetails =
+  //           AndroidNotificationDetails(
+  //             'channel_id',
+  //             'channel_name',
+  //             channelDescription: 'description of the channel',
+  //             importance: Importance.max,
+  //             priority: Priority.high,
+  //           );
 
-        const NotificationDetails platformDetails = NotificationDetails(
-          android: androidDetails,
-        );
+  //       const NotificationDetails platformDetails = NotificationDetails(
+  //         android: androidDetails,
+  //       );
 
-        await flutterLocalNotificationsPlugin.show(
-          0, // Notification ID
-          'Hello! Kimmy',
-          'This is a local notification',
-          platformDetails,
-        );
-      } else if (status.isDenied) {
-        await openAppSettings();
-      } else if (status.isPermanentlyDenied) {
-        openAppSettings();
-      } else {
-        await Permission.notification.request();
-      }
-    } else if (Platform.isIOS) {
-      // Handle iOS notification permission request
-      // For iOS, you might want to use a different package or method
-    }
-  }
+  //       await flutterLocalNotificationsPlugin.show(
+  //         0, // Notification ID
+  //         'Hello! Kimmy',
+  //         'This is a local notification',
+  //         platformDetails,
+  //       );
+  //     } else if (status.isDenied) {
+  //       await openAppSettings();
+  //     } else if (status.isPermanentlyDenied) {
+  //       openAppSettings();
+  //     } else {
+  //       await Permission.notification.request();
+  //     }
+  //   } else if (Platform.isIOS) {
+  //     // Handle iOS notification permission request
+  //     // For iOS, you might want to use a different package or method
+  //   }
+  // }
 
   // iP address for devlopment in testing i will ngrok for forwaring
-  final String LocalIp = '10.227.172.138';
-  final String wifiIP = '192.168.1.154';
+  final String LocalIp = '192.168.2.232';
+  final String wifiIP = '192.168.2.232';
 
   Future<void> FetchData() async {
     final accessToken = await LandLordPreferrencesToken().getAccessToken();
     // final _UserID = await getUserID();
-    final url = Uri.parse("http://$wifiIP:8000/api/profile/UserUpdateProfile/");
+    final url = Uri.parse("https://$wifiIP:8000/api/profile/UserUpdateProfile/");
     try {
       final response = await http.get(
         url,
@@ -331,10 +331,10 @@ class _HomepageState extends State<Homepage> {
                 'Your Properties',
                 style: TextStyle(fontSize: 40, fontWeight: FontWeight.w600),
               ),
-              ElevatedButton(
-                onPressed: showNotification,
-                child: Text('Show Notification'),
-              ),
+              // ElevatedButton(
+              //   // onPressed: showNotification,
+              //   child: Text('Show Notification'),
+              // ),
 
               // const SizedBox(height: 12),
               // Wrap(

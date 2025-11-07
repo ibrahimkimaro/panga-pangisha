@@ -8,7 +8,14 @@ final Map<String, List<String>> regionDistrictMap = {
     "Monduli",
     "Ngorongoro",
   ],
-  "Dar es Salam": ["Ilala", "Kinondoni", "Temeke", "Kigamboni", "Ubungo"],
+  "Dar es Salam": ["Ilala",
+   "Kinondoni",
+    "Temeke",
+     "Kigamboni", 
+     "Ubungo",
+     "Kijichi",
+     "Kisarawe"
+     ],
   "Dodoma": [
     "Bahi",
     "Chamwino",

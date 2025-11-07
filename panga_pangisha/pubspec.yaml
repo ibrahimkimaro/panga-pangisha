@@ -40,7 +40,7 @@ dependencies:
   google_maps_webservice: ^0.0.20-nullsafety
   image_picker: ^1.0.7
   dio: ^5.0.3
-  flutter_local_notifications:  ^16.0.0
+  # flutter_local_notifications: ^19.4.1
   push: ^3.3.3
   geocoding: ^3.0.0
   permission_handler:  ^11.3.0

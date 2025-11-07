@@ -4,7 +4,7 @@ import 'dart:io';
 // import 'package:local_auth/local_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:panga_pangisha/CustomeControl/Network&Tokens.dart';
 import 'package:panga_pangisha/LandLoardScreens/notification.dart';
 import 'package:panga_pangisha/RenterScreens/roomHouseReview.dart';
@@ -42,41 +42,41 @@ class _HomepageState extends State<RenterHomepage> {
 
   Future<void> requestNotificationPermission() async {}
 
-  Future<void> showNotification() async {
-    if (Platform.isAndroid) {
-      final status = await Permission.notification.status;
-      if (status.isGranted) {
-        const AndroidNotificationDetails androidDetails =
-            AndroidNotificationDetails(
-              'channel_id',
-              'channel_name',
-              channelDescription: 'description of the channel',
-              importance: Importance.max,
-              priority: Priority.high,
-            );
+  // Future<void> showNotification() async {
+  //   if (Platform.isAndroid) {
+  //     final status = await Permission.notification.status;
+  //     if (status.isGranted) {
+  //       const AndroidNotificationDetails androidDetails =
+  //           AndroidNotificationDetails(
+  //             'channel_id',
+  //             'channel_name',
+  //             channelDescription: 'description of the channel',
+  //             importance: Importance.max,
+  //             priority: Priority.high,
+  //           );
 
-        const NotificationDetails platformDetails = NotificationDetails(
-          android: androidDetails,
-        );
+  //       const NotificationDetails platformDetails = NotificationDetails(
+  //         android: androidDetails,
+  //       );
 
-        await flutterLocalNotificationsPlugin.show(
-          0, // Notification ID
-          'Hello! Kimmy',
-          'This is a local notification',
-          platformDetails,
-        );
-      } else if (status.isDenied) {
-        await openAppSettings();
-      } else if (status.isPermanentlyDenied) {
-        openAppSettings();
-      } else {
-        await Permission.notification.request();
-      }
-    } else if (Platform.isIOS) {
-      // Handle iOS notification permission request
-      // For iOS, you might want to use a different package or method
-    }
-  }
+  //       await flutterLocalNotificationsPlugin.show(
+  //         0, // Notification ID
+  //         'Hello! Kimmy',
+  //         'This is a local notification',
+  //         platformDetails,
+  //       );
+  //     } else if (status.isDenied) {
+  //       await openAppSettings();
+  //     } else if (status.isPermanentlyDenied) {
+  //       openAppSettings();
+  //     } else {
+  //       await Permission.notification.request();
+  //     }
+  //   } else if (Platform.isIOS) {
+  //     // Handle iOS notification permission request
+  //     // For iOS, you might want to use a different package or method
+  //   }
+  // }
 
   Future<void> FetchData() async {
     final accessToken = await RenterPreferrencesToken().getAccessToken();

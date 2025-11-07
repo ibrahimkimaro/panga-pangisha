@@ -25,8 +25,8 @@ class RenterPreferrencesToken {
 }
 
 class APIEndPointURL {
-  static const String baseUrl = "http://192.168.1.141:8000/api";
-  static const String profilrPic = "http://192.168.1.141:8000";
+  static const String baseUrl = "http://192.168.2.232:8000/api";
+  static const String profilrPic = "http://192.168.2.232:8000";
 
   // Shared Endpoints
   static const String userProfile = "$baseUrl/profile/UserUpdateProfile/";

@@ -20,8 +20,8 @@ class ProfileAccount extends StatefulWidget {
 }
 
 class _ProfileAccountState extends State<ProfileAccount> {
-  final String wifiIP = '192.168.1.154';
-  final String LocalIP = '10.227.172.138';
+  final String wifiIP = '192.168.2.232';
+  final String LocalIP = '192.168.2.232';
 
   String? profilePic;
   String? _username;
