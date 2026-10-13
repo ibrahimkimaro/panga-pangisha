@@ -1,0 +1,74 @@
+@import 'tailwindcss';
+@source '../js';
+
+@font-face { font-family: 'Bricolage'; src: url('../fonts/Bricolage.ttf') format('truetype'); font-weight: 200 800; font-stretch: 75% 100%; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/Figtree.ttf') format('truetype'); font-weight: 300 900; font-display: swap; }
+
+/* Same palette and faces as the mobile app (panga_pangisha/lib/ui.dart). */
+@theme {
+    --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Bricolage', 'Figtree', ui-sans-serif, sans-serif;
+
+    --color-navy: #0b1b2b;
+    --color-navy-raised: #142a40;
+    --color-navy-line: #23405b;
+    --color-teal: #0f766e; /* actions and links: 5.5:1 on white */
+    --color-teal-bright: #2dd4bf; /* on navy only */
+    --color-mint: #d9f7f1;
+    --color-paper: #f4f6f8;
+    --color-line: #e1e7ec;
+    --color-ink: #10212f;
+    --color-muted: #566676;
+    --color-brass: #f2b01e;
+    --color-brass-ink: #7a5200;
+    --color-sand: #fff3d1;
+    --color-hibiscus: #c2314b;
+    --color-blush: #fce8ec;
+}
+
+@layer base {
+    html { scroll-behavior: smooth; }
+    body { @apply bg-paper font-sans text-ink antialiased; }
+    h1, h2, h3 { @apply font-display; letter-spacing: -0.02em; }
+    :focus-visible { outline: 2px solid var(--color-teal); outline-offset: 2px; border-radius: 6px; }
+    dialog::backdrop { background: rgb(11 27 43 / 0.55); }
+    @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+}
+
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/*
+ * The landing page's one loud moment: a lime-washed wall with the warning Tanzanian owners paint on their
+ * houses ("this house is not for sale"). Two-tone like a real wall: lime wash above, a painted band below.
+ */
+.wall {
+    --plaster: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .27 0 0 0 0 .18 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-color: #e9e1cd;
+    background-image: var(--plaster), radial-gradient(60% 90% at 85% 10%, rgb(120 96 60 / 0.12), transparent 70%), radial-gradient(40% 70% at 8% 95%, rgb(90 70 40 / 0.14), transparent 70%);
+}
+.wall-paint {
+    font-family: var(--font-display);
+    font-stretch: 75%;
+    font-weight: 800;
+    font-size: 19vw; /* two lines on a phone, one line across the wall from 640px up */
+    line-height: 0.86;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    color: #a12a1e; /* red oxide, the paint these signs are written in */
+    mix-blend-mode: multiply;
+    filter: url(#sign-paint);
+    transform: rotate(-1.4deg);
+    transform-origin: left bottom;
+}
+@media (min-width: 40rem) {
+    .wall-paint { font-size: min(10.6vw, 9.4rem); }
+}
+.wall-band {
+    background-color: #0c5f58;
+    background-image: var(--plaster);
+    box-shadow: inset 0 3px 0 rgb(255 255 255 / 0.18);
+}

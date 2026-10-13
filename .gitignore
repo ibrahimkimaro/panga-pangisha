@@ -1,0 +1,15 @@
+.venv*/
+__pycache__/
+*.pyc
+.env
+.idea/
+build/
+.dart_tool/
+db.sqlite3
+.superdesign/tmp/
+panga_pangisha/android/build/
+backend/api/storage/framework/cache/*
+backend/api/storage/framework/sessions/*
+backend/api/storage/framework/views/*
+backend/api/storage/framework/testing/*
+

@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.panga_pangisha"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973"
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -39,7 +39,7 @@ android {
 
 dependencies {
     // ✅ Kotlin DSL correct syntax for desugaring
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") // flutter_local_notifications needs 2.1.4+
 
     // Replace `$kotlin_version` if it's undefined, or define it at the top of build.gradle.kts
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0")

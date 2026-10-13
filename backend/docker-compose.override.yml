@@ -1,0 +1,20 @@
+# Development only. `docker compose up` loads this file automatically, so saving a file shows up at once:
+# PHP is read from your working copy on every request, and Vite hot-reloads the React pages and CSS.
+# For a production-style run of the baked image: docker compose -f docker-compose.yml up -d --build
+services:
+  api:
+    volumes:
+      - ./api:/app # your working copy instead of the code baked into the image
+
+  vite:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install --no-audit --no-fund && npm run dev"
+    ports: ["5173:5173"]
+    volumes:
+      - ./api:/app
+      - node_modules:/app/node_modules # the container's own install, separate from the one on your machine
+    restart: "no"
+
+volumes:
+  node_modules:

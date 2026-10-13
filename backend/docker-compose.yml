@@ -1,0 +1,73 @@
+# Panga Pangisha backend: Postgres + Laravel (mobile API, website and admin panel) + Phoenix realtime chat.
+# Host ports are offset (8100/4100) so they don't clash with other local stacks on 8000/4000.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: panga
+      POSTGRES_PASSWORD: panga_pass
+      POSTGRES_DB: panga_pangisha
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/db-init.sh:/docker-entrypoint-initdb.d/10-chat-db.sh:ro
+      - ./realtime-chat/init_schema.sql:/schema/chat.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U panga -d panga_pangisha"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./api
+    ports: ["8100:8000"]
+    environment:
+      APP_KEY: ${APP_KEY:-base64:CfM7/ybcYuoqOf7cgrSCELJYnrClzqnhU1cH/jCSEWU=}
+      APP_URL: http://10.0.2.2:8100
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: panga_pangisha
+      DB_USERNAME: panga
+      DB_PASSWORD: panga_pass
+      CHAT_SECRET_KEY: ${CHAT_SECRET_KEY:-dev-only-change-me}
+      CHAT_WS_URL: ${CHAT_WS_URL:-ws://10.0.2.2:4100/socket}
+      CHAT_INTERNAL_URL: http://chat:4000
+      APP_NAME: Panga na Kupangisha
+      LOG_CHANNEL: stderr # `docker compose logs api` shows dev SMS codes and logged emails
+      # Email: put the real values in backend/.env (see .env.example). Without them emails are only logged.
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@panga.test}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Panga na Kupangisha}
+      # Admin panel account (http://localhost:8100/admin), created on start when both are set in backend/.env.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SESSION_DRIVER: file # admin sign-in sessions
+      INERTIA_DEVTOOLS_ENABLED: "false" # it would dump every admin page's data (NIDA numbers included) to disk
+      APP_DOWNLOAD_URL: ${APP_DOWNLOAD_URL:-} # store link for the landing page's "Get the app" button
+    volumes:
+      - storage:/app/storage/app/public
+      - private:/app/storage/app/private # NIDA card photos: never served from /storage
+    restart: "no"
+    depends_on:
+      db: {condition: service_healthy}
+
+  chat:
+    build: ./realtime-chat
+    ports: ["4100:4000"]
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgres://panga:panga_pass@db:5432/realtime_chat_db
+      SECRET_KEY: ${CHAT_SECRET_KEY:-dev-only-change-me}
+      BACKEND_URL: http://api:8000
+    restart: "no"
+    depends_on:
+      db: {condition: service_healthy}
+
+volumes:
+  pgdata:
+  storage:
+  private:
+
