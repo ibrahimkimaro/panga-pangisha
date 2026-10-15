@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { motion } from 'framer-motion';
-import { User, Mail, Phone, Lock, ArrowRight, ArrowLeft, Globe, Info, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Phone, Lock, ArrowRight, Eye, Loader2, EyeOff, ArrowLeft, Globe, Info, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Logo } from '@/components/ui';
 
 export default function LandlordSignup() {
@@ -39,8 +39,10 @@ export default function LandlordSignup() {
                 })
             });
             const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Registration failed');
-            localStorage.setItem('auth_token', data.access);
+            if (!response.ok) throw new Error(data.message || data.detail || 'Registration failed');
+            if (data.tokens?.access || data.access) {
+                localStorage.setItem('auth_token', data.tokens?.access || data.access);
+            }
             router.visit('/landlord/dashboard');
         } catch (e: any) {
             setError(e.message);
@@ -51,6 +53,7 @@ export default function LandlordSignup() {
 
     return (
         <div className="min-h-screen bg-[#0A192F] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+            <Head title="Create Landlord Account | Panga Pangisha" />
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-teal-bright/10 blur-[120px]" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-brass/10 blur-[120px]" />
 
@@ -59,8 +62,14 @@ export default function LandlordSignup() {
                 animate={{ opacity: 1, y: 0 }}
                 className="w-full max-w-md z-10"
             >
-                <div className="flex justify-center mb-12">
-                    <Logo onDark className="text-3xl" />
+                <div className="flex items-center justify-between mb-8">
+                    <Link href="/" className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors group">
+                        <ArrowLeft className="size-4 group-hover:-translate-x-1 transition-transform" />
+                        Back to home
+                    </Link>
+                    <Link href="/">
+                        <Logo onDark className="text-2xl" />
+                    </Link>
                 </div>
 
                 <div className="bg-white/5 backdrop-blur-xl p-8 rounded-[2rem] ring-1 ring-white/10 shadow-2xl">
@@ -69,7 +78,7 @@ export default function LandlordSignup() {
                         <p className="text-white/60 text-sm">Step {step} of 3: {step === 1 ? 'Basic Info' : step === 2 ? 'Identity' : 'Security'}</p>
                     </div>
 
-                    <form onSubmit={(e) => { e.preventDefault(); if(step < 3) setStep(step + 1); else handleRegister(); }} className="space-y-6">
+                    <form onSubmit={(e) => { e.preventDefault(); if (step < 3) setStep(step + 1); else handleRegister(); }} className="space-y-6">
                         {step === 1 && (
                             <div className="space-y-4">
                                 <div className="space-y-2">
@@ -190,12 +199,12 @@ export default function LandlordSignup() {
                 <div className="text-center mt-8">
                     <p className="text-white/50 text-sm">
                         Already have an account?{' '}
-                        <button
-                            onClick={() => router.visit('/landlord/login')}
+                        <Link
+                            href="/landlord/login"
                             className="text-teal-bright font-bold hover:underline"
                         >
                             Sign in
-                        </button>
+                        </Link>
                     </p>
                 </div>
             </motion.div>

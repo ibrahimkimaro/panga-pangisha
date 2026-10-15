@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { Lock, User, Mail, Phone, Eye, EyeOff, Loader2, ArrowRight, ArrowLeft, Globe, Info, AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/ui';
@@ -23,8 +23,8 @@ export default function LandlordLogin() {
                 })
             });
             const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Login failed');
-            localStorage.setItem('auth_token', data.access);
+            if (!response.ok) throw new Error(data.message || data.detail || 'Login failed');
+            if (data.access) localStorage.setItem('auth_token', data.access);
             router.visit('/landlord/dashboard');
         } catch (e: any) {
             setError(e.message);
@@ -35,6 +35,7 @@ export default function LandlordLogin() {
 
     return (
         <div className="min-h-screen bg-[#0A192F] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+            <Head title="Sign In | Landlord Portal" />
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-teal-bright/10 blur-[120px]" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-brass/10 blur-[120px]" />
 
@@ -43,8 +44,14 @@ export default function LandlordLogin() {
                 animate={{ opacity: 1, y: 0 }}
                 className="w-full max-w-md z-10"
             >
-                <div className="flex justify-center mb-12">
-                    <Logo onDark className="text-3xl" />
+                <div className="flex items-center justify-between mb-8">
+                    <Link href="/" className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors group">
+                        <ArrowLeft className="size-4 group-hover:-translate-x-1 transition-transform" />
+                        Back to home
+                    </Link>
+                    <Link href="/">
+                        <Logo onDark className="text-2xl" />
+                    </Link>
                 </div>
 
                 <div className="bg-white/5 backdrop-blur-xl p-8 rounded-[2rem] ring-1 ring-white/10 shadow-2xl">
@@ -115,12 +122,12 @@ export default function LandlordLogin() {
                 <div className="text-center mt-8">
                     <p className="text-white/50 text-sm">
                         Don't have an account?{' '}
-                        <button
-                            onClick={() => router.visit('/landlord/signup')}
+                        <Link
+                            href="/landlord/signup"
                             className="text-teal-bright font-bold hover:underline"
                         >
                             Create account
-                        </button>
+                        </Link>
                     </p>
                 </div>
             </motion.div>

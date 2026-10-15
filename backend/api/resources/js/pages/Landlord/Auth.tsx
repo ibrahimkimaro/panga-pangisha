@@ -203,7 +203,7 @@ export default function LandlordAuth() {
                                                 />
                                             </div>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 )}
 
                                 {step === 2 && (
@@ -232,7 +232,7 @@ export default function LandlordAuth() {
                                                 <p>We use your phone number to verify your identity as a property owner.</p>
                                             </div>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 )}
 
                                 {step === 3 && (
@@ -261,7 +261,7 @@ export default function LandlordAuth() {
                                         <div className="p-3 rounded-xl bg-white/5 ring-1 ring-white/10 text-[11px] text-white/50 leading-relaxed">
                                             <p>By creating an account, you agree to our Terms of Service and Privacy Policy.</p>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 )}
 
                                 {error && (
@@ -293,11 +293,10 @@ export default function LandlordAuth() {
                                         <ArrowRight className="size-5" />
                                     </button>
                                 </div>
-                                </form>
+                            </form>
                             </motion.div>
                         )}
 
-                    )}
 
                     {flow === 'login' && (
                         <motion.div
@@ -383,7 +382,7 @@ export default function LandlordAuth() {
                                         <ArrowRight className="size-5" />
                                     </button>
                                 </div>
-                            </div>
+                            </form>
                         </motion.div>
                     )}
 
@@ -434,7 +433,7 @@ export default function LandlordAuth() {
                         </motion.div>
                     )}
                 </AnimatePresence>
-            </div>
+            </motion.div>
         </div>
     );
 }

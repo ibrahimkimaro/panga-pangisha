@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 import {
     BadgeCheck, Bath, BedDouble, CalendarCheck, Check,
@@ -88,7 +88,7 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
             {/* Full-bleed Navigation */}
             <nav className="fixed top-0 z-50 w-full px-6 py-4 flex items-center justify-between backdrop-blur-md bg-navy/80 text-white">
                 <Logo onDark />
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4 sm:gap-6">
                     <div className="hidden md:flex gap-6 text-sm font-medium text-white/70">
                         <a href="#homes" className="hover:text-white transition-colors">{t('Homes', 'Nyumba')}</a>
                         <a href="#how" className="hover:text-white transition-colors">{t('How it works', 'Inavyofanya kazi')}</a>
@@ -104,6 +104,20 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
                                 {l}
                             </button>
                         ))}
+                    </div>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <Link
+                            href="/landlord/login"
+                            className="hidden sm:inline-flex items-center px-3.5 py-1.5 text-sm font-semibold text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                        >
+                            {t('Sign in', 'Ingia')}
+                        </Link>
+                        <Link
+                            href="/landlord/signup"
+                            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-teal-bright text-navy font-bold text-sm hover:bg-white transition-all shadow-sm active:scale-95"
+                        >
+                            {t('Sign up', 'Jisajili')}
+                        </Link>
                     </div>
                 </div>
             </nav>
@@ -137,17 +151,23 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
                                 'Kila nyumba kwenye Panga inaonyesha anayeitangaza, kama tumethibitisha haki yake ya kuipangisha, na lini alithibitisha kuwa bado ipo.',
                             )}
                         </p>
-                        <div className="mt-10 flex flex-wrap gap-4">
+                        <div className="mt-10 flex flex-wrap gap-4 items-center">
                             <a href="#homes" className="group relative inline-flex h-14 items-center rounded-2xl bg-teal-bright px-8 font-bold text-navy overflow-hidden transition-all hover:scale-105 active:scale-95">
                                 <span className="relative z-10 flex items-center gap-2">
                                     {t('See homes', 'Tazama nyumba')} <ArrowRight className="size-5" />
                                 </span>
                                 <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity" />
                             </a>
-                            <a href="#owners" className="inline-flex h-14 items-center rounded-2xl px-8 font-bold text-white ring-1 ring-white/20 hover:bg-white/10 transition-all">
+                            <Link href="/landlord/signup" className="inline-flex h-14 items-center rounded-2xl px-8 font-bold text-white ring-1 ring-white/20 hover:bg-white/10 transition-all active:scale-95">
                                 {t('List your home', 'Tangaza nyumba yako')}
-                            </a>
+                            </Link>
                         </div>
+                        <p className="mt-3 text-xs text-white/50 font-medium">
+                            {t('Already registered as a landlord?', 'Tayari una akaunti ya mwenye nyumba?')}{' '}
+                            <Link href="/landlord/login" className="text-teal-bright font-bold hover:underline">
+                                {t('Sign in here →', 'Ingia hapa →')}
+                            </Link>
+                        </p>
                         {stats.homes > 0 && (
                             <motion.p
                                 initial={{ opacity: 0 }}
@@ -441,6 +461,20 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
                             </div>
                         ))}
                     </dl>
+                    <div className="mt-10 flex flex-wrap items-center gap-4">
+                        <Link
+                            href="/landlord/signup"
+                            className="inline-flex h-12 items-center gap-2 rounded-xl bg-teal px-6 font-bold text-white hover:bg-navy transition-all shadow-md active:scale-95"
+                        >
+                            {t('Create Landlord Account', 'Fungua Akaunti ya Mwenye Nyumba')} <ArrowRight className="size-4" />
+                        </Link>
+                        <Link
+                            href="/landlord/login"
+                            className="inline-flex h-12 items-center px-6 font-semibold text-ink border border-line rounded-xl hover:border-teal transition-all"
+                        >
+                            {t('Landlord Sign In', 'Ingia Kama Mwenye Nyumba')}
+                        </Link>
+                    </div>
                 </div>
                 <div className="rounded-3xl bg-sand p-6 sm:p-8">
                     <TriangleAlert className="size-7 text-brass-ink" aria-hidden="true" />
@@ -467,7 +501,8 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
                             <ul className="space-y-2 text-sm text-white/60">
                                 <li><a href="#homes" className="hover:text-white">Find a Home</a></li>
                                 <li><a href="#owners" className="hover:text-white">For Landlords</a></li>
-                                <li><a href="#" className="hover:text-white">Services</a></li>
+                                <li><Link href="/landlord/login" className="hover:text-white">Landlord Sign In</Link></li>
+                                <li><Link href="/landlord/signup" className="hover:text-white">Landlord Sign Up</Link></li>
                             </ul>
                         </div>
                         <div className="space-y-4">
@@ -495,6 +530,7 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
                     <div className="flex gap-6">
                         <a href="#" className="hover:text-white">Privacy Policy</a>
                         <a href="#" className="hover:text-white">Terms of Service</a>
+                        <Link href="/landlord/login" className="hover:text-white">Landlord Portal</Link>
                         <a href="/admin" className="hover:text-white">Staff sign in</a>
                     </div>
                 </div>

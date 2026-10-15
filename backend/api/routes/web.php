@@ -15,6 +15,13 @@ Route::get('/', fn () => Inertia::render('Home', [
     'downloadUrl' => config('services.app_download_url'),
 ]));
 
+Route::prefix('landlord')->group(function () {
+    Route::get('login', fn () => Inertia::render('Landlord/Auth/Login'))->name('landlord.login');
+    Route::get('signup', fn () => Inertia::render('Landlord/Auth/Signup'))->name('landlord.signup');
+    Route::get('auth', fn () => Inertia::render('Landlord/Auth'))->name('landlord.auth');
+    Route::get('dashboard', fn () => Inertia::render('Landlord/Dashboard'))->name('landlord.dashboard');
+});
+
 Route::prefix('admin')->group(function () {
     Route::middleware('guest')->group(function () {
         Route::get('login', [AuthController::class, 'create'])->name('login');
