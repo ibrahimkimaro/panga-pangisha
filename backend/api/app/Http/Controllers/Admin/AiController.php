@@ -30,6 +30,25 @@ class AiController extends Controller
 
         $calls = AiUsageLog::where('created_at', '>=', now()->startOfMonth());
 
+        $propertyDrafts = \App\Models\PropertyDraft::with('user:id,fullname,email')
+            ->latest('updated_at')
+            ->limit(10)
+            ->get()
+            ->map(fn ($d) => [
+                'id' => $d->id,
+                'user' => $d->user ? ['id' => $d->user->id, 'fullname' => $d->user->fullname, 'email' => $d->user->email] : null,
+                'title' => $d->data['title'] ?? 'Untitled Property',
+                'property_type' => $d->data['property_type'] ?? null,
+                'city' => $d->data['city'] ?? null,
+                'units_count' => count($d->data['units'] ?? []),
+                'monthly_rent' => $d->data['monthly_rent'] ?? null,
+                'status' => $d->status,
+                'revision' => $d->revision,
+                'completion_percent' => $d->validation_state['completion_percent'] ?? 0,
+                'is_valid' => $d->validation_state['is_valid'] ?? false,
+                'updated_at' => $d->updated_at->toIso8601String(),
+            ]);
+
         return Inertia::render('Admin/Ai', [
             'settings' => $s->only(['enabled', 'provider', 'timeout_seconds', 'rate_per_minute', 'user_daily_tokens', 'global_daily_tokens', 'global_monthly_tokens', 'monthly_cost_cap', 'input_price_per_million', 'output_price_per_million', 'alert_percent']) + ['model' => $s->model, 'active_model' => $s->activeModel()],
             'providers' => collect(config('panga_ai.providers'))->map(fn ($p, $k) => $p + ['id' => $k, 'configured' => AiSetting::configured($k)])->values(),
@@ -46,6 +65,7 @@ class AiController extends Controller
                 ->selectRaw('user_id, count(*) as calls, sum(input_tokens + output_tokens) as tokens, sum(cost) as cost')->groupBy('user_id')->orderByDesc('tokens')->limit(8)->get(),
             'by_feature' => AiUsageLog::where('status', 'ok')->where('created_at', '>=', now()->startOfMonth())
                 ->selectRaw('feature, count(*) as calls, sum(input_tokens + output_tokens) as tokens, sum(cost) as cost')->groupBy('feature')->orderByDesc('tokens')->get(),
+            'property_drafts' => $propertyDrafts,
             'recent' => AiUsageLog::with('user:id,fullname')->latest('id')->limit(25)->get(),
         ]);
     }
@@ -74,15 +94,37 @@ class AiController extends Controller
         return back()->with('flash', 'AI settings saved.');
     }
 
-    /** Sends one tiny prompt through the real gateway, so the limits and the log apply to the test too. */
+    /** Sends a prompt through the gateway; supports connection ping or English/Swahili property registration test. */
     public function test(Request $r, AiGateway $gateway)
     {
         try {
-            $res = $gateway->ask($r->user(), 'admin_test', new ConnectionTest, 'Reply with OK.');
+            $testType = $r->input('type', 'connection');
             $s = AiSetting::current();
 
+            if ($testType === 'swahili_property') {
+                $agent = new \App\Ai\Agents\PropertyRegistrationAgent([
+                    'draft' => [],
+                    'rules' => (new \App\Ai\PropertyDraft\PropertyDraftService())->getFieldDefinitions(),
+                ]);
+                $prompt = "Nina nyumba ya vyumba vitatu Mwenge, kodi laki nne kila mwezi, umeme luku na maji dawasa yapo.";
+                $res = $gateway->ask($r->user(), 'admin_test_swahili', $agent, $prompt);
+                $extracted = is_array($res->structured) ? json_encode($res->structured, JSON_UNESCAPED_UNICODE) : $res->text;
+                return back()->with('flash', "Swahili property test OK! Model ({$s->activeModel()}): " . mb_substr($extracted, 0, 160));
+            } elseif ($testType === 'english_property') {
+                $agent = new \App\Ai\Agents\PropertyRegistrationAgent([
+                    'draft' => [],
+                    'rules' => (new \App\Ai\PropertyDraft\PropertyDraftService())->getFieldDefinitions(),
+                ]);
+                $prompt = "3-bedroom house in Mwenge with private Luku meter and Dawasa water, rent 400,000 TZS per month.";
+                $res = $gateway->ask($r->user(), 'admin_test_english', $agent, $prompt);
+                $extracted = is_array($res->structured) ? json_encode($res->structured, JSON_UNESCAPED_UNICODE) : $res->text;
+                return back()->with('flash', "English property test OK! Model ({$s->activeModel()}): " . mb_substr($extracted, 0, 160));
+            }
+
+            $res = $gateway->ask($r->user(), 'admin_test', new ConnectionTest, 'Reply with OK.');
+
             return back()->with('flash', "Connected to {$s->provider} / {$s->activeModel()}. It answered: " . mb_substr(trim($res->text), 0, 60));
-        } catch (AiBlocked $e) {
+        } catch (\Throwable $e) {
             return back()->with('flash', 'Test failed: ' . $e->getMessage());
         }
     }

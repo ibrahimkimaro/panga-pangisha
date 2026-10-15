@@ -42,6 +42,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('ai/assistant/conversations/{id}', [\App\Http\Controllers\Api\VeyoraAssistantController::class, 'history']);
     Route::delete('ai/assistant/conversations/{id}', [\App\Http\Controllers\Api\VeyoraAssistantController::class, 'deleteConversation']);
 
+    Route::get('property-drafts/active', [\App\Http\Controllers\Api\PropertyDraftController::class, 'showActive']);
+    Route::post('property-drafts/chat', [\App\Http\Controllers\Api\PropertyDraftController::class, 'chat'])->middleware('throttle:30,1');
+    Route::patch('property-drafts/{id}', [\App\Http\Controllers\Api\PropertyDraftController::class, 'update']);
+    Route::post('property-drafts/{id}/finalize', [\App\Http\Controllers\Api\PropertyDraftController::class, 'finalize']);
+
     Route::get('favorites', [HouseController::class, 'favorites']);
     Route::post('houses/{house}/favorite', [HouseController::class, 'toggleFavorite']);
     Route::post('houses/{house}/report', [HouseController::class, 'report'])->middleware('throttle:10,60,report');

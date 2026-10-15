@@ -15,11 +15,22 @@ Route::get('/', fn () => Inertia::render('Home', [
     'downloadUrl' => config('services.app_download_url'),
 ]));
 
+// Universal Authentication routes (for all users: renters, landlords, managers, investors)
+Route::get('login', fn () => Inertia::render('Auth/Login'))->name('login');
+Route::get('signup', fn () => Inertia::render('Auth/Signup'))->name('signup');
+
+// Tenant space
+Route::prefix('tenant')->group(function () {
+    Route::get('dashboard', fn () => Inertia::render('Tenant/Dashboard'))->name('tenant.dashboard');
+});
+
+// Landlord space
 Route::prefix('landlord')->group(function () {
-    Route::get('login', fn () => Inertia::render('Landlord/Auth/Login'))->name('landlord.login');
-    Route::get('signup', fn () => Inertia::render('Landlord/Auth/Signup'))->name('landlord.signup');
+    Route::get('login', fn () => Inertia::render('Auth/Login', ['initialRole' => 'landlord']))->name('landlord.login');
+    Route::get('signup', fn () => Inertia::render('Auth/Signup', ['initialRole' => 'landlord']))->name('landlord.signup');
     Route::get('auth', fn () => Inertia::render('Landlord/Auth'))->name('landlord.auth');
-    Route::get('dashboard', fn () => Inertia::render('Landlord/Dashboard'))->name('landlord.dashboard');
+    Route::get('dashboard', [\App\Http\Controllers\Landlord\DashboardController::class, 'index'])->name('landlord.dashboard');
+    Route::get('home', [\App\Http\Controllers\Landlord\DashboardController::class, 'index'])->name('landlord.home');
 });
 
 Route::prefix('admin')->group(function () {
