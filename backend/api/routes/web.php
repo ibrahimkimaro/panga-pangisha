@@ -31,6 +31,10 @@ Route::prefix('landlord')->group(function () {
     Route::get('auth', fn () => Inertia::render('Landlord/Auth'))->name('landlord.auth');
     Route::get('dashboard', [\App\Http\Controllers\Landlord\DashboardController::class, 'index'])->name('landlord.dashboard');
     Route::get('home', [\App\Http\Controllers\Landlord\DashboardController::class, 'index'])->name('landlord.home');
+    Route::post('profile/update', [\App\Http\Controllers\Landlord\DashboardController::class, 'updateProfile'])->name('landlord.profile.update');
+    Route::post('profile/avatar', [\App\Http\Controllers\Landlord\DashboardController::class, 'updateAvatar'])->name('landlord.profile.avatar');
+    Route::post('profile/password', [\App\Http\Controllers\Landlord\DashboardController::class, 'updatePassword'])->name('landlord.profile.password');
+    Route::post('settings/update', [\App\Http\Controllers\Landlord\DashboardController::class, 'updateSettings'])->name('landlord.settings.update');
 });
 
 Route::prefix('admin')->group(function () {

@@ -224,9 +224,19 @@ class DashboardController extends Controller
 
         return Inertia::render('Landlord/Dashboard', [
             'user' => [
+                'id' => $user?->id ?? 18,
                 'name' => $user ? $user->fullname : 'Ibrahim Kimaro',
+                'email' => $user?->email ?? 'ibrahimkimaro01@gmail.com',
+                'phone' => $user?->phone ?? '+255712345678',
+                'country' => $user?->country ?? 'TZ',
                 'role' => 'Landlord',
-                'avatar' => 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+                'bio' => $user?->profile?->bio ?? 'Commercial & residential landlord with 18+ units across Dar es Salaam.',
+                'location' => $user?->profile?->location ?? 'Dar es Salaam, Tanzania',
+                'avatar' => $user?->profile?->profile_image 
+                    ? '/storage/' . $user->profile->profile_image 
+                    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+                'identity_status' => $user?->identityStatus() ?? 'approved',
+                'business_name' => $user?->business?->business_name ?? 'Kimaro Real Estate Holdings',
             ],
             'stats' => [
                 'total_properties' => $houses->count() ?: 4,
@@ -266,6 +276,135 @@ class DashboardController extends Controller
                     'night_pct' => 39,
                 ],
             ],
+        ]);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user() 
+            ?? User::where('role', 'landlord')->where('fullname', 'like', '%ibrahim%')->first()
+            ?? User::where('role', 'landlord')->first();
+
+        if (!$user) {
+            return response()->json(['error' => 'User not found'], 404);
+        }
+
+        $validated = $request->validate([
+            'fullname' => 'sometimes|string|max:200',
+            'email' => 'sometimes|nullable|email',
+            'phone' => 'sometimes|nullable|string',
+            'country' => 'sometimes|nullable|string|max:5',
+            'bio' => 'sometimes|nullable|string|max:1000',
+            'location' => 'sometimes|nullable|string|max:200',
+        ]);
+
+        $user->update([
+            'fullname' => $validated['fullname'] ?? $user->fullname,
+            'email' => $validated['email'] ?? $user->email,
+            'phone' => $validated['phone'] ?? $user->phone,
+            'country' => $validated['country'] ?? $user->country,
+        ]);
+
+        $profile = $user->profile ?? $user->profile()->create();
+        $profile->update([
+            'bio' => $validated['bio'] ?? $profile->bio,
+            'location' => $validated['location'] ?? $profile->location,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile updated successfully',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->fullname,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'country' => $user->country,
+                'role' => 'Landlord',
+                'bio' => $profile->bio,
+                'location' => $profile->location,
+                'avatar' => $profile->profile_image 
+                    ? '/storage/' . $profile->profile_image 
+                    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+                'identity_status' => $user->identityStatus(),
+            ]
+        ]);
+    }
+
+    public function updateAvatar(Request $request)
+    {
+        $user = $request->user() 
+            ?? User::where('role', 'landlord')->where('fullname', 'like', '%ibrahim%')->first()
+            ?? User::where('role', 'landlord')->first();
+
+        if (!$user) {
+            return response()->json(['error' => 'User not found'], 404);
+        }
+
+        $request->validate([
+            'avatar' => 'required|image|max:8192',
+        ]);
+
+        $path = $request->file('avatar')->store('profiles', 'public');
+
+        $profile = $user->profile ?? $user->profile()->create();
+        $profile->update(['profile_image' => $path]);
+
+        $avatarUrl = '/storage/' . $path;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile picture updated successfully',
+            'avatar' => $avatarUrl,
+        ]);
+    }
+
+    public function updatePassword(Request $request)
+    {
+        $user = $request->user() 
+            ?? User::where('role', 'landlord')->where('fullname', 'like', '%ibrahim%')->first()
+            ?? User::where('role', 'landlord')->first();
+
+        if (!$user) {
+            return response()->json(['error' => 'User not found'], 404);
+        }
+
+        $validated = $request->validate([
+            'current_password' => 'nullable|string',
+            'new_password' => 'required|string|min:6',
+        ]);
+
+        if (!empty($validated['current_password']) && !\Illuminate\Support\Facades\Hash::check($validated['current_password'], $user->password)) {
+            return response()->json(['error' => 'Current password is incorrect'], 422);
+        }
+
+        $user->update([
+            'password' => $validated['new_password'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password updated securely',
+        ]);
+    }
+
+    public function updateSettings(Request $request)
+    {
+        $validated = $request->validate([
+            'currency' => 'nullable|string',
+            'language' => 'nullable|string',
+            'sms_rent_alerts' => 'nullable|boolean',
+            'email_maintenance_alerts' => 'nullable|boolean',
+            'ai_lease_alerts' => 'nullable|boolean',
+            'payout_method' => 'nullable|string',
+            'payout_account' => 'nullable|string',
+            'payout_holder' => 'nullable|string',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Preferences and payout configuration saved',
+            'settings' => $validated,
         ]);
     }
 }

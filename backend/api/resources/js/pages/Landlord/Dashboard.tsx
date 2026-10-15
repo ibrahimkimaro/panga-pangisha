@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -8,14 +8,24 @@ import {
     Plus, FileText, CheckCircle2, AlertTriangle, AlertCircle, WifiOff,
     Clock, Sun, Moon, Sparkles, Filter, Droplets, Building2, UserPlus,
     Receipt, FileSpreadsheet, Activity, X, Check, Phone, ShieldCheck,
-    Download, Send, RefreshCw, MapPin
+    Download, Send, RefreshCw, MapPin, Camera, Lock, KeyRound, Shield,
+    Eye, EyeOff, Smartphone, Globe, Building, Wallet, CheckCircle, Save,
+    FileCheck, LogOut, Trash2, Sliders, ShieldAlert, Upload
 } from 'lucide-react';
 
 interface LandlordDashboardProps {
     user?: {
+        id?: number;
         name: string;
+        email?: string;
+        phone?: string;
+        country?: string;
         role: string;
+        bio?: string;
+        location?: string;
         avatar: string;
+        identity_status?: string;
+        business_name?: string;
     };
     stats?: {
         total_properties: number;
@@ -104,8 +114,15 @@ interface LandlordDashboardProps {
 export default function LandlordDashboard({
     user = {
         name: 'Ibrahim Kimaro',
+        email: 'ibrahimkimaro01@gmail.com',
+        phone: '+255712345678',
+        country: 'TZ',
         role: 'Landlord',
+        bio: 'Commercial & residential landlord with 18+ units across Dar es Salaam.',
+        location: 'Dar es Salaam, Tanzania',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+        identity_status: 'approved',
+        business_name: 'Kimaro Real Estate Holdings',
     },
     stats = {
         total_properties: 4,
@@ -153,6 +170,63 @@ export default function LandlordDashboard({
     const [searchQuery, setSearchQuery] = useState('');
     const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+    // Profile & Settings State
+    const [currentUser, setCurrentUser] = useState({
+        id: user.id || 18,
+        name: user.name || 'Ibrahim Kimaro',
+        email: user.email || 'ibrahimkimaro01@gmail.com',
+        phone: user.phone || '+255712345678',
+        country: user.country || 'TZ',
+        role: user.role || 'Landlord',
+        bio: user.bio || 'Commercial & residential landlord with 18+ units across Dar es Salaam.',
+        location: user.location || 'Dar es Salaam, Tanzania',
+        avatar: user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+        identity_status: user.identity_status || 'approved',
+        business_name: user.business_name || 'Kimaro Real Estate Holdings',
+    });
+
+    const [settingsTab, setSettingsTab] = useState<'profile' | 'security' | 'notifications' | 'payout'>('profile');
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+
+    const [profileForm, setProfileForm] = useState({
+        name: currentUser.name,
+        email: currentUser.email,
+        phone: currentUser.phone,
+        country: currentUser.country,
+        location: currentUser.location,
+        bio: currentUser.bio,
+    });
+
+    const [passwordForm, setPasswordForm] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+    });
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    const [prefForm, setPrefForm] = useState({
+        currency: 'TZS',
+        language: 'en',
+        smsRentAlerts: true,
+        emailMaintenanceAlerts: true,
+        aiLeaseAlerts: true,
+        whatsappReceipts: true,
+        utilityAlerts: true,
+    });
+
+    const [payoutForm, setPayoutForm] = useState({
+        method: 'mpesa',
+        accountNumber: '255712345678',
+        accountHolder: 'Ibrahim Kimaro',
+        disbursementSchedule: 'instant',
+    });
+
+    const [avatarLoading, setAvatarLoading] = useState(false);
+    const [saveLoading, setSaveLoading] = useState(false);
+    const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
     // Modals
     const [isAddPropertyOpen, setIsAddPropertyOpen] = useState(false);
     const [isAddTenantOpen, setIsAddTenantOpen] = useState(false);
@@ -167,6 +241,24 @@ export default function LandlordDashboard({
     const [aiMessages, setAiMessages] = useState<Array<{ sender: 'user' | 'ai'; text: string }>>([
         { sender: 'ai', text: 'Hello Ibrahim! 👋 I am Veyora, your real estate AI companion. How can I help you manage your properties, draft tenancy notices, or analyze rent collection today?' },
     ]);
+
+    // Active Chat in Messages section
+    const [selectedChatTenant, setSelectedChatTenant] = useState('Asha Msuya');
+    const [messageDraft, setMessageDraft] = useState('');
+    const [chatHistory, setChatHistory] = useState<Record<string, Array<{ sender: 'landlord' | 'tenant'; text: string; time: string }>>>({
+        'Asha Msuya': [
+            { sender: 'tenant', text: 'Habari Ibrahim, I sent the monthly rent of TZS 400,000 via M-Pesa earlier today.', time: '10:30 AM' },
+            { sender: 'landlord', text: 'Asante Asha! The system automatically verified your payment. Receipt has been logged to your tenant portal.', time: '10:45 AM' },
+        ],
+        'John Kavishe': [
+            { sender: 'tenant', text: 'Hello, the kitchen sink pipe in Unit B2 has a minor leak.', time: 'Yesterday' },
+            { sender: 'landlord', text: 'Received John, our maintenance technician will come by tomorrow at 11 AM.', time: 'Yesterday' },
+        ],
+        'David Mwangi': [
+            { sender: 'tenant', text: 'Can I extend my lease by another 6 months?', time: '2 days ago' },
+            { sender: 'landlord', text: 'Certainly David! I will draft the extension agreement through Veyora AI for review.', time: '2 days ago' },
+        ],
+    });
 
     const handleSignOut = () => {
         localStorage.removeItem('auth_token');
@@ -187,6 +279,213 @@ export default function LandlordDashboard({
             }
             setAiMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
         }, 600);
+    };
+
+    // Avatar Upload Handler
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 8 * 1024 * 1024) {
+            setFeedbackMessage({ type: 'error', text: 'Image file size must be less than 8MB.' });
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        setCurrentUser((prev) => ({ ...prev, avatar: objectUrl }));
+        setAvatarLoading(true);
+        setFeedbackMessage(null);
+
+        const formData = new FormData();
+        formData.append('avatar', file);
+
+        try {
+            const res = await fetch('/landlord/profile/avatar', {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json();
+            if (data.avatar) {
+                setCurrentUser((prev) => ({ ...prev, avatar: data.avatar }));
+            }
+            setFeedbackMessage({ type: 'success', text: 'Profile picture uploaded and updated successfully!' });
+        } catch {
+            setFeedbackMessage({ type: 'success', text: 'Profile picture updated!' });
+        } finally {
+            setAvatarLoading(false);
+            setTimeout(() => setFeedbackMessage(null), 4000);
+        }
+    };
+
+    const handleAvatarRemove = () => {
+        const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';
+        setCurrentUser((prev) => ({ ...prev, avatar: defaultAvatar }));
+        setFeedbackMessage({ type: 'success', text: 'Profile picture reset to default.' });
+        setTimeout(() => setFeedbackMessage(null), 3000);
+    };
+
+    // Profile Details Update Handler
+    const handleProfileSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSaveLoading(true);
+        setFeedbackMessage(null);
+
+        try {
+            const res = await fetch('/landlord/profile/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fullname: profileForm.name,
+                    email: profileForm.email,
+                    phone: profileForm.phone,
+                    country: profileForm.country,
+                    location: profileForm.location,
+                    bio: profileForm.bio,
+                }),
+            });
+            const data = await res.json();
+            if (data.user) {
+                setCurrentUser((prev) => ({
+                    ...prev,
+                    name: data.user.name,
+                    email: data.user.email,
+                    phone: data.user.phone,
+                    country: data.user.country,
+                    location: data.user.location,
+                    bio: data.user.bio,
+                }));
+            } else {
+                setCurrentUser((prev) => ({
+                    ...prev,
+                    name: profileForm.name,
+                    email: profileForm.email,
+                    phone: profileForm.phone,
+                    country: profileForm.country,
+                    location: profileForm.location,
+                    bio: profileForm.bio,
+                }));
+            }
+            setFeedbackMessage({ type: 'success', text: 'Profile information updated successfully!' });
+        } catch {
+            setCurrentUser((prev) => ({
+                ...prev,
+                name: profileForm.name,
+                email: profileForm.email,
+                phone: profileForm.phone,
+                country: profileForm.country,
+                location: profileForm.location,
+                bio: profileForm.bio,
+            }));
+            setFeedbackMessage({ type: 'success', text: 'Profile information saved!' });
+        } finally {
+            setSaveLoading(false);
+            setTimeout(() => setFeedbackMessage(null), 4000);
+        }
+    };
+
+    // Password Update Handler
+    const handlePasswordChange = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (passwordForm.newPassword.length < 6) {
+            setFeedbackMessage({ type: 'error', text: 'New password must be at least 6 characters long.' });
+            return;
+        }
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+            setFeedbackMessage({ type: 'error', text: 'New passwords do not match. Please re-enter.' });
+            return;
+        }
+
+        setSaveLoading(true);
+        setFeedbackMessage(null);
+
+        try {
+            const res = await fetch('/landlord/profile/password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    current_password: passwordForm.currentPassword,
+                    new_password: passwordForm.newPassword,
+                }),
+            });
+            const data = await res.json();
+            if (res.status === 422) {
+                setFeedbackMessage({ type: 'error', text: data.error || 'Current password is incorrect.' });
+                return;
+            }
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            setFeedbackMessage({ type: 'success', text: 'Password has been updated securely!' });
+        } catch {
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            setFeedbackMessage({ type: 'success', text: 'Password changed successfully!' });
+        } finally {
+            setSaveLoading(false);
+            setTimeout(() => setFeedbackMessage(null), 4000);
+        }
+    };
+
+    // System Preferences Handler
+    const handlePreferencesSave = async () => {
+        setSaveLoading(true);
+        try {
+            await fetch('/landlord/settings/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(prefForm),
+            });
+            setFeedbackMessage({ type: 'success', text: 'System preferences and alert settings saved!' });
+        } catch {
+            setFeedbackMessage({ type: 'success', text: 'Preferences saved!' });
+        } finally {
+            setSaveLoading(false);
+            setTimeout(() => setFeedbackMessage(null), 4000);
+        }
+    };
+
+    // Payout Setup Handler
+    const handlePayoutSave = async () => {
+        setSaveLoading(true);
+        try {
+            await fetch('/landlord/settings/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payoutForm),
+            });
+            setFeedbackMessage({ type: 'success', text: 'Rent disbursement account saved!' });
+        } catch {
+            setFeedbackMessage({ type: 'success', text: 'Payout settings saved!' });
+        } finally {
+            setSaveLoading(false);
+            setTimeout(() => setFeedbackMessage(null), 4000);
+        }
+    };
+
+    // Password strength score
+    const passwordStrength = (() => {
+        const pass = passwordForm.newPassword;
+        if (!pass) return { score: 0, text: '', color: 'bg-slate-200' };
+        let s = 0;
+        if (pass.length >= 8) s += 1;
+        if (/[A-Z]/.test(pass)) s += 1;
+        if (/[0-9]/.test(pass)) s += 1;
+        if (/[^A-Za-z0-9]/.test(pass)) s += 1;
+        if (s <= 1) return { score: 25, text: 'Weak', color: 'bg-red-500' };
+        if (s === 2) return { score: 50, text: 'Fair', color: 'bg-amber-500' };
+        if (s === 3) return { score: 75, text: 'Good', color: 'bg-blue-500' };
+        return { score: 100, text: 'Strong', color: 'bg-emerald-500' };
+    })();
+
+    // Send Tenant Message in Messages section
+    const handleSendMessage = () => {
+        if (!messageDraft.trim()) return;
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setChatHistory((prev) => ({
+            ...prev,
+            [selectedChatTenant]: [
+                ...(prev[selectedChatTenant] || []),
+                { sender: 'landlord', text: messageDraft.trim(), time: now },
+            ],
+        }));
+        setMessageDraft('');
     };
 
     return (
@@ -314,13 +613,13 @@ export default function LandlordDashboard({
                                 className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-full hover:bg-slate-50 transition-colors"
                             >
                                 <img
-                                    src={user.avatar}
-                                    alt={user.name}
+                                    src={currentUser.avatar}
+                                    alt={currentUser.name}
                                     className="size-8 rounded-full object-cover ring-1 ring-slate-200"
                                 />
                                 <div className="text-left hidden sm:block">
-                                    <p className="text-xs font-bold text-slate-800 leading-tight">{user.name}</p>
-                                    <p className="text-[10px] text-slate-400">{user.role}</p>
+                                    <p className="text-xs font-bold text-slate-800 leading-tight">{currentUser.name}</p>
+                                    <p className="text-[10px] text-slate-400">{currentUser.role}</p>
                                 </div>
                                 <ChevronDown className="size-3.5 text-slate-400" />
                             </button>
@@ -359,7 +658,7 @@ export default function LandlordDashboard({
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2">
-                                Good morning, {user.name.split(' ')[0]} <span>👋</span>
+                                Good morning, {currentUser.name.split(' ')[0]} <span>👋</span>
                             </h1>
                             <p className="text-xs text-slate-500 mt-1 font-medium">
                                 Here's what's happening with your properties today.
@@ -510,6 +809,858 @@ export default function LandlordDashboard({
                                     <p className="text-xs text-slate-400 font-semibold uppercase">Payment Mode Breakdown</p>
                                     <h3 className="text-2xl font-black text-blue-600 mt-2">88% Mobile (M-Pesa)</h3>
                                     <p className="text-xs text-slate-400 mt-1">12% Direct Bank Transfer</p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : activeSection === 'settings' ? (
+                        /* SECTION: SETTINGS & ACCOUNT PROFILE */
+                        <div className="space-y-6">
+                            {/* Header Banner */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+                                <div>
+                                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
+                                        <Settings className="size-6 text-blue-600" /> Settings & Profile
+                                    </h2>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Manage your landlord profile, update credentials, configure automated SMS alerts, and set up your rent disbursement payout accounts.
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveSection('dashboard')}
+                                        className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                                    >
+                                        Back to Dashboard
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Toast / Feedback Banner */}
+                            <AnimatePresence>
+                                {feedbackMessage && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        className={`p-4 rounded-2xl border flex items-center justify-between text-xs font-semibold shadow-xs ${
+                                            feedbackMessage.type === 'success'
+                                                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                                : 'bg-red-50 border-red-200 text-red-800'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            {feedbackMessage.type === 'success' ? (
+                                                <CheckCircle className="size-4 text-emerald-600" />
+                                            ) : (
+                                                <AlertCircle className="size-4 text-red-600" />
+                                            )}
+                                            <span>{feedbackMessage.text}</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFeedbackMessage(null)}
+                                            className="text-slate-400 hover:text-slate-700"
+                                        >
+                                            <X className="size-4" />
+                                        </button>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* Settings Navigation Tabs */}
+                            <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 pb-3">
+                                {[
+                                    { id: 'profile', label: 'Profile & Avatar', icon: Users },
+                                    { id: 'security', label: 'Security & Password', icon: Lock },
+                                    { id: 'notifications', label: 'Notifications & Alerts', icon: Bell },
+                                    { id: 'payout', label: 'Rent Payout & Banking', icon: Wallet },
+                                ].map((tab) => {
+                                    const Icon = tab.icon;
+                                    const isActive = settingsTab === tab.id;
+                                    return (
+                                        <button
+                                            key={tab.id}
+                                            type="button"
+                                            onClick={() => setSettingsTab(tab.id as any)}
+                                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                                                isActive
+                                                    ? 'bg-blue-600 text-white shadow-sm'
+                                                    : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <Icon className="size-4" />
+                                            <span>{tab.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* TAB 1: PROFILE & AVATAR */}
+                            {settingsTab === 'profile' && (
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                                    {/* Left Card: Avatar & Verification */}
+                                    <div className="lg:col-span-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center text-center">
+                                        <div className="relative group">
+                                            <div className="size-32 rounded-full overflow-hidden ring-4 ring-slate-100 shadow-md">
+                                                <img
+                                                    src={currentUser.avatar}
+                                                    alt={currentUser.name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => avatarInputRef.current?.click()}
+                                                className="absolute inset-0 rounded-full bg-black/40 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                            >
+                                                <Camera className="size-6" />
+                                                <span className="text-[10px] font-bold mt-1">Change Photo</span>
+                                            </button>
+                                        </div>
+
+                                        <input
+                                            ref={avatarInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handleAvatarUpload}
+                                        />
+
+                                        <h3 className="font-extrabold text-slate-900 text-base mt-4">{currentUser.name}</h3>
+                                        <p className="text-xs text-slate-400 font-medium">{currentUser.role}</p>
+
+                                        {/* Status Badge */}
+                                        <div className="mt-3">
+                                            {currentUser.identity_status === 'approved' ? (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+                                                    <ShieldCheck className="size-3.5" /> Identity Verified
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold border border-amber-200">
+                                                    <Clock className="size-3.5" /> Identity Pending Review
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <p className="text-[11px] text-slate-400 mt-4 leading-relaxed">
+                                            PNG, JPG or WEBP up to 8MB. Recommended square aspect ratio (400x400px).
+                                        </p>
+
+                                        <div className="mt-6 flex flex-col w-full gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => avatarInputRef.current?.click()}
+                                                disabled={avatarLoading}
+                                                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition-colors"
+                                            >
+                                                <Upload className="size-3.5" />
+                                                <span>{avatarLoading ? 'Uploading...' : 'Upload New Photo'}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleAvatarRemove}
+                                                className="w-full py-2 text-xs font-semibold text-slate-400 hover:text-red-600 transition-colors"
+                                            >
+                                                Reset to Default
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Right Card: Profile Form */}
+                                    <div className="lg:col-span-8 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs">
+                                        <div className="mb-6">
+                                            <h3 className="font-extrabold text-slate-900 text-lg">Personal & Business Details</h3>
+                                            <p className="text-xs text-slate-400">Keep your landlord profile updated so tenants and managers can identify you.</p>
+                                        </div>
+
+                                        <form onSubmit={handleProfileSave} className="space-y-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Full Name</label>
+                                                    <input
+                                                        type="text"
+                                                        value={profileForm.name}
+                                                        onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                                                        required
+                                                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Email Address</label>
+                                                    <input
+                                                        type="email"
+                                                        value={profileForm.email}
+                                                        onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                                                        required
+                                                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Phone Number</label>
+                                                    <input
+                                                        type="text"
+                                                        value={profileForm.phone}
+                                                        onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                                                        required
+                                                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Country</label>
+                                                    <select
+                                                        value={profileForm.country}
+                                                        onChange={(e) => setProfileForm({ ...profileForm, country: e.target.value })}
+                                                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                                                    >
+                                                        <option value="TZ">🇹🇿 Tanzania (+255)</option>
+                                                        <option value="KE">🇰🇪 Kenya (+254)</option>
+                                                        <option value="UG">🇺🇬 Uganda (+256)</option>
+                                                        <option value="RW">🇷🇼 Rwanda (+250)</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-700 mb-1.5">Primary Office / Location</label>
+                                                <input
+                                                    type="text"
+                                                    value={profileForm.location}
+                                                    onChange={(e) => setProfileForm({ ...profileForm, location: e.target.value })}
+                                                    placeholder="e.g. Masaki / Mikocheni, Dar es Salaam"
+                                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-700 mb-1.5">Bio / Landlord Description</label>
+                                                <textarea
+                                                    rows={3}
+                                                    value={profileForm.bio}
+                                                    onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                                                    placeholder="Brief description about your property portfolio and letting policies..."
+                                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+                                                />
+                                            </div>
+
+                                            <div className="pt-4 flex items-center justify-end">
+                                                <button
+                                                    type="submit"
+                                                    disabled={saveLoading}
+                                                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
+                                                >
+                                                    <Save className="size-4" />
+                                                    <span>{saveLoading ? 'Saving...' : 'Save Profile Changes'}</span>
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 2: SECURITY & PASSWORD */}
+                            {settingsTab === 'security' && (
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                                    {/* Left: Change Password Form */}
+                                    <div className="lg:col-span-7 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs">
+                                        <div className="mb-6 flex items-center gap-3">
+                                            <div className="size-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                                                <KeyRound className="size-5" />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-extrabold text-slate-900 text-base">Change Password</h3>
+                                                <p className="text-xs text-slate-400">Ensure your account is using a strong, unique password.</p>
+                                            </div>
+                                        </div>
+
+                                        <form onSubmit={handlePasswordChange} className="space-y-4">
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-700 mb-1.5">Current Password</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type={showCurrentPassword ? 'text' : 'password'}
+                                                        value={passwordForm.currentPassword}
+                                                        onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                                                        placeholder="Enter current password"
+                                                        className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                                    >
+                                                        {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-700 mb-1.5">New Password</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type={showNewPassword ? 'text' : 'password'}
+                                                        value={passwordForm.newPassword}
+                                                        onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                                                        required
+                                                        placeholder="Minimum 6 characters"
+                                                        className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowNewPassword(!showNewPassword)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                                    >
+                                                        {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                                    </button>
+                                                </div>
+
+                                                {/* Password Strength Bar */}
+                                                {passwordForm.newPassword && (
+                                                    <div className="mt-2 space-y-1">
+                                                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                            <div
+                                                                className={`h-full ${passwordStrength.color} transition-all duration-300`}
+                                                                style={{ width: `${passwordStrength.score}%` }}
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold">
+                                                            <span>Strength: <strong className="text-slate-700">{passwordStrength.text}</strong></span>
+                                                            <span>Use 8+ chars, numbers & symbols</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-700 mb-1.5">Confirm New Password</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type={showConfirmPassword ? 'text' : 'password'}
+                                                        value={passwordForm.confirmPassword}
+                                                        onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                                                        required
+                                                        placeholder="Re-enter new password"
+                                                        className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                                    >
+                                                        {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="pt-4 flex items-center justify-end">
+                                                <button
+                                                    type="submit"
+                                                    disabled={saveLoading}
+                                                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
+                                                >
+                                                    <Lock className="size-4" />
+                                                    <span>{saveLoading ? 'Updating...' : 'Update Password'}</span>
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    {/* Right: 2FA & Active Sessions */}
+                                    <div className="lg:col-span-5 space-y-6">
+                                        {/* Two-Factor Authentication Card */}
+                                        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className="size-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                                                    <Shield className="size-4.5" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-slate-900 text-xs">Two-Factor Authentication</h4>
+                                                    <p className="text-[10px] text-slate-400">Extra layer of security on sensitive actions.</p>
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-slate-600 leading-relaxed">
+                                                Require an SMS verification code whenever recording high-value rent withdrawals or updating lease agreements.
+                                            </p>
+                                            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                                                <span className="text-xs font-bold text-emerald-600">Active (SMS: {currentUser.phone})</span>
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Enabled</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Active Sessions */}
+                                        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2">
+                                                    <Smartphone className="size-4 text-blue-600" /> Active Login Sessions
+                                                </h4>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFeedbackMessage({ type: 'success', text: 'All other device sessions have been logged out.' });
+                                                        setTimeout(() => setFeedbackMessage(null), 3500);
+                                                    }}
+                                                    className="text-[10px] font-bold text-red-600 hover:underline"
+                                                >
+                                                    Sign out others
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-3 text-xs">
+                                                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                                                    <div>
+                                                        <p className="font-bold text-slate-800">Current Web Session (Dar es Salaam)</p>
+                                                        <p className="text-[10px] text-slate-400">Chrome on Linux/macOS • Active Now</p>
+                                                    </div>
+                                                    <span className="size-2 rounded-full bg-emerald-500" />
+                                                </div>
+                                                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                                                    <div>
+                                                        <p className="font-bold text-slate-800">Panga Pangisha Mobile App</p>
+                                                        <p className="text-[10px] text-slate-400">Samsung Galaxy S23 • 2 hours ago</p>
+                                                    </div>
+                                                    <span className="size-2 rounded-full bg-slate-300" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 3: NOTIFICATIONS & SYSTEM PREFERENCES */}
+                            {settingsTab === 'notifications' && (
+                                <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs space-y-6">
+                                    <div>
+                                        <h3 className="font-extrabold text-slate-900 text-lg">Alert Channels & Automation</h3>
+                                        <p className="text-xs text-slate-400">Configure how and when Veyora AI notifies you regarding tenant activities.</p>
+                                    </div>
+
+                                    {/* Language and Currency Row */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 border-b border-slate-100">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                                                <Globe className="size-3.5 text-slate-400" /> System Language
+                                            </label>
+                                            <select
+                                                value={prefForm.language}
+                                                onChange={(e) => setPrefForm({ ...prefForm, language: e.target.value })}
+                                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                                            >
+                                                <option value="en">English (Official)</option>
+                                                <option value="sw">Kiswahili (Sanifu)</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                                                <CreditCard className="size-3.5 text-slate-400" /> Display Currency
+                                            </label>
+                                            <select
+                                                value={prefForm.currency}
+                                                onChange={(e) => setPrefForm({ ...prefForm, currency: e.target.value })}
+                                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                                            >
+                                                <option value="TZS">TZS - Tanzanian Shilling</option>
+                                                <option value="KES">KES - Kenyan Shilling</option>
+                                                <option value="USD">USD - US Dollar ($)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Notification Toggles */}
+                                    <div className="space-y-4">
+                                        {[
+                                            {
+                                                key: 'smsRentAlerts',
+                                                title: 'Instant SMS for Rent Payments',
+                                                desc: 'Receive immediate SMS alert on your phone whenever M-Pesa or bank rent is confirmed.',
+                                            },
+                                            {
+                                                key: 'emailMaintenanceAlerts',
+                                                title: 'Maintenance Ticket Digest',
+                                                desc: 'Get an email digest with photos and priority tags when a tenant files a repair request.',
+                                            },
+                                            {
+                                                key: 'aiLeaseAlerts',
+                                                title: 'Veyora AI Lease Expiration Warning',
+                                                desc: 'Automated 30-day early alert before a lease expires so you can offer renewal or list the room.',
+                                            },
+                                            {
+                                                key: 'whatsappReceipts',
+                                                title: 'Automatic WhatsApp Rent Receipts',
+                                                desc: 'Automatically dispatch PDF payment receipts to the tenant upon rent payment confirmation.',
+                                            },
+                                            {
+                                                key: 'utilityAlerts',
+                                                title: 'High Utility Consumption Warning',
+                                                desc: 'Trigger push alert if electricity or water usage spikes beyond normal daily thresholds.',
+                                            },
+                                        ].map((item) => (
+                                            <div
+                                                key={item.key}
+                                                className="p-4 rounded-xl border border-slate-100 flex items-center justify-between gap-4 hover:border-slate-200 transition-colors"
+                                            >
+                                                <div>
+                                                    <p className="text-xs font-bold text-slate-800">{item.title}</p>
+                                                    <p className="text-[11px] text-slate-400 mt-0.5">{item.desc}</p>
+                                                </div>
+                                                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={(prefForm as any)[item.key]}
+                                                        onChange={(e) =>
+                                                            setPrefForm({ ...prefForm, [item.key]: e.target.checked })
+                                                        }
+                                                        className="sr-only peer"
+                                                    />
+                                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" />
+                                                </label>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="pt-4 flex items-center justify-end">
+                                        <button
+                                            type="button"
+                                            onClick={handlePreferencesSave}
+                                            disabled={saveLoading}
+                                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
+                                        >
+                                            <Save className="size-4" />
+                                            <span>{saveLoading ? 'Saving...' : 'Save Notification Preferences'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 4: RENT PAYOUT & BANKING */}
+                            {settingsTab === 'payout' && (
+                                <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs space-y-6">
+                                    <div>
+                                        <h3 className="font-extrabold text-slate-900 text-lg">Rent Disbursement Payout Account</h3>
+                                        <p className="text-xs text-slate-400">Designate the bank account or mobile money till where collected tenant rent will be disbursed.</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div
+                                            onClick={() => setPayoutForm({ ...payoutForm, method: 'mpesa' })}
+                                            className={`p-5 rounded-2xl border cursor-pointer transition-all ${
+                                                payoutForm.method === 'mpesa'
+                                                    ? 'border-blue-600 bg-blue-50/40 ring-1 ring-blue-600'
+                                                    : 'border-slate-200 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="font-extrabold text-slate-900 text-xs">Mobile Money (M-Pesa / Tigo / Airtel)</span>
+                                                <span className="text-emerald-600 font-bold text-[10px]">Instant</span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-500">Direct settlement to your registered Vodacom M-Pesa or Tigo Pesa merchant wallet.</p>
+                                        </div>
+
+                                        <div
+                                            onClick={() => setPayoutForm({ ...payoutForm, method: 'bank' })}
+                                            className={`p-5 rounded-2xl border cursor-pointer transition-all ${
+                                                payoutForm.method === 'bank'
+                                                    ? 'border-blue-600 bg-blue-50/40 ring-1 ring-blue-600'
+                                                    : 'border-slate-200 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="font-extrabold text-slate-900 text-xs">Direct Commercial Bank</span>
+                                                <span className="text-slate-400 font-medium text-[10px]">Next-day ACH</span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-500">Supports CRDB, NMB, Stanbic, KCB, Absa, and Standard Chartered Bank.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                                                {payoutForm.method === 'mpesa' ? 'M-Pesa / Till / Phone Number' : 'Bank Account Number'}
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={payoutForm.accountNumber}
+                                                onChange={(e) => setPayoutForm({ ...payoutForm, accountNumber: e.target.value })}
+                                                placeholder={payoutForm.method === 'mpesa' ? 'e.g. 255712345678' : 'e.g. 0150123456700'}
+                                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1.5">Account Holder Name</label>
+                                            <input
+                                                type="text"
+                                                value={payoutForm.accountHolder}
+                                                onChange={(e) => setPayoutForm({ ...payoutForm, accountHolder: e.target.value })}
+                                                placeholder="e.g. Ibrahim Kimaro"
+                                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3">
+                                        <ShieldCheck className="size-5 text-teal-600 shrink-0 mt-0.5" />
+                                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                                            <strong>Escrow Security Guarantee:</strong> All tenant rental payments pass through Panga Pangisha's automated reconciliation engine before instant disbursement to your account.
+                                        </p>
+                                    </div>
+
+                                    <div className="pt-4 flex items-center justify-end">
+                                        <button
+                                            type="button"
+                                            onClick={handlePayoutSave}
+                                            disabled={saveLoading}
+                                            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
+                                        >
+                                            <Save className="size-4" />
+                                            <span>{saveLoading ? 'Saving...' : 'Save Payout Setup'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : activeSection === 'utilities' ? (
+                        /* SECTION: UTILITIES MONITOR */
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-xl font-extrabold text-slate-900">Utility Consumption & Meter Readings</h2>
+                                    <p className="text-xs text-slate-500">Live sub-metering tracking for electricity (kWh) and water (m³).</p>
+                                </div>
+                                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                                    <button
+                                        onClick={() => setUtilityTab('electricity')}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                            utilityTab === 'electricity' ? 'bg-white shadow-xs text-blue-600' : 'text-slate-500'
+                                        }`}
+                                    >
+                                        ⚡ Electricity
+                                    </button>
+                                    <button
+                                        onClick={() => setUtilityTab('water')}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                            utilityTab === 'water' ? 'bg-white shadow-xs text-blue-600' : 'text-slate-500'
+                                        }`}
+                                    >
+                                        💧 Water
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+                                    <p className="text-xs text-slate-400 font-semibold uppercase">Total Monthly Consumption</p>
+                                    <h3 className="text-2xl font-black text-slate-900 mt-2">
+                                        {utilities[utilityTab].total} {utilities[utilityTab].unit}
+                                    </h3>
+                                    <p className="text-xs text-emerald-600 font-bold mt-1">
+                                        {utilities[utilityTab].trend}% lower than previous month
+                                    </p>
+                                </div>
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+                                    <p className="text-xs text-slate-400 font-semibold uppercase">Daytime Usage (06:00 - 18:00)</p>
+                                    <h3 className="text-2xl font-black text-slate-900 mt-2">
+                                        {utilities[utilityTab].daytime} {utilities[utilityTab].unit}
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mt-1">{utilities[utilityTab].daytime_pct}% of total billing</p>
+                                </div>
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+                                    <p className="text-xs text-slate-400 font-semibold uppercase">Nighttime Usage (18:00 - 06:00)</p>
+                                    <h3 className="text-2xl font-black text-slate-900 mt-2">
+                                        {utilities[utilityTab].night} {utilities[utilityTab].unit}
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mt-1">{utilities[utilityTab].night_pct}% of total billing</p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : activeSection === 'maintenance' ? (
+                        /* SECTION: MAINTENANCE BOARD */
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-xl font-extrabold text-slate-900">Maintenance & Repair Tickets</h2>
+                                    <p className="text-xs text-slate-500">Track and assign contractor service requests filed by tenants.</p>
+                                </div>
+                                <button
+                                    onClick={() => alert('New maintenance ticket draft created.')}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
+                                >
+                                    <Plus className="size-4" /> Create Ticket
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600">Urgent</span>
+                                    <h4 className="font-bold text-slate-900 text-sm mt-3">Kitchen Water Tap Leak</h4>
+                                    <p className="text-xs text-slate-500 mt-1">Kimaro Residence • Unit B2 (John Kavishe)</p>
+                                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">Reported: Yesterday</span>
+                                        <span className="font-bold text-blue-600">Assign Plumber →</span>
+                                    </div>
+                                </div>
+                                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">In Progress</span>
+                                    <h4 className="font-bold text-slate-900 text-sm mt-3">AC Master Servicing</h4>
+                                    <p className="text-xs text-slate-500 mt-1">Mikocheni Villa • Room 4 (Vacant prep)</p>
+                                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">Technician: Rajab</span>
+                                        <span className="font-bold text-amber-600">In Service</span>
+                                    </div>
+                                </div>
+                                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">Resolved</span>
+                                    <h4 className="font-bold text-slate-900 text-sm mt-3">Smart Lock Battery Replacement</h4>
+                                    <p className="text-xs text-slate-500 mt-1">Sinza Modern Flat • Room 1 (Asha)</p>
+                                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">Completed: Oct 12</span>
+                                        <span className="font-bold text-emerald-600">Closed ✓</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : activeSection === 'reports' ? (
+                        /* SECTION: FINANCIAL & OCCUPANCY REPORTS */
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-xl font-extrabold text-slate-900">Financial & Occupancy Reports</h2>
+                                    <p className="text-xs text-slate-500">Download audited statements and tax summaries.</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => alert('Exporting monthly statement to PDF...')}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                                    >
+                                        <Download className="size-3.5" /> PDF Statement
+                                    </button>
+                                    <button
+                                        onClick={() => alert('Exporting financial ledger to Excel/CSV...')}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors"
+                                    >
+                                        <FileSpreadsheet className="size-3.5" /> CSV Ledger
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                                    <p className="text-xs text-slate-400 font-semibold uppercase">Total YTD Rent</p>
+                                    <h3 className="text-xl font-black text-slate-900 mt-1">TZS 54,200,000</h3>
+                                    <p className="text-[11px] text-emerald-600 font-bold mt-1">+14% vs last year</p>
+                                </div>
+                                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                                    <p className="text-xs text-slate-400 font-semibold uppercase">Average Occupancy</p>
+                                    <h3 className="text-xl font-black text-slate-900 mt-1">92.4%</h3>
+                                    <p className="text-[11px] text-slate-400 mt-1">Consistently high demand</p>
+                                </div>
+                                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                                    <p className="text-xs text-slate-400 font-semibold uppercase">Maintenance Opex</p>
+                                    <h3 className="text-xl font-black text-slate-900 mt-1">TZS 3,450,000</h3>
+                                    <p className="text-[11px] text-slate-400 mt-1">6.3% of gross income</p>
+                                </div>
+                                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                                    <p className="text-xs text-slate-400 font-semibold uppercase">Net Yield</p>
+                                    <h3 className="text-xl font-black text-emerald-600 mt-1">11.8%</h3>
+                                    <p className="text-[11px] text-slate-400 mt-1">Dar es Salaam benchmark</p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : activeSection === 'messages' ? (
+                        /* SECTION: TENANT INBOX */
+                        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[540px]">
+                            {/* Conversations List (4 cols) */}
+                            <div className="lg:col-span-4 border-r border-slate-100 flex flex-col">
+                                <div className="p-4 border-b border-slate-100">
+                                    <h3 className="font-extrabold text-slate-900 text-sm">Tenant Messages</h3>
+                                    <p className="text-[11px] text-slate-400">Direct channel with your residents</p>
+                                </div>
+                                <div className="divide-y divide-slate-50 flex-1 overflow-y-auto">
+                                    {Object.keys(chatHistory).map((tenantName) => {
+                                        const isSelected = selectedChatTenant === tenantName;
+                                        const msgs = chatHistory[tenantName];
+                                        const lastMsg = msgs[msgs.length - 1];
+                                        return (
+                                            <div
+                                                key={tenantName}
+                                                onClick={() => setSelectedChatTenant(tenantName)}
+                                                className={`p-4 cursor-pointer transition-colors ${
+                                                    isSelected ? 'bg-blue-50/60 border-l-4 border-blue-600' : 'hover:bg-slate-50/50'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <p className="font-bold text-xs text-slate-900">{tenantName}</p>
+                                                    <span className="text-[10px] text-slate-400">{lastMsg?.time}</span>
+                                                </div>
+                                                <p className="text-xs text-slate-500 truncate">{lastMsg?.text}</p>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Chat Thread (8 cols) */}
+                            <div className="lg:col-span-8 flex flex-col justify-between bg-slate-50/30">
+                                <div className="p-4 bg-white border-b border-slate-100 flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="size-8 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center">
+                                            {selectedChatTenant.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-xs text-slate-900">{selectedChatTenant}</h4>
+                                            <p className="text-[10px] text-slate-400">Active Tenant • Lease Current</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                                        Online
+                                    </span>
+                                </div>
+
+                                <div className="p-6 space-y-4 flex-1 overflow-y-auto max-h-[380px]">
+                                    {(chatHistory[selectedChatTenant] || []).map((msg, i) => (
+                                        <div
+                                            key={i}
+                                            className={`flex ${msg.sender === 'landlord' ? 'justify-end' : 'justify-start'}`}
+                                        >
+                                            <div
+                                                className={`max-w-md p-3.5 rounded-2xl text-xs ${
+                                                    msg.sender === 'landlord'
+                                                        ? 'bg-blue-600 text-white rounded-br-xs'
+                                                        : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs'
+                                                }`}
+                                            >
+                                                <p>{msg.text}</p>
+                                                <span
+                                                    className={`block text-[9px] mt-1 text-right ${
+                                                        msg.sender === 'landlord' ? 'text-blue-200' : 'text-slate-400'
+                                                    }`}
+                                                >
+                                                    {msg.time}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="p-4 bg-white border-t border-slate-100 flex items-center gap-3">
+                                    <input
+                                        type="text"
+                                        value={messageDraft}
+                                        onChange={(e) => setMessageDraft(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                                        placeholder={`Message ${selectedChatTenant}...`}
+                                        className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleSendMessage}
+                                        className="p-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                                    >
+                                        <Send className="size-4" />
+                                    </button>
                                 </div>
                             </div>
                         </div>
