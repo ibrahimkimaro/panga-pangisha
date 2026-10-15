@@ -15,7 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // The website (landing page + admin panel) is the `web` group; the mobile API is `api`.
         $middleware->web(append: [\App\Http\Middleware\HandleInertiaRequests::class]);
-        $middleware->validateCsrfTokens(except: ['landlord/*', 'mcp/*']);
+        $middleware->validateCsrfTokens(except: ['login', 'logout', 'landlord/*', 'mcp/*']);
         $middleware->alias(['admin' => \App\Http\Middleware\EnsureAdmin::class]);
         $middleware->redirectGuestsTo('/admin/login');
         $middleware->redirectUsersTo('/admin');

@@ -14,18 +14,18 @@ export default function LandlordLogin() {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch('/api/user/api/token/', {
+            const response = await fetch('/login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify({
-                    phone_number: loginData.identifier,
-                    password: loginData.password
-                })
+                    identifier: loginData.identifier.trim(),
+                    password: loginData.password,
+                }),
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || data.detail || 'Login failed');
             if (data.access) localStorage.setItem('auth_token', data.access);
-            router.visit('/landlord/dashboard');
+            router.visit(data.redirect || '/landlord/dashboard');
         } catch (e: any) {
             setError(e.message);
         } finally {

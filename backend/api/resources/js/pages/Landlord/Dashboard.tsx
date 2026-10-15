@@ -260,7 +260,10 @@ export default function LandlordDashboard({
         ],
     });
 
-    const handleSignOut = () => {
+    const handleSignOut = async () => {
+        try {
+            await fetch('/logout', { method: 'POST' });
+        } catch {}
         localStorage.removeItem('auth_token');
         router.visit('/');
     };

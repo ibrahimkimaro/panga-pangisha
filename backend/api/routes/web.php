@@ -17,6 +17,8 @@ Route::get('/', fn () => Inertia::render('Home', [
 
 // Universal Authentication routes (for all users: renters, landlords, managers, investors)
 Route::get('login', fn () => Inertia::render('Auth/Login'))->name('login');
+Route::post('login', [\App\Http\Controllers\Landlord\DashboardController::class, 'webLogin'])->name('web.login');
+Route::post('logout', [\App\Http\Controllers\Landlord\DashboardController::class, 'webLogout'])->name('web.logout');
 Route::get('signup', fn () => Inertia::render('Auth/Signup'))->name('signup');
 
 // Tenant space

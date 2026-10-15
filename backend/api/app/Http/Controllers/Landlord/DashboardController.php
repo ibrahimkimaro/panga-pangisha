@@ -17,40 +17,32 @@ class DashboardController extends Controller
 {
     public function index(Request $request): Response
     {
-        // 1. Resolve landlord context (session user, token user, or fallback to primary landlord)
-        $user = $request->user() 
-            ?? User::where('role', 'landlord')->where('fullname', 'like', '%ibrahim%')->first()
-            ?? User::where('role', 'landlord')->first();
+        // 1. Resolve landlord context:
+        // If the authenticated session user is a landlord, use their account.
+        // Otherwise, resolve specifically to Ibrahim Kimaro (id: 18)
+        $user = ($request->user() && $request->user()->role === 'landlord') 
+            ? $request->user() 
+            : (User::where('id', 18)->first() 
+                ?? User::where('role', 'landlord')->where('fullname', 'like', '%ibrahim%')->first()
+                ?? User::where('role', 'landlord')->first());
 
         $ownerId = $user ? $user->id : 18;
 
-        // 2. Fetch properties owned by landlord
+        // 2. Fetch properties owned strictly by this landlord
         $houses = House::with(['units', 'tenancies.payments', 'tenancies.maintenance'])
             ->where('owner_id', $ownerId)
             ->latest()
             ->get();
 
-        // If this landlord has fewer than 2 houses in demo mode, supplement with available demo houses for rich display
-        if ($houses->count() < 2) {
-            $extraHouses = House::with(['units', 'tenancies.payments', 'tenancies.maintenance'])
-                ->where('owner_id', '!=', $ownerId)
-                ->limit(4 - $houses->count())
-                ->get();
-            $houses = $houses->merge($extraHouses);
-        }
-
-        // 3. Aggregate Units / Rooms
+        // 3. Aggregate Units / Rooms strictly for this landlord
         $allUnits = Unit::whereIn('house_id', $houses->pluck('id'))->get();
         $totalRooms = $allUnits->count() ?: 18;
         $occupiedRooms = $allUnits->where('status', 'occupied')->count() ?: 14;
-        $vacantRooms = $totalRooms - $occupiedRooms;
+        $vacantRooms = max(0, $totalRooms - $occupiedRooms);
 
-        // 4. Tenancies & Tenants
+        // 4. Tenancies & Tenants strictly belonging to this landlord's properties
         $tenancies = Tenancy::whereIn('house_id', $houses->pluck('id'))->with('house')->get();
-        if ($tenancies->isEmpty()) {
-            $tenancies = Tenancy::with('house')->latest()->limit(5)->get();
-        }
-        $totalTenants = $tenancies->where('status', 'active')->count() ?: 14;
+        $totalTenants = $tenancies->where('status', 'active')->count() ?: $occupiedRooms;
 
         // 5. Rent Collections
         $tenancyIds = $tenancies->pluck('id');
@@ -406,5 +398,66 @@ class DashboardController extends Controller
             'message' => 'Preferences and payout configuration saved',
             'settings' => $validated,
         ]);
+    }
+
+    public function webLogin(Request $request)
+    {
+        $d = $request->validate([
+            'identifier' => 'required|string',
+            'password' => 'required|string',
+        ]);
+
+        $identifier = trim($d['identifier']);
+
+        // Find user by email, phone, or name
+        $user = str_contains($identifier, '@')
+            ? User::where('email', strtolower($identifier))->whereNull('suspended_at')->first()
+            : User::where('phone', \App\Http\Controllers\Api\AuthController::phone($identifier))->whereNull('suspended_at')->first();
+
+        if (!$user && strlen($identifier) > 3) {
+            $user = User::where('fullname', 'like', "%{$identifier}%")->whereNull('suspended_at')->first();
+        }
+
+        if (! $user || ! \Illuminate\Support\Facades\Hash::check($d['password'], $user->password)) {
+            return response()->json([
+                'detail' => 'No active account found with the given credentials. Please check your phone/email and password.',
+            ], 401);
+        }
+
+        // Authenticate into the Laravel web session
+        \Illuminate\Support\Facades\Auth::login($user);
+        $request->session()->regenerate();
+
+        $token = $user->createToken('web', ['*'], now()->addDays(30))->plainTextToken;
+
+        $targetUrl = '/landlord/dashboard';
+        if ($user->role === 'admin') {
+            $targetUrl = '/admin';
+        } elseif ($user->role === 'renter') {
+            $targetUrl = '/tenant/dashboard';
+        }
+
+        return response()->json([
+            'success' => true,
+            'access' => $token,
+            'role' => $user->role,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->fullname,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'role' => $user->role,
+            ],
+            'redirect' => $targetUrl,
+        ]);
+    }
+
+    public function webLogout(Request $request)
+    {
+        \Illuminate\Support\Facades\Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return response()->json(['success' => true, 'redirect' => '/']);
     }
 }

@@ -16,11 +16,11 @@ export default function UniversalLogin({ initialRole }: { initialRole?: string }
         setError(null);
 
         try {
-            const response = await fetch('/api/user/api/token/', {
+            const response = await fetch('/login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify({
-                    phone_number: loginData.identifier.trim(),
+                    identifier: loginData.identifier.trim(),
                     password: loginData.password,
                 }),
             });
@@ -35,13 +35,17 @@ export default function UniversalLogin({ initialRole }: { initialRole?: string }
                 localStorage.setItem('auth_token', token);
             }
 
-            const userRole = data.role || data.user?.role;
-            if (userRole === 'landlord' || userRole === 'manager') {
-                router.visit('/landlord/dashboard');
-            } else if (userRole === 'admin') {
-                router.visit('/admin');
+            if (data.redirect) {
+                router.visit(data.redirect);
             } else {
-                router.visit('/tenant/dashboard');
+                const userRole = data.role || data.user?.role;
+                if (userRole === 'landlord' || userRole === 'manager') {
+                    router.visit('/landlord/dashboard');
+                } else if (userRole === 'admin') {
+                    router.visit('/admin');
+                } else {
+                    router.visit('/tenant/dashboard');
+                }
             }
         } catch (err: any) {
             setError(err.message || 'Login failed. Please check your details.');
