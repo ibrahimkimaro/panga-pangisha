@@ -100,8 +100,18 @@ You process all incoming user messages directly with conversational intelligence
    - **Payment History**: When asking for transaction history or payment receipts -> call `get_payment_history`.
    - **Tenancies**: When asking for lease or tenancy agreement details -> call `list_tenancies`.
    - **Utilities**: When asking for water/electricity meter readings or consumption -> call `get_utility_readings` or `get_utility_trends`.
-   - **Property Search**: When searching available public rentals in Tanzania -> call `search_properties`.
-   - **Maintenance**: When checking or logging repair requests -> call `list_maintenance` or `create_maintenance_ticket`.
+   - **Property Search**: When searching available public rentals in Tanzania -> call `search    - **Rental Agreements & Leases (Mkataba wa Nyumba)**:
+      * When asked to prepare or draft a contract ("Prepare a rental agreement for this tenant", "Andaa mkataba wa mpangaji huyu") -> call `prepare_rental_agreement`.
+      * When asked to modify contract details ("Change tenancy start date to 1 December", "Badili kodi kuwa 500,000", "ongeza muda wa mkataba") -> call `update_agreement_terms`.
+      * When asked about signing status ("The tenant has signed. What is still pending?", "Mpangaji amesaini, nini kimebaki?") -> call `check_pending_signatures`.
+    - **Invoices & Billing (Ankara)**:
+      * When asked to create an invoice ("Generate an invoice for Room 4 for November", "Nipe ankara ya Chumba 2 ya mwezi huu") -> call `generate_invoice`.
+    - **Occupancy & Duration (Ukaaji wa Chumba)**:
+      * When asked how long a tenant has stayed ("How long has this tenant occupied the room?", "Mpangaji huyu amekaa muda gani?") -> call `get_occupancy_duration`.
+      * When asked for upcoming lease expirations ("Show me rooms whose contracts expire this month", "Mikataba gani inaisha mwezi huu?") -> call `get_occupancy_duration` with `filter_expiring_this_month: true`.
+    - **Crucial Rule on Previews & Notifications**:
+      * When preparing or modifying a draft agreement or invoice, notify the user that the draft has been organized and is ready for their preview and confirmation before final issuance.
+      * Tenancy activation requires BOTH tenant and landlord signatures. Never mark an agreement signed or tenancy active without evidence.
 
 3. **Interpreting Tool Results & Truthfulness**:
    - When a tool returns live records, summarize the findings accurately and concisely in the user's language.
@@ -117,7 +127,7 @@ MARKDOWN;
         // Base discovery tools available to everyone
         $tools = [
             new McpServerTool(new SearchPropertiesTool),
-            new McpServerTool(new GetPropertyDetailsTool),
+            new GetPropertyDetailsTool,
         ];
 
         if (! $this->activeUser) {
@@ -143,11 +153,17 @@ MARKDOWN;
             $tools[] = new McpServerTool(new GetPaymentHistoryTool);
             $tools[] = new McpServerTool(new ListMaintenanceTool);
             $tools[] = new McpServerTool(new \App\Mcp\Tools\Maintenance\CreateMaintenanceTicketTool);
+            $tools[] = new McpServerTool(new \App\Mcp\Tools\Rental\PrepareRentalAgreementTool);
+            $tools[] = new McpServerTool(new \App\Mcp\Tools\Rental\UpdateAgreementTermsTool);
+            $tools[] = new McpServerTool(new \App\Mcp\Tools\Rental\GenerateInvoiceTool);
+            $tools[] = new McpServerTool(new \App\Mcp\Tools\Rental\GetOccupancyDurationTool);
+            $tools[] = new McpServerTool(new \App\Mcp\Tools\Rental\CheckPendingSignaturesTool);
         } elseif ($role === 'renter') {
             $tools[] = new McpServerTool(new ListTenanciesTool);
             $tools[] = new McpServerTool(new GetPaymentHistoryTool);
             $tools[] = new McpServerTool(new ListMaintenanceTool);
             $tools[] = new McpServerTool(new \App\Mcp\Tools\Maintenance\CreateMaintenanceTicketTool);
+            $tools[] = new McpServerTool(new \App\Mcp\Tools\Rental\CheckPendingSignaturesTool);
         }
 
         return $tools;

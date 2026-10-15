@@ -350,6 +350,7 @@ class Field extends StatefulWidget {
     this.lines = 1,
     this.autofill,
     this.onSubmit,
+    this.onChanged,
     this.formatters,
   });
   final String label;
@@ -363,6 +364,7 @@ class Field extends StatefulWidget {
   final int lines;
   final Iterable<String>? autofill;
   final VoidCallback? onSubmit;
+  final ValueChanged<String>? onChanged;
   final List<TextInputFormatter>? formatters;
 
   @override
@@ -389,6 +391,7 @@ class _FieldState extends State<Field> {
         autofillHints: widget.autofill,
         inputFormatters: widget.formatters,
         onFieldSubmitted: (_) => widget.onSubmit?.call(),
+        onChanged: widget.onChanged,
         validator: (v) => widget.validator?.call((v ?? '').trim()),
         autovalidateMode: AutovalidateMode.onUserInteraction,
         style: body(16),
@@ -941,17 +944,20 @@ class AppScroll extends MaterialScrollBehavior {
 /// MaterialApp.builder for the person's size choice: the interface is laid out on a larger (or smaller)
 /// canvas and fitted to the screen, so text, cards and spacing all change together.
 Widget fitToSize(BuildContext context, Widget? child) {
+  if (child == null) return const SizedBox.shrink();
   final k = Appearance.scale;
-  if (k == 1) return child!;
+  if (k == 1) return child;
   final mq = MediaQuery.of(context);
+  if (mq.size.isEmpty) return child;
   final size = mq.size / k;
   return FittedBox(
+    fit: BoxFit.contain,
     child: SizedBox(
       width: size.width,
       height: size.height,
       child: MediaQuery(
         data: mq.copyWith(size: size, padding: mq.padding / k, viewPadding: mq.viewPadding / k, viewInsets: mq.viewInsets / k),
-        child: child!,
+        child: child,
       ),
     ),
   );

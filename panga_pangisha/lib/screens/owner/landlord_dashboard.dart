@@ -12,6 +12,7 @@ import '../../ui.dart';
 import '../chat.dart';
 import '../notifications.dart';
 import '../owner.dart';
+import 'ai_property_workspace.dart';
 import 'properties.dart';
 import 'rentals.dart';
 import 'utilities_coming_soon.dart';
@@ -310,9 +311,10 @@ class _LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> w
     if (Api.user.value == null) return setState(() => _loading = false);
     setState(() => _loading = true);
     final unread = _loadUnread();
-    final [homes, rent] = await Future.wait<dynamic>([
+    final [homes, rent, _] = await Future.wait<dynamic>([
       _try(() => Api.get('landlord/getAllHouses/')),
       _try(() => Api.get('rent-payments')),
+      _try(() => Api.refreshUser()),
     ]);
     await unread;
     if (!mounted) return;
@@ -1231,8 +1233,14 @@ class _LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> w
           ),
           const SizedBox(height: 14),
           _quickActionRow(
+            icon: Icons.auto_awesome_rounded,
+            label: t('Register Property with AI', 'Sajili Nyumba kwa AI'),
+            isAi: true,
+            onTap: () => _go(const AiPropertyWorkspaceScreen()),
+          ),
+          _quickActionRow(
             icon: Icons.add_home_rounded,
-            label: t('Add New Property', 'Ongeza Nyumba Mpya'),
+            label: t('Add New Property (Wizard)', 'Ongeza Nyumba (Wizard)'),
             onTap: () => _go(const AddHomeScreen()),
           ),
           _quickActionRow(

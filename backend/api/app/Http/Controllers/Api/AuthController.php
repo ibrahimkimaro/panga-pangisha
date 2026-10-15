@@ -135,9 +135,24 @@ class AuthController extends Controller
 
     private function userData(User $u): array
     {
-        return ['id' => $u->id, 'fullname' => $u->fullname, 'phone_number' => $u->phone, 'email' => $u->email, 'country' => $u->country, 'role' => $u->role,
+        $rawImg = $u->profile?->profile_image;
+        $profileImg = null;
+        if ($rawImg && !str_contains($rawImg, 'houses/')) {
+            $profileImg = (str_starts_with($rawImg, 'http') || str_starts_with($rawImg, '/storage/')) 
+                ? $rawImg 
+                : '/storage/' . $rawImg;
+        }
+
+        return [
+            'id' => $u->id,
+            'fullname' => $u->fullname,
+            'phone_number' => $u->phone,
+            'email' => $u->email,
+            'country' => $u->country,
+            'role' => $u->role,
             'identity_status' => $u->identityStatus(), // landlords wait for 'approved' before their dashboard opens
             'business_status' => $u->business?->status ?? 'none',
-            'profile_image' => $u->profile?->profile_image ? '/storage/' . $u->profile->profile_image : null];
+            'profile_image' => $profileImg,
+        ];
     }
 }

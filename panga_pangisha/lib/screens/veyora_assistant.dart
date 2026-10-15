@@ -9,6 +9,9 @@ import '../api.dart';
 import '../l10n.dart';
 import '../ui.dart';
 import '../widgets/veyora_presentation_widgets.dart';
+import 'owner/invoices_screen.dart';
+import 'owner/occupancy_screen.dart';
+import 'owner/rental_agreements_screen.dart';
 
 /// Screen: Veyora AI Assistant
 /// Features expressive animated AI Face avatar, friendly conversational intelligence,
@@ -500,6 +503,35 @@ class _VeyoraAssistantScreenState extends State<VeyoraAssistantScreen> {
                                     actions: msg.actions,
                                     pagination: msg.pagination,
                                     onAction: (act) {
+                                      final type = act['type']?.toString();
+                                      final payload = act['payload'] is Map ? Map<String, dynamic>.from(act['payload'] as Map) : <String, dynamic>{};
+
+                                      if (type == 'view_agreement' || type == 'sign_agreement') {
+                                        final id = payload['id'] as int?;
+                                        push(context, RentalAgreementsScreen(initialAgreementId: id));
+                                        return;
+                                      }
+                                      if (type == 'view_invoice' || type == 'record_payment' || type == 'share_invoice') {
+                                        final id = payload['id'] as int?;
+                                        push(context, InvoicesScreen(initialInvoiceId: id));
+                                        return;
+                                      }
+                                      if (type == 'navigate') {
+                                        final screen = payload['screen']?.toString();
+                                        if (screen == 'occupancy') {
+                                          push(context, const OccupancyScreen());
+                                          return;
+                                        }
+                                        if (screen == 'agreements') {
+                                          push(context, const RentalAgreementsScreen());
+                                          return;
+                                        }
+                                        if (screen == 'invoices') {
+                                          push(context, const InvoicesScreen());
+                                          return;
+                                        }
+                                      }
+
                                       final label = act['label']?.toString();
                                       if (label != null) {
                                         _send(label);

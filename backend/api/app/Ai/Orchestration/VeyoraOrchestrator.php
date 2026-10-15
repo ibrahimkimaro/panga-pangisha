@@ -597,6 +597,164 @@ class VeyoraOrchestrator
         $isMobile = ($context['client'] ?? $context['device'] ?? '') === 'mobile' || ($context['screen'] ?? '') === 'VeyoraAssistantScreen';
 
         // 1. If tools were invoked, check tool-specific presentation contracts
+        // A. Rental Agreement Preparation & Terms Update
+        if (in_array('prepare_rental_agreement', $toolsInvoked, true) || in_array('update_agreement_terms', $toolsInvoked, true)) {
+            $toolName = in_array('prepare_rental_agreement', $toolsInvoked, true) ? 'prepare_rental_agreement' : 'update_agreement_terms';
+            $data = $this->extractToolData($toolName, $toolResults, function () { return []; });
+            if (!empty($data) && !empty($data['agreement_id'])) {
+                $agId = $data['agreement_id'];
+                $rentFormatted = number_format($data['monthly_rent'] ?? 0);
+                $depFormatted = number_format($data['security_deposit'] ?? 0);
+                $notificationMsg = $data['notification'] ?? 'Mkataba wa upangaji umeandaliwa. Hakiki (Preview) na uhifadhi kabla ya kumtumia mpangaji.';
+
+                return VeyoraPresentationContract::detail(
+                    title: "Mkataba wa Upangishaji (Draft Preview #{$data['agreement_number']})",
+                    summary: $replyText ?: $notificationMsg,
+                    entityType: 'agreement',
+                    profile: [
+                        'agreement_id' => $agId,
+                        'agreement_number' => $data['agreement_number'] ?? "MKT-{$agId}",
+                        'status' => 'draft_pending_review',
+                        'tenant_name' => $data['tenant_name'] ?? 'Mpangaji',
+                        'unit_number' => $data['unit_number'] ?? 'Chumba',
+                        'monthly_rent' => "TZS {$rentFormatted}",
+                        'security_deposit' => "TZS {$depFormatted}",
+                        'starts_on' => $data['starts_on'] ?? '',
+                        'ends_on' => $data['ends_on'] ?? '',
+                        'duration' => ($data['duration_months'] ?? 6) . ' Miezi',
+                        'action_required' => 'preview_and_save',
+                        'notification' => $notificationMsg,
+                    ],
+                    sections: [
+                        [
+                            'title' => 'Maelezo ya Upangaji na Kodi',
+                            'fields' => [
+                                ['label' => 'Jina la Mpangaji', 'value' => $data['tenant_name'] ?? 'Mpangaji'],
+                                ['label' => 'Chumba / Unit', 'value' => $data['unit_number'] ?? 'Chumba'],
+                                ['label' => 'Kodi ya Mwezi', 'value' => "TZS {$rentFormatted}"],
+                                ['label' => 'Dhamana (Deposit)', 'value' => "TZS {$depFormatted}"],
+                                ['label' => 'Kuanza Tarehe', 'value' => $data['starts_on'] ?? ''],
+                                ['label' => 'Muda wa Mkataba', 'value' => ($data['duration_months'] ?? 6) . ' Miezi'],
+                            ]
+                        ]
+                    ],
+                    actions: [
+                        ['id' => 'preview_agreement', 'label' => 'Hakiki Mkataba (Preview)', 'type' => 'view_agreement', 'payload' => ['id' => $agId]],
+                        ['id' => 'sign_agreement', 'label' => 'Weka Saini (Sign)', 'type' => 'sign_agreement', 'payload' => ['id' => $agId]],
+                        ['id' => 'print_agreement', 'label' => 'Chapisha Hati (Print/PDF)', 'type' => 'open_url', 'payload' => ['url' => "/landlord/agreements/{$agId}/print"]],
+                    ]
+                );
+            }
+        }
+
+        // B. Invoice Generation
+        if (in_array('generate_invoice', $toolsInvoked, true)) {
+            $data = $this->extractToolData('generate_invoice', $toolResults, function () { return []; });
+            if (!empty($data) && !empty($data['invoice_id'])) {
+                $invId = $data['invoice_id'];
+                $dueFormatted = number_format($data['amount_due'] ?? 0);
+                $notificationMsg = $data['notification'] ?? "Ankara {$data['invoice_number']} imeundwa kikamilifu. Hakiki kabla ya kushiriki na mpangaji.";
+
+                return VeyoraPresentationContract::detail(
+                    title: "Ankara Mpya ya Malipo ({$data['invoice_number']})",
+                    summary: $replyText ?: $notificationMsg,
+                    entityType: 'invoice',
+                    profile: [
+                        'invoice_id' => $invId,
+                        'invoice_number' => $data['invoice_number'],
+                        'status' => $data['status'] ?? 'issued',
+                        'tenant_name' => $data['tenant_name'] ?? 'Mpangaji',
+                        'unit_number' => $data['unit_number'] ?? 'Chumba',
+                        'amount_due' => "TZS {$dueFormatted}",
+                        'due_date' => $data['due_date'] ?? '',
+                        'period' => $data['billing_period'] ?? '',
+                        'action_required' => 'preview_and_save',
+                        'notification' => $notificationMsg,
+                    ],
+                    sections: [
+                        [
+                            'title' => 'Mchanganuo wa Ankara (Line Items)',
+                            'fields' => array_map(function ($item) {
+                                return [
+                                    'label' => $item['description'] ?? 'Huduma',
+                                    'value' => 'TZS ' . number_format($item['amount'] ?? 0),
+                                ];
+                            }, $data['line_items'] ?? [])
+                        ]
+                    ],
+                    actions: [
+                        ['id' => 'view_invoice', 'label' => 'Angalia Ankara (Preview)', 'type' => 'view_invoice', 'payload' => ['id' => $invId]],
+                        ['id' => 'share_invoice', 'label' => 'Tuma kwa Mpangaji (Share)', 'type' => 'share_invoice', 'payload' => ['id' => $invId]],
+                        ['id' => 'record_payment', 'label' => 'Rekodi Malipo (Pay)', 'type' => 'record_payment', 'payload' => ['id' => $invId]],
+                        ['id' => 'print_invoice', 'label' => 'Chapisha (PDF)', 'type' => 'open_url', 'payload' => ['url' => "/landlord/invoices/{$invId}/print"]],
+                    ]
+                );
+            }
+        }
+
+        // C. Room Occupancy Duration & Expirations
+        if (in_array('get_occupancy_duration', $toolsInvoked, true)) {
+            $data = $this->extractToolData('get_occupancy_duration', $toolResults, function () { return []; });
+            $rooms = $data['rooms'] ?? ($data['expiring_rooms'] ?? []);
+            if (!empty($rooms)) {
+                $items = array_map(function ($r) {
+                    $tenant = $r['current_tenant'] ?? null;
+                    $status = $r['status'] ?? 'vacant';
+                    $duration = $tenant['duration'] ?? 'Vacant';
+                    return [
+                        'id' => $r['unit_id'] ?? 0,
+                        'title' => ($r['property_name'] ?? 'Nyumba') . ' — ' . ($r['unit_number'] ?? 'Unit'),
+                        'subtitle' => $tenant ? "Mpangaji: {$tenant['name']} &bull; Muda: {$duration}" : 'Chumba kiko wazi (Vacant)',
+                        'badge' => $tenant && !empty($tenant['is_expiring_soon']) ? 'Inaisha Hivi Karibuni' : ucfirst($status),
+                        'status' => $status,
+                        'price' => 'TZS ' . number_format($r['monthly_rent'] ?? 0) . '/mo',
+                        'specs' => $tenant ? "Kodi: {$tenant['payment_status']} (Salio: TZS " . number_format($tenant['outstanding_balance'] ?? 0) . ")" : "Hakuna mpangaji",
+                    ];
+                }, $rooms);
+
+                return VeyoraPresentationContract::entityList(
+                    title: 'Ukaaji na Muda wa Vyumba (Occupancy Tracker)',
+                    summary: $replyText ?: ($data['message'] ?? 'Hapa kuna hali ya vyumba na muda wa ukaaji:'),
+                    entityType: 'occupancy',
+                    items: $items,
+                    pagination: null,
+                    actions: [
+                        ['id' => 'view_occupancy', 'label' => 'Angalia Vyumba Vyote', 'type' => 'navigate', 'payload' => ['screen' => 'occupancy']],
+                    ]
+                );
+            }
+        }
+
+        // D. Check Pending Signatures
+        if (in_array('check_pending_signatures', $toolsInvoked, true)) {
+            $data = $this->extractToolData('check_pending_signatures', $toolResults, function () { return []; });
+            $reports = $data['reports'] ?? [];
+            if (!empty($reports)) {
+                $items = array_map(function ($rep) {
+                    return [
+                        'id' => $rep['agreement_id'] ?? 0,
+                        'title' => "Mkataba {$rep['agreement_number']} ({$rep['property_name']} - {$rep['unit_number']})",
+                        'subtitle' => "Mpangaji: {$rep['tenant_name']} &bull; Saini Mpangaji: " . ($rep['tenant_signed'] ? 'Tayari' : 'Inasubiri'),
+                        'badge' => $rep['status_label'] ?? 'Inasubiri',
+                        'status' => $rep['status'] ?? 'pending',
+                        'price' => 'TZS ' . number_format($rep['monthly_rent'] ?? 0) . '/mo',
+                        'specs' => implode(', ', $rep['pending_actions'] ?? []),
+                    ];
+                }, $reports);
+
+                return VeyoraPresentationContract::entityList(
+                    title: 'Hali ya Saini za Mikataba (Pending Signatures)',
+                    summary: $replyText ?: 'Taarifa za saini na hatua zilizobaki:',
+                    entityType: 'agreement',
+                    items: $items,
+                    pagination: null,
+                    actions: [
+                        ['id' => 'view_agreements', 'label' => 'Fungua Mikataba', 'type' => 'navigate', 'payload' => ['screen' => 'agreements']],
+                    ]
+                );
+            }
+        }
+
         if (in_array('get_arrears_alerts', $toolsInvoked, true)) {
             $data = $this->extractToolData('get_arrears_alerts', $toolResults, function () {
                 $tool = new \App\Mcp\Tools\Rental\GetArrearsAlertsTool();

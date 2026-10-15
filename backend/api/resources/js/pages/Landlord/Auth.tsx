@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Mail, Phone, Lock, ArrowRight,
     ArrowLeft, CheckCircle2, AlertCircle,
-    Globe, Eye, EyeOff, Loader2, ChevronRight
+    Globe, Eye, EyeOff, Loader2, ChevronRight, Info
 } from 'lucide-react';
 import { Logo } from '@/components/ui';
 

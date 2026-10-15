@@ -41,12 +41,25 @@ class Api {
   static bool get seenOnboarding => _prefs.getBool('onboarded') ?? false;
   static void finishOnboarding() => _prefs.setBool('onboarded', true);
 
+  static Future<void> refreshUser() async {
+    if (_token == null) return;
+    try {
+      final res = await get('user/me/');
+      if (res is Map) {
+        setUser(Map<String, dynamic>.from(res));
+      }
+    } catch (_) {}
+  }
+
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
     lang.value = _prefs.getString('lang') ?? 'en';
     _token = _prefs.getString('token');
     final u = _prefs.getString('user');
     if (_token != null && u != null) user.value = jsonDecode(u);
+    if (_token != null) {
+      unawaited(refreshUser());
+    }
   }
 
   static void setUser(Map<String, dynamic> u) {
@@ -71,8 +84,12 @@ class Api {
     user.value = null;
   }
 
-  static String? img(String? path) =>
-      path == null || path.isEmpty ? null : '$host$path';
+  static String? img(String? path) {
+    if (path == null || path.isEmpty) return null;
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    if (!path.startsWith('/')) return '$host/$path';
+    return '$host$path';
+  }
 
   static Future<dynamic> get(String path, [Map<String, dynamic>? query]) =>
       _send('GET', path, query: query);

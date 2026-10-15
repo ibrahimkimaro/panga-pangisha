@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -12,6 +12,9 @@ import {
     Eye, EyeOff, Smartphone, Globe, Building, Wallet, CheckCircle, Save,
     FileCheck, LogOut, Trash2, Sliders, ShieldAlert, Upload
 } from 'lucide-react';
+import RentalAgreementsView from './components/RentalAgreementsView';
+import InvoicesView from './components/InvoicesView';
+import OccupancyView from './components/OccupancyView';
 
 interface LandlordDashboardProps {
     user?: {
@@ -120,7 +123,7 @@ export default function LandlordDashboard({
         role: 'Landlord',
         bio: 'Commercial & residential landlord with 18+ units across Dar es Salaam.',
         location: 'Dar es Salaam, Tanzania',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
         identity_status: 'approved',
         business_name: 'Kimaro Real Estate Holdings',
     },
@@ -164,7 +167,7 @@ export default function LandlordDashboard({
     },
 }: LandlordDashboardProps) {
     const [activeSection, setActiveSection] = useState<
-        'dashboard' | 'properties' | 'tenants' | 'rent' | 'utilities' | 'maintenance' | 'reports' | 'messages' | 'ai' | 'settings'
+        'dashboard' | 'properties' | 'occupancy' | 'agreements' | 'invoices' | 'tenants' | 'rent' | 'utilities' | 'maintenance' | 'reports' | 'messages' | 'ai' | 'settings'
     >('dashboard');
     const [utilityTab, setUtilityTab] = useState<'electricity' | 'water'>('electricity');
     const [searchQuery, setSearchQuery] = useState('');
@@ -180,7 +183,7 @@ export default function LandlordDashboard({
         role: user.role || 'Landlord',
         bio: user.bio || 'Commercial & residential landlord with 18+ units across Dar es Salaam.',
         location: user.location || 'Dar es Salaam, Tanzania',
-        avatar: user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+        avatar: user.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
         identity_status: user.identity_status || 'approved',
         business_name: user.business_name || 'Kimaro Real Estate Holdings',
     });
@@ -196,6 +199,34 @@ export default function LandlordDashboard({
         location: currentUser.location,
         bio: currentUser.bio,
     });
+
+    useEffect(() => {
+        if (user) {
+            const fallbackAvatar = user.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80';
+            setCurrentUser((prev) => ({
+                ...prev,
+                id: user.id || prev.id,
+                name: user.name || prev.name,
+                email: user.email || prev.email,
+                phone: user.phone || prev.phone,
+                country: user.country || prev.country,
+                role: user.role || prev.role,
+                bio: user.bio || prev.bio,
+                location: user.location || prev.location,
+                avatar: fallbackAvatar,
+                identity_status: user.identity_status || prev.identity_status,
+                business_name: user.business_name || prev.business_name,
+            }));
+            setProfileForm({
+                name: user.name || 'Ibrahim Kimaro',
+                email: user.email || '',
+                phone: user.phone || '',
+                country: user.country || 'TZ',
+                location: user.location || '',
+                bio: user.bio || '',
+            });
+        }
+    }, [user]);
 
     const [passwordForm, setPasswordForm] = useState({
         currentPassword: '',
@@ -302,10 +333,18 @@ export default function LandlordDashboard({
         const formData = new FormData();
         formData.append('avatar', file);
 
+        const headers: Record<string, string> = {
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+        const token = localStorage.getItem('auth_token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         try {
             const res = await fetch('/landlord/profile/avatar', {
                 method: 'POST',
                 body: formData,
+                headers,
+                credentials: 'include',
             });
             const data = await res.json();
             if (data.avatar) {
@@ -313,18 +352,39 @@ export default function LandlordDashboard({
             }
             setFeedbackMessage({ type: 'success', text: 'Profile picture uploaded and updated successfully!' });
         } catch {
-            setFeedbackMessage({ type: 'success', text: 'Profile picture updated!' });
+            setFeedbackMessage({ type: 'error', text: 'Failed to upload profile picture. Please try again.' });
         } finally {
             setAvatarLoading(false);
             setTimeout(() => setFeedbackMessage(null), 4000);
         }
     };
 
-    const handleAvatarRemove = () => {
-        const defaultAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';
-        setCurrentUser((prev) => ({ ...prev, avatar: defaultAvatar }));
-        setFeedbackMessage({ type: 'success', text: 'Profile picture reset to default.' });
-        setTimeout(() => setFeedbackMessage(null), 3000);
+    const handleAvatarRemove = async () => {
+        setAvatarLoading(true);
+        const headers: Record<string, string> = {
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+        const token = localStorage.getItem('auth_token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        try {
+            const res = await fetch('/landlord/profile/avatar/remove', {
+                method: 'POST',
+                headers,
+                credentials: 'include',
+            });
+            const data = await res.json();
+            const fallback = data.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80';
+            setCurrentUser((prev) => ({ ...prev, avatar: fallback }));
+            setFeedbackMessage({ type: 'success', text: 'Profile picture reset to default.' });
+        } catch {
+            const fallback = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80';
+            setCurrentUser((prev) => ({ ...prev, avatar: fallback }));
+            setFeedbackMessage({ type: 'success', text: 'Profile picture reset to default.' });
+        } finally {
+            setAvatarLoading(false);
+            setTimeout(() => setFeedbackMessage(null), 3000);
+        }
     };
 
     // Profile Details Update Handler
@@ -336,7 +396,11 @@ export default function LandlordDashboard({
         try {
             const res = await fetch('/landlord/profile/update', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'include',
                 body: JSON.stringify({
                     fullname: profileForm.name,
                     email: profileForm.email,
@@ -518,6 +582,9 @@ export default function LandlordDashboard({
                         {[
                             { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
                             { id: 'properties', label: 'Properties', icon: Home },
+                            { id: 'occupancy', label: 'Room Occupancy', icon: Building2, isNew: true },
+                            { id: 'agreements', label: 'Mikataba ya Nyumba', icon: FileCheck, isNew: true },
+                            { id: 'invoices', label: 'Invoices & Billing', icon: Receipt, isNew: true },
                             { id: 'tenants', label: 'Tenants', icon: Users },
                             { id: 'rent', label: 'Rent & Payments', icon: CreditCard },
                             { id: 'utilities', label: 'Utilities', icon: Zap, hasArrow: true },
@@ -724,6 +791,20 @@ export default function LandlordDashboard({
                                 ))}
                             </div>
                         </div>
+                    ) : activeSection === 'occupancy' ? (
+                        <OccupancyView
+                            onPrepareAgreement={() => setActiveSection('agreements')}
+                            onGenerateInvoice={() => setActiveSection('invoices')}
+                        />
+                    ) : activeSection === 'agreements' ? (
+                        <RentalAgreementsView
+                            properties={properties.map((p) => ({ id: p.id, name: p.name }))}
+                            onSwitchToInvoices={() => setActiveSection('invoices')}
+                        />
+                    ) : activeSection === 'invoices' ? (
+                        <InvoicesView
+                            properties={properties.map((p) => ({ id: p.id, name: p.name }))}
+                        />
                     ) : activeSection === 'tenants' ? (
                         /* SECTION: TENANTS DIRECTORY */
                         <div className="space-y-6">

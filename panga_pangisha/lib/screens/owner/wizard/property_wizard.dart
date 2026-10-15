@@ -15,6 +15,7 @@ import '../../../ui.dart';
 import '../../customecontrols/RegionsDistrict.dart';
 import '../../customecontrols/pickers.dart';
 import '../../listing.dart';
+import '../ai_property_workspace.dart';
 import 'wizard_models.dart';
 
 /// Screen 14 Complete: Landlord Multi-Step Property Creation & Unit Management Wizard
@@ -254,27 +255,99 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(t('AI Property Assistant', 'Msaidizi wa AI wa Nyumba'), style: display(17, weight: FontWeight.w800)),
-                      Text(t('Describe your property to auto-fill details and units', 'Elezea nyumba yako ili kujaza taarifa na vyumba moja kwa moja'),
-                        style: body(12, color: C.muted)),
+                      Text(t('Veyora AI Property Assistant', 'Msaidizi wa AI wa Nyumba'), style: display(17, weight: FontWeight.w800)),
+                      Text(
+                        t('Conversational intelligence, market explanations & auto-fill',
+                          'Akili ya mazungumzo, ushauri wa soko na kujaza taarifa kiotomatiki'),
+                        style: body(12, color: C.muted),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: aiController,
-              maxLines: 4,
-              style: body(14),
-              decoration: InputDecoration(
-                hintText: t(
-                  'e.g. Modern residence in Mbezi Beach Dar es Salaam with 2 master bedrooms at 25k for 4 months, 1 standard room at 10k for 6 months, and 2 independent 3-bed houses at 550k. NAPA 14111-MBZ-042.',
-                  'mf. Nyumba ya kisasa Mbezi Beach Dar es Salaam yenye vyumba 2 master kodi 25,000 miezi 4, chumba 1 cha kawaida kodi 10,000 miezi 6, na nyumba 2 zinazojitegemea za vyumba 3 kodi 550,000. NAPA 14111-MBZ-042.',
+            // Primary Interactive Workspace Launcher
+            InkWell(
+              onTap: () async {
+                Navigator.pop(context);
+                final updated = await push<PropertyDraft>(
+                  context,
+                  AiPropertyWorkspaceScreen(
+                    initialWizardDraft: _draft,
+                    currentStepIndex: _step,
+                    currentStepName: _stepTitles[_step].$1,
+                  ),
+                );
+                if (updated != null && mounted) {
+                  setState(() {
+                    _draft = updated;
+                  });
+                  toast(context, t('Wizard successfully updated from Veyora AI!', 'Taarifa za Wizard zimesasishwa kutoka kwa Veyora AI!'));
+                }
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: C.teal.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: C.teal.withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: C.teal, borderRadius: BorderRadius.circular(10)),
+                      child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            t('Open Interactive AI Workspace', 'Fungua Mazungumzo Kamili ya AI'),
+                            style: display(14.5, weight: FontWeight.w800, color: C.ink),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            t('Chat, ask market questions about step "${_stepTitles[_step].$1}", and apply details',
+                              'Zungumza, uliza maswali kuhusu hatua hii, na jaza taarifa kiotomatiki'),
+                            style: body(12, color: C.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 14, color: C.teal),
+                  ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: Divider(color: C.line)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(t('or quick description below', 'au eleza kwa ufupi hapa chini'), style: body(11.5, color: C.muted)),
+                ),
+                Expanded(child: Divider(color: C.line)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: aiController,
+              maxLines: 3,
+              style: body(14),
+              decoration: InputDecoration(
+                hintText: t(
+                  'e.g. 3 bedroom house in Sinza Mori, rent 800,000/mo, 1 master and 2 normal rooms...',
+                  'mf. Nyumba ya vyumba 3 Sinza Mori, kodi 800,000 kwa mwezi, chumba 1 master na 2 vya kawaida...',
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
             Button(
               t('Apply Details to Wizard', 'Jaza Taarifa kwenye Fomu'),
               icon: Icons.auto_awesome,
@@ -294,33 +367,45 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
   Future<void> _applyAiPrompt(String text) async {
     setState(() => _busy = true);
     try {
-      final res = await Api.post('ai/property-assist', {'text': text});
-      if (res is Map && res['suggestion'] is Map) {
-        final s = Map<String, dynamic>.from(res['suggestion'] as Map);
+      final res = await Api.post('property-drafts/chat', {
+        'message': text,
+        'current_step': _stepTitles[_step].$1,
+      });
+      if (res is Map && res['draft'] is Map) {
+        final d = Map<String, dynamic>.from(res['draft'] as Map);
         setState(() {
-          if ((s['property_name'] ?? '').toString().isNotEmpty) {
-            _draft.propertyName = s['property_name'].toString();
+          if ((d['property_name'] ?? '').toString().isNotEmpty) {
+            _draft.propertyName = d['property_name'].toString();
           }
-          if ((s['region'] ?? '').toString().isNotEmpty) {
-            _draft.region = s['region'].toString();
+          if ((d['property_type'] ?? '').toString().isNotEmpty) {
+            _draft.propertyType = WizardPropertyType.fromName(d['property_type']);
           }
-          if ((s['district'] ?? '').toString().isNotEmpty) {
-            _draft.district = s['district'].toString();
+          if ((d['region'] ?? '').toString().isNotEmpty) {
+            _draft.region = d['region'].toString();
           }
-          if ((s['ward'] ?? '').toString().isNotEmpty) {
-            _draft.ward = s['ward'].toString();
+          if ((d['district'] ?? '').toString().isNotEmpty) {
+            _draft.district = d['district'].toString();
           }
-          if ((s['street'] ?? '').toString().isNotEmpty) {
-            _draft.street = s['street'].toString();
+          if ((d['ward'] ?? '').toString().isNotEmpty) {
+            _draft.ward = d['ward'].toString();
           }
-          if ((s['napa_number'] ?? '').toString().isNotEmpty) {
-            _draft.napaNumber = s['napa_number'].toString();
+          if ((d['street'] ?? '').toString().isNotEmpty) {
+            _draft.street = d['street'].toString();
           }
-          if ((s['description'] ?? '').toString().isNotEmpty) {
-            _draft.description = s['description'].toString();
+          if ((d['napa_number'] ?? '').toString().isNotEmpty) {
+            _draft.napaNumber = d['napa_number'].toString();
+          }
+          if ((d['description'] ?? '').toString().isNotEmpty) {
+            _draft.description = d['description'].toString();
+          }
+          if (d['monthly_rent'] != null && d['monthly_rent'] > 0) {
+            _draft.overallRent = (d['monthly_rent'] as num).toDouble();
+          }
+          if (d['security_deposit'] != null && d['security_deposit'] > 0) {
+            _draft.securityDeposit = (d['security_deposit'] as num).toDouble();
           }
 
-          final rawUnits = s['units'];
+          final rawUnits = d['units'];
           if (rawUnits is List && rawUnits.isNotEmpty) {
             _draft.rentalMode = RentalMode.rooms;
             _draft.units = [
@@ -330,25 +415,26 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
                   unitNumber: rawUnits[i]['unit_number']?.toString() ?? 'Unit ${i + 1}',
                   unitType: rawUnits[i]['unit_type']?.toString() ?? 'Room',
                   monthlyRent: (rawUnits[i]['monthly_rent'] as num?)?.toDouble() ?? 100000.0,
-                  paymentTerms: rawUnits[i]['payment_terms']?.toString() ?? 'Monthly',
+                  paymentTerms: rawUnits[i]['payment_terms']?.toString() ?? '4 months advance',
                   bedrooms: (rawUnits[i]['bedrooms'] as num?)?.toInt() ?? 1,
                   bathrooms: (rawUnits[i]['bathrooms'] as num?)?.toInt() ?? 1,
                   description: rawUnits[i]['description']?.toString() ?? '',
+                  isCustomized: true,
                 ),
             ];
-          } else {
-            _parseAiPrompt(text);
           }
         });
-        toast(context, t('AI successfully structured your property details.', 'AI imepanga taarifa za nyumba yako.'));
+        if (mounted) {
+          toast(context, t('AI successfully structured your property details.', 'AI imepanga taarifa za nyumba yako.'));
+        }
         return;
       }
     } catch (_) {
-      // Fallback to local heuristic extraction if offline or provider busy
+      // Fallback to local heuristic extraction if offline
+      _parseAiPrompt(text);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-    _parseAiPrompt(text);
   }
 
   void _parseAiPrompt(String text) {

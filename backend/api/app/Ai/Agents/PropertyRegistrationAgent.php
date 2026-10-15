@@ -14,11 +14,13 @@ class PropertyRegistrationAgent implements Agent, HasStructuredOutput
 
     protected array $currentDraft = [];
     protected array $validationState = [];
+    protected ?string $currentStep = null;
 
-    public function withDraftState(array $draft, array $validation): static
+    public function withDraftState(array $draft, array $validation, ?string $currentStep = null): static
     {
         $this->currentDraft = $draft;
         $this->validationState = $validation;
+        $this->currentStep = $currentStep;
         return $this;
     }
 
@@ -26,26 +28,47 @@ class PropertyRegistrationAgent implements Agent, HasStructuredOutput
     {
         $draftJson = json_encode($this->currentDraft, JSON_PRETTY_PRINT);
         $validationJson = json_encode($this->validationState, JSON_PRETTY_PRINT);
+        $stepContext = $this->currentStep ? <<<STEP
+# Landlord's Current Wizard Step Focus:
+The landlord is currently in the "{$this->currentStep}" step of the property registration wizard.
+- Provide tailored guidance, explanations, and advice specifically relevant to this step.
+- Answer ANY question the landlord asks about this step, local Tanzanian market customs, utility metering, deposit standards, or policies in `explanation`.
+- Seamlessly extract and update any property attributes mentioned in their response, regardless of what step they relate to.
+STEP : '';
 
         return <<<TXT
-You are Veyora's Property Registration Specialist for Panga na Kupangisha in Tanzania.
-Your mission is to help landlords register rental properties and units quickly and naturally through conversation.
+You are Veyora's expert Property Registration AI for Panga na Kupangisha in Tanzania.
+Your mission is to guide landlords conversationally to register their houses, apartments, and rooms seamlessly, while answering ANY question they have with accurate, local real estate expertise.
+{$stepContext}
 
-# Language & Interaction Principles
-1. **Multilingual & Natural**:
-   - Fluently understand English, Kiswahili, mixed Swahili-English (Sheng/code-switching), and colloquial phrasing.
-   - Match the user's language in your conversational reply.
-   - Handle typos, spelling mistakes, and abbreviations gracefully (e.g., "mikoch", "kinondon", "vyumba 2 vya kulala", "laki 5", "laki 8 na nusu", "room ya master").
+# Core Intelligence & Behavior
+1. **Multilingual & Empathetic**:
+   - Fluently understand English, Kiswahili, and Tanzanian street / mixed phrasing (Sheng, code-switching).
+   - Match the user's language naturally in `assistant_reply`.
+   - Never be pedantic about typos or abbreviations (e.g., "miko", "kinondon", "luku", "vyumba vi3", "laki 4", "master bedroom").
+
 2. **Multi-Field Extraction**:
-   - Extract ALL details provided in a single message into the `updates` object.
-   - For example: "Nina nyumba Mikocheni, kodi ni 800,000 ina vyumba vitatu" -> extract property_name/description, district: "Kinondoni", ward: "Mikocheni", monthly_rent: 800000, and 3 rooms in units.
-3. **No Redundant Questioning**:
-   - Do NOT ask the landlord to repeat information that is already present in the current draft.
-   - Check the missing required fields and ask only for the next most important missing field.
-4. **Explicit Corrections**:
-   - If the user corrects or overrides a previous detail (e.g. "Hapana, kodi ni 750k sio 800k", "Actually change location to Mwenge"), extract the new value and note the correction.
-5. **Side Questions**:
-   - If the landlord asks a question (e.g., "NAPA code ni nini?", "What is a security deposit?", "How long does verification take?"), answer it clearly in `assistant_reply` while retaining the draft state.
+   - Extract every piece of factual data provided in the user's message into the `updates` object.
+   - Accurately map Tanzanian locations:
+     * Regions: Dar es Salaam, Arusha, Dodoma, Mwanza, Kilimanjaro, Morogoro, Zanzibar, etc.
+     * Common Dar es Salaam Districts: Kinondoni, Ilala, Ubungo, Temeke, Kigamboni.
+     * Popular Wards: Mikocheni, Sinza, Mwenge, Kijitonyama, Masaki, Oysterbay, Msasani, Tegeta, Mbezi, Kimara, Segerea, Kariakoo, Upanga.
+   - Accurately parse rents: "laki tatu" = 300000, "laki nne na nusu" = 450000, "milioni moja" = 1000000, "800k" = 800000.
+   - If user describes multiple rooms (e.g. "Chumba kimoja ni master laki 3 na kingine cha kawaida laki 1 na nusu"), create discrete items in `units`.
+
+3. **Answer Any Question & Provide Explanations**:
+   - If the landlord asks ANYTHING (pricing norms, legal requirements, deposit customs, LUKU sub-metering, DAWASA water tariffs, NAPA postal codes, tenant agreements, or why a field is required), explain clearly in `explanation` and summarize in `assistant_reply`.
+   - Local norms in Tanzania:
+     * Rents: Single room (50k-150k TZS), Master bedroom (150k-350k TZS), 1-bedroom/studio (250k-600k TZS), 2-3 bed house/apartment (500k-2.5M TZS).
+     * Advance payment: Usually 3 to 6 months advance ("miezi 6" / "miezi 3").
+     * Security deposit ("tahadhari/dhamana"): Usually 1 month's rent to cover utility bills or wear and tear.
+     * Utilities: LUKU meters can be independent or shared with sub-meters; Water is typically DAWASA or private borehole.
+   - When answering, NEVER wipe or lose the current draft.
+
+4. **Workflow Guidance & No Repetitive Questions**:
+   - Never ask for information already captured in the draft state.
+   - Identify what is still missing according to the validation state, and suggest the next logical step.
+   - Populate 2-4 smart context-aware suggestions in `quick_replies` in the user's active language so the user can tap to reply quickly.
 
 # Current Draft State:
 {$draftJson}
@@ -89,6 +112,17 @@ TXT;
                 'casual',
             ])->description('Primary detected user intent'),
             'assistant_reply' => $schema->string()->required()->description('Natural, empathetic conversational response in the user\'s language'),
+            'explanation' => $schema->string()->description('Helpful educational explanation if the user asked a question, needs advice, or wants context on a step or rule'),
+            'step_focus' => $schema->string()->enum([
+                'location',
+                'structure',
+                'units_pricing',
+                'utilities',
+                'photos',
+                'review',
+                'general_inquiry',
+            ])->description('The workflow step or subject the user is currently focused on'),
+            'quick_replies' => $schema->array()->items($schema->string())->description('2 to 4 suggested quick replies or next questions the user can tap'),
             'next_suggested_field' => $schema->string()->description('The next required or recommended field to ask for, or null if ready'),
         ];
     }

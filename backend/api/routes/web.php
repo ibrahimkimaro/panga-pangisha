@@ -24,6 +24,13 @@ Route::get('signup', fn () => Inertia::render('Auth/Signup'))->name('signup');
 // Tenant space
 Route::prefix('tenant')->group(function () {
     Route::get('dashboard', fn () => Inertia::render('Tenant/Dashboard'))->name('tenant.dashboard');
+    Route::get('agreements', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'listAgreements']);
+    Route::get('agreements/{id}', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'showAgreement']);
+    Route::get('agreements/{id}/print', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'printAgreementHtml'])->name('tenant.agreements.print');
+    Route::post('agreements/{id}/sign-tenant', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'tenantSign']);
+    Route::get('invoices', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'listInvoices']);
+    Route::get('invoices/{id}', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'showInvoice']);
+    Route::get('invoices/{id}/print', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'printInvoiceHtml'])->name('tenant.invoices.print');
 });
 
 // Landlord space
@@ -35,8 +42,28 @@ Route::prefix('landlord')->group(function () {
     Route::get('home', [\App\Http\Controllers\Landlord\DashboardController::class, 'index'])->name('landlord.home');
     Route::post('profile/update', [\App\Http\Controllers\Landlord\DashboardController::class, 'updateProfile'])->name('landlord.profile.update');
     Route::post('profile/avatar', [\App\Http\Controllers\Landlord\DashboardController::class, 'updateAvatar'])->name('landlord.profile.avatar');
+    Route::match(['post', 'delete'], 'profile/avatar/remove', [\App\Http\Controllers\Landlord\DashboardController::class, 'removeAvatar'])->name('landlord.profile.avatar.remove');
     Route::post('profile/password', [\App\Http\Controllers\Landlord\DashboardController::class, 'updatePassword'])->name('landlord.profile.password');
     Route::post('settings/update', [\App\Http\Controllers\Landlord\DashboardController::class, 'updateSettings'])->name('landlord.settings.update');
+
+    // Rental Agreements (Mkataba wa Nyumba)
+    Route::get('agreements', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'listAgreements']);
+    Route::post('agreements/draft', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'prepareDraft']);
+    Route::get('agreements/{id}', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'showAgreement']);
+    Route::patch('agreements/{id}', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'updateDraft']);
+    Route::post('agreements/{id}/sign-landlord', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'landlordSign']);
+    Route::get('agreements/{id}/print', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'printAgreementHtml'])->name('landlord.agreements.print');
+
+    // Invoices Ledger & Payments
+    Route::get('invoices', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'listInvoices']);
+    Route::post('invoices/generate', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'generateInvoice']);
+    Route::get('invoices/{id}', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'showInvoice']);
+    Route::post('invoices/{id}/pay', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'recordPayment']);
+    Route::post('invoices/{id}/share', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'shareInvoice'])->name('landlord.invoices.share');
+    Route::get('invoices/{id}/print', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'printInvoiceHtml'])->name('landlord.invoices.print');
+
+    // Occupancy & Duration tracking
+    Route::get('occupancy-metrics', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'occupancyMetrics']);
 });
 
 Route::prefix('admin')->group(function () {

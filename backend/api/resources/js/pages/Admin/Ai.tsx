@@ -1,4 +1,4 @@
-import { useForm, usePage } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
 import { Activity, AlertTriangle, CheckCircle, Cpu, DollarSign, Gauge, KeyRound, Play, RefreshCw, ShieldAlert, Sparkles, Zap } from 'lucide-react';
 import { useState } from 'react';
 import AdminLayout from '@/layouts/AdminLayout';
@@ -75,6 +75,21 @@ interface LogEntry {
     user?: { id: number; fullname: string };
 }
 
+interface PropertyDraftSummary {
+    id: string;
+    user?: { id: number; fullname: string; email: string };
+    title: string;
+    property_type: string | null;
+    city: string | null;
+    units_count: number;
+    monthly_rent: number | null;
+    status: string;
+    revision: number;
+    completion_percent: number;
+    is_valid: boolean;
+    updated_at: string;
+}
+
 interface Props {
     settings: AiSettingsData;
     providers: ProviderInfo[];
@@ -89,12 +104,13 @@ interface Props {
     };
     top_users: TopUser[];
     by_feature: FeatureStat[];
+    property_drafts?: PropertyDraftSummary[];
     recent: LogEntry[];
 }
 
 export default function AiMonitoring(props: Props) {
     const { flash } = usePage<{ flash?: string }>().props;
-    const [testing, setTesting] = useState(false);
+    const [testing, setTesting] = useState<string | null>(null);
 
     const form = useForm({
         enabled: props.settings.enabled,
@@ -118,12 +134,16 @@ export default function AiMonitoring(props: Props) {
         form.patch('/admin/ai', { preserveScroll: true });
     };
 
-    const runTest = () => {
-        setTesting(true);
-        form.post('/admin/ai/test', {
-            preserveScroll: true,
-            onFinish: () => setTesting(false),
-        });
+    const runTest = (type: string = 'connection') => {
+        setTesting(type);
+        router.post(
+            '/admin/ai/test',
+            { type },
+            {
+                preserveScroll: true,
+                onFinish: () => setTesting(null),
+            }
+        );
     };
 
     const dailyLimit = props.settings.global_daily_tokens || 1;
@@ -141,16 +161,36 @@ export default function AiMonitoring(props: Props) {
             title="AI Usage & Controls"
             subtitle="Provider configuration, cost safeguards, token budgets, and live monitoring"
             actions={
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <Button
                         variant="secondary"
-                        onClick={runTest}
-                        disabled={testing || !currentProvider?.configured}
-                        className="bg-white"
+                        onClick={() => runTest('connection')}
+                        disabled={testing !== null || !currentProvider?.configured}
+                        className="bg-white text-xs"
                         title={!currentProvider?.configured ? 'Configure provider credentials first' : 'Ping the selected provider with a test prompt'}
                     >
-                        {testing ? <RefreshCw className="size-4 animate-spin" /> : <Play className="size-4 text-teal" />}
-                        <span>Test Provider Connection</span>
+                        {testing === 'connection' ? <RefreshCw className="size-3.5 animate-spin" /> : <Play className="size-3.5 text-teal" />}
+                        <span>Ping Connection</span>
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={() => runTest('swahili_property')}
+                        disabled={testing !== null || !currentProvider?.configured}
+                        className="bg-white text-xs text-ink"
+                        title="Test Swahili property extraction understanding"
+                    >
+                        {testing === 'swahili_property' ? <RefreshCw className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5 text-brass" />}
+                        <span>Test Swahili AI</span>
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={() => runTest('english_property')}
+                        disabled={testing !== null || !currentProvider?.configured}
+                        className="bg-white text-xs text-ink"
+                        title="Test English property extraction understanding"
+                    >
+                        {testing === 'english_property' ? <RefreshCw className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5 text-teal" />}
+                        <span>Test English AI</span>
                     </Button>
                 </div>
             }
@@ -304,8 +344,32 @@ export default function AiMonitoring(props: Props) {
                                     placeholder={currentProvider?.default_model ?? 'Leave blank for default'}
                                     className="mt-1.5 h-10 w-full rounded-lg bg-white px-3 text-sm ring-1 ring-inset ring-line focus:ring-2 focus:ring-teal font-mono text-xs"
                                 />
+                                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                    <span className="text-[11px] text-muted">Presets:</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => form.setData('model', 'gemini-3.1-flash-lite')}
+                                        className="rounded bg-mint/80 px-1.5 py-0.5 text-[11px] font-medium text-teal hover:bg-mint"
+                                    >
+                                        gemini-3.1-flash-lite (Active)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => form.setData('model', 'gemini-2.5-flash')}
+                                        className="rounded bg-paper px-1.5 py-0.5 text-[11px] font-medium text-muted hover:bg-paper/80"
+                                    >
+                                        gemini-2.5-flash
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => form.setData('model', 'gemini-3.8-flash')}
+                                        className="rounded bg-paper px-1.5 py-0.5 text-[11px] font-medium text-muted hover:bg-paper/80"
+                                    >
+                                        gemini-3.8-flash
+                                    </button>
+                                </div>
                                 <p className="mt-1 text-xs text-muted">
-                                    Active: <code className="font-mono text-ink">{props.settings.active_model}</code>
+                                    Active: <code className="font-mono text-ink font-semibold">{props.settings.active_model}</code>
                                 </p>
                             </div>
 
@@ -534,6 +598,76 @@ export default function AiMonitoring(props: Props) {
                             )}
                         </Card>
                     </div>
+
+                    {/* Property Registration AI & Drafts */}
+                    <Card
+                        title="AI Property Registration (Conversational & Bilingual)"
+                        aside={
+                            <div className="flex items-center gap-2 text-xs">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-mint px-2.5 py-0.5 font-semibold text-teal-900">
+                                    <Sparkles className="size-3 text-teal" />
+                                    English & Swahili
+                                </span>
+                            </div>
+                        }
+                    >
+                        <div className="mb-4 rounded-xl bg-paper/60 p-3.5 text-xs text-muted leading-relaxed ring-1 ring-line">
+                            <p className="font-semibold text-ink mb-1">
+                                Natural Language Property Extraction Engine
+                            </p>
+                            <p>
+                                Landlords can describe properties in English, Kiswahili, or mixed street Swahili (e.g. <em>"Nina vyumba vitatu Mwenge, kodi laki 4 kila mwezi, umeme luku na maji dawasa"</em>). The AI model maps details to structured drafts with unit-by-unit reconciliation, real-time validations, and progressive preview updates.
+                            </p>
+                        </div>
+
+                        {!props.property_drafts || props.property_drafts.length === 0 ? (
+                            <p className="text-sm text-muted py-2">No active property drafts recorded yet.</p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <Table head={['Landlord', 'Property Title', 'Location', 'Units', 'Rent (TZS)', 'Progress', 'Status', 'Updated']}>
+                                    {props.property_drafts.map((d) => (
+                                        <tr key={d.id}>
+                                            <td className="text-xs">
+                                                <p className="font-semibold text-ink">{d.user?.fullname ?? 'Unknown'}</p>
+                                                <p className="text-muted truncate max-w-[120px]">{d.user?.email}</p>
+                                            </td>
+                                            <td className="text-xs font-semibold text-ink">{d.title}</td>
+                                            <td className="text-xs text-muted">
+                                                {d.city || '—'} {d.property_type ? `(${d.property_type})` : ''}
+                                            </td>
+                                            <td className="text-xs tabular-nums font-semibold">{d.units_count}</td>
+                                            <td className="text-xs tabular-nums">
+                                                {d.monthly_rent ? Number(d.monthly_rent).toLocaleString() : '—'}
+                                            </td>
+                                            <td className="text-xs">
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-paper">
+                                                        <div
+                                                            className={`h-full rounded-full ${d.completion_percent === 100 ? 'bg-teal' : 'bg-brass'}`}
+                                                            style={{ width: `${d.completion_percent}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="tabular-nums text-muted">{d.completion_percent}%</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {d.status === 'completed' && <Badge tone="good">Completed</Badge>}
+                                                {d.status === 'draft' && (
+                                                    <Badge tone={d.is_valid ? 'good' : 'warn'}>
+                                                        {d.is_valid ? 'Ready' : `Draft r${d.revision}`}
+                                                    </Badge>
+                                                )}
+                                                {d.status === 'abandoned' && <Badge tone="neutral">Abandoned</Badge>}
+                                            </td>
+                                            <td className="text-xs text-muted whitespace-nowrap">
+                                                {dateTime(d.updated_at)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </Table>
+                            </div>
+                        )}
+                    </Card>
 
                     {/* Recent Invocations */}
                     <Card title="Recent Invocations">

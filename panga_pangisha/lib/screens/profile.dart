@@ -58,6 +58,7 @@ class _ProfileTabState extends State<ProfileTab> {
   }
 
   Future<void> _fetchRealStats() async {
+    await Api.refreshUser();
     final u = Api.user.value ?? const {};
     final isLandlord = u['role'] == 'landlord';
 

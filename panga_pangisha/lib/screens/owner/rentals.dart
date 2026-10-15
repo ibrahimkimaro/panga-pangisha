@@ -8,6 +8,9 @@ import '../../ui.dart';
 import '../chat.dart';
 import '../customecontrols/pickers.dart';
 import '../profile.dart';
+import 'invoices_screen.dart';
+import 'occupancy_screen.dart';
+import 'rental_agreements_screen.dart';
 
 // A landlord's records: tenants (screen 15), one tenant (16), rent payments (17) and maintenance (18).
 // The server keeps them per home and only shows a landlord their own.
@@ -665,6 +668,9 @@ class _TenantsTabState extends State<TenantsTab> {
       title: t('Tenants', 'Wapangaji'),
       sub: all == null ? ' ' : (active == 1 ? t('1 tenant', 'Mpangaji 1') : t('$active tenants', 'Wapangaji $active')),
       actions: [
+        RoundIcon(Icons.description_outlined, label: t('Agreements', 'Mikataba'), onTap: () => _open(const RentalAgreementsScreen())),
+        RoundIcon(Icons.receipt_long_outlined, label: t('Invoices', 'Ankara'), onTap: () => _open(const InvoicesScreen())),
+        RoundIcon(Icons.timelapse_rounded, label: t('Occupancy', 'Ukaaji'), onTap: () => _open(const OccupancyScreen())),
         RoundIcon(Icons.payments_outlined, label: t('Rent payments', 'Malipo ya kodi'), onTap: () => _open(const RentPaymentsScreen())),
         RoundIcon(Icons.build_outlined, label: t('Maintenance', 'Matengenezo'), onTap: () => _open(const MaintenanceScreen())),
       ],
@@ -674,7 +680,33 @@ class _TenantsTabState extends State<TenantsTab> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _Seg([t('Tenants', 'Wapangaji'), t('Viewing requests', 'Maombi ya kuona')], _seg, (i) => setState(() => _seg = i)),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                ActionChip(
+                  avatar: const Icon(Icons.description_outlined, size: 16),
+                  label: Text(t('Mkataba wa Nyumba', 'Mikataba')),
+                  onPressed: () => _open(const RentalAgreementsScreen()),
+                ),
+                const SizedBox(width: 8),
+                ActionChip(
+                  avatar: const Icon(Icons.receipt_long_outlined, size: 16),
+                  label: Text(t('Ankara & Bili', 'Ankara')),
+                  onPressed: () => _open(const InvoicesScreen()),
+                ),
+                const SizedBox(width: 8),
+                ActionChip(
+                  avatar: const Icon(Icons.timelapse_rounded, size: 16),
+                  label: Text(t('Ukaaji wa Vyumba', 'Ukaaji na Muda')),
+                  onPressed: () => _open(const OccupancyScreen()),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           Expanded(
             child: _seg == 1
                 ? const ViewingsList(asOwner: true)

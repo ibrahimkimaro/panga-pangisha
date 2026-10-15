@@ -37,6 +37,11 @@ class VeyoraMcpServer extends Server
         GetUserProfileTool::class,
         \App\Mcp\Tools\Property\CreatePropertyDraftTool::class,
         \App\Mcp\Tools\Maintenance\CreateMaintenanceTicketTool::class,
+        \App\Mcp\Tools\Rental\PrepareRentalAgreementTool::class,
+        \App\Mcp\Tools\Rental\UpdateAgreementTermsTool::class,
+        \App\Mcp\Tools\Rental\GenerateInvoiceTool::class,
+        \App\Mcp\Tools\Rental\GetOccupancyDurationTool::class,
+        \App\Mcp\Tools\Rental\CheckPendingSignaturesTool::class,
     ];
 
     protected array $resources = [

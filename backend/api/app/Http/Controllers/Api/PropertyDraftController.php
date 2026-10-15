@@ -55,13 +55,17 @@ class PropertyDraftController extends Controller
         $d = $request->validate([
             'message' => 'required|string|min:1|max:2000',
             'draft_id' => 'nullable|uuid',
+            'current_step' => 'nullable|string|max:120',
+            'step' => 'nullable|string|max:120',
         ]);
 
         $draft = $this->draftService->getOrCreateActiveDraft($user, $d['draft_id'] ?? null);
+        $currentStep = $d['current_step'] ?? $d['step'] ?? null;
 
         $agent = (new PropertyRegistrationAgent)->withDraftState(
             $draft->data ?? [],
-            $draft->validation_state ?? []
+            $draft->validation_state ?? [],
+            $currentStep
         );
 
         try {
@@ -77,6 +81,9 @@ class PropertyDraftController extends Controller
                 'draft_id' => $draft->id,
                 'revision' => $draft->revision,
                 'response' => $extracted['assistant_reply'] ?? $response->text,
+                'explanation' => $extracted['explanation'] ?? null,
+                'step_focus' => $extracted['step_focus'] ?? 'general_inquiry',
+                'quick_replies' => $extracted['quick_replies'] ?? [],
                 'user_intent' => $extracted['user_intent'] ?? 'update_fields',
                 'corrections' => $extracted['corrections'] ?? [],
                 'next_suggested_field' => $extracted['next_suggested_field'] ?? null,

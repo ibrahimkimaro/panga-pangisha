@@ -29,7 +29,9 @@ class IbrahimKimaroSeeder extends Seeder
         $profile->update([
             'bio' => 'Commercial & residential landlord with 18+ units across Dar es Salaam.',
             'location' => 'Dar es Salaam, Tanzania',
-            'profile_image' => 'houses/kimaro_residence_exterior.jpg',
+            'profile_image' => $profile->profile_image && !str_contains($profile->profile_image, 'houses/') 
+                ? $profile->profile_image 
+                : null,
         ]);
 
         $first = now('Africa/Dar_es_Salaam')->startOfMonth();

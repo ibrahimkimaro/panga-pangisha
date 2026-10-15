@@ -10,6 +10,7 @@ import '../customecontrols/pickers.dart';
 import '../explore.dart';
 import '../listing.dart';
 import '../owner.dart';
+import 'ai_property_workspace.dart';
 import 'rentals.dart';
 
 /// What a landlord calls each listing state, with the colours of its badge.
@@ -126,8 +127,96 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
   }
 
   Future<void> _add() async {
-    await push<bool>(context, const AddHomeScreen());
-    _load();
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: C.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                t('Add New Property', 'Ongeza Nyumba Mpya'),
+                style: display(18, weight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                t('Choose how you would like to register your property:',
+                  'Chagua jinsi unavyotaka kusajili nyumba yako:'),
+                style: body(13, color: C.muted),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: C.teal.withValues(alpha: 0.3)),
+                ),
+                tileColor: C.teal.withValues(alpha: 0.08),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: C.teal,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
+                ),
+                title: Text(
+                  t('AI Conversational Assistant', 'Msaidizi wa AI (Kiswahili & Kiingereza)'),
+                  style: display(14.5, weight: FontWeight.w700, color: C.ink),
+                ),
+                subtitle: Text(
+                  t('Describe in natural language, ask questions, get market advice & live preview',
+                    'Eleza kwa maneno ya kawaida, uliza maswali ya soko na jaza vyumba kiotomatiki'),
+                  style: body(12, color: C.muted),
+                ),
+                trailing: Icon(Icons.chevron_right_rounded, color: C.teal),
+                onTap: () => Navigator.pop(ctx, 'ai'),
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: C.line),
+                ),
+                tileColor: C.chokaa,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: C.card,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.tune_rounded, color: C.ink, size: 20),
+                ),
+                title: Text(
+                  t('Step-by-Step Manual Wizard', 'Fomu ya Hatua kwa Hatua'),
+                  style: display(14.5, weight: FontWeight.w700, color: C.ink),
+                ),
+                subtitle: Text(
+                  t('Fill forms manually step by step with map pin picker',
+                    'Jaza fomu wewe mwenyewe hatua kwa hatua'),
+                  style: body(12, color: C.muted),
+                ),
+                trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+                onTap: () => Navigator.pop(ctx, 'manual'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (choice == 'ai' && mounted) {
+      await push<bool>(context, const AiPropertyWorkspaceScreen());
+      _load();
+    } else if (choice == 'manual' && mounted) {
+      await push<bool>(context, const AddHomeScreen());
+      _load();
+    }
   }
 
   Future<void> _open(Widget screen) async {

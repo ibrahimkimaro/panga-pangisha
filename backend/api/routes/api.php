@@ -62,6 +62,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('tenants/{id}/payments', [RentalController::class, 'pay']);
     Route::get('rent-payments', [RentalController::class, 'payments']);
     Route::delete('rent-payments/{payment}', [RentalController::class, 'unpay']);
+    // Agreements, Invoices, and Occupancy
+    Route::get('agreements', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'listAgreements']);
+    Route::post('agreements/draft', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'prepareDraft']);
+    Route::get('agreements/{id}', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'showAgreement']);
+    Route::patch('agreements/{id}', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'updateDraft']);
+    Route::post('agreements/{id}/sign-tenant', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'tenantSign']);
+    Route::post('agreements/{id}/sign-landlord', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'landlordSign']);
+    Route::get('agreements/{id}/print', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'printAgreementHtml']);
+
+    Route::get('invoices', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'listInvoices']);
+    Route::post('invoices/generate', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'generateInvoice']);
+    Route::get('invoices/{id}', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'showInvoice']);
+    Route::post('invoices/{id}/pay', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'recordPayment']);
+    Route::post('invoices/{id}/share', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'shareInvoice']);
+    Route::get('invoices/{id}/print', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'printInvoiceHtml']);
+
+    Route::get('occupancy/metrics', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'occupancyMetrics']);
+
     Route::get('maintenance', [RentalController::class, 'requests']);
     Route::post('maintenance', [RentalController::class, 'storeRequest']);
     Route::patch('maintenance/{maintenance}', [RentalController::class, 'updateRequest']);

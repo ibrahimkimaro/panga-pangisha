@@ -19,6 +19,7 @@ export default function UniversalLogin({ initialRole }: { initialRole?: string }
             const response = await fetch('/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     identifier: loginData.identifier.trim(),
                     password: loginData.password,

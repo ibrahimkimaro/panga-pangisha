@@ -5,7 +5,7 @@ import {
     BadgeCheck, Bath, BedDouble, CalendarCheck, Check,
     MapPin, MessageCircle, Search, ShieldCheck, TriangleAlert,
     UserRound, ChevronRight, ArrowRight, Info, Star,
-    Filter, Map as MapIcon, Heart, Sparkles, Zap
+    Filter, Map as MapIcon, Heart, Sparkles, Zap, Building2
 } from 'lucide-react';
 import { Logo, Thumb } from '@/components/ui';
 
@@ -348,7 +348,7 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
                                     {photo(h) ? (
                                         <img src={photo(h)!} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                                     ) : (
-                                        <div className="w-full h-full bg-paper flex items-center justify-center"><Home className="size-10 text-muted" /></div>
+                                        <div className="w-full h-full bg-paper flex items-center justify-center"><Building2 className="size-10 text-muted" /></div>
                                     )}
 
                                     <button className="absolute top-4 right-4 p-2 rounded-full bg-white/80 backdrop-blur-md text-ink hover:text-hibiscus transition-colors shadow-sm">
@@ -391,11 +391,11 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
                     <h2 className="text-4xl sm:text-5xl font-extrabold text-center mb-20">{t('From search to keys', 'Kutoka kutafuta hadi funguo')}</h2>
                     <div className="grid gap-12 md:grid-cols-3">
                         {[
-                            [Search, t('Search by area and budget', 'Tafuta kwa eneo na bajeti'), t('Filter by district, type, bedrooms and rent, or browse the map.', 'Chuja kwa wilaya, aina, vyumba na kodi, au tazama ramani.')],
-                            [MessageCircle, t('Message the advertiser', 'Mwandikie mtangazaji'), t('Chat inside the app and filter by district, type, bedrooms and rent, or browse the map.', 'Chuja kwa wilaya, aina, vyumba na kodi, au tazama ramani.')],
-                            [CalendarCheck, t('Visit before you pay', 'Tembelea kabla ya kulipa'), t('See the home in person. Never send money for a home you have not seen.', 'Ione nyumba ana kwa ana. Usitume pesa kwa nyumba ambayo hujaiona.')],
-                        ].map(([Icon, title, body], i) => (
-                            <div key={title} className="relative group">
+                            { icon: Search, title: t('Search by area and budget', 'Tafuta kwa eneo na bajeti'), body: t('Filter by district, type, bedrooms and rent, or browse the map.', 'Chuja kwa wilaya, aina, vyumba na kodi, au tazama ramani.') },
+                            { icon: MessageCircle, title: t('Message the advertiser', 'Mwandikie mtangazaji'), body: t('Chat inside the app and filter by district, type, bedrooms and rent, or browse the map.', 'Chuja kwa wilaya, aina, vyumba na kodi, au tazama ramani.') },
+                            { icon: CalendarCheck, title: t('Visit before you pay', 'Tembelea kabla ya kulipa'), body: t('See the home in person. Never send money for a home you have not seen.', 'Ione nyumba ana kwa ana. Usitume pesa kwa nyumba ambayo hujaiona.') },
+                        ].map(({ icon: Icon, title, body }, i) => (
+                            <div key={i} className="relative group">
                                 <div className="absolute -inset-4 bg-teal/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                 <div className="relative p-8 h-full rounded-2xl border border-line bg-white transition-all group-hover:shadow-xl group-hover:-translate-y-1">
                                     <div className="flex items-center justify-between mb-6">
