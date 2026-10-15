@@ -17,7 +17,7 @@ class GetPropertyDetailsTool extends Tool
 
     public function description(): string
     {
-        return 'Retrieve complete details and unit inventory of a specific property by ID.';
+        return 'Read-only capability to retrieve complete details and unit inventory of a specific property by its database ID. Data returned: property_name, property_type, full address, monthly_rent, verified status, owner info, amenities, and full list of units. Authorization: Publicly available for active listings; drafts visible only to owning landlord or admin. Parameters: property_id (required integer). Success: returns full property details. Failure: returns error object when not found or unauthorized.';
     }
 
     public function schema(JsonSchema $schema): array

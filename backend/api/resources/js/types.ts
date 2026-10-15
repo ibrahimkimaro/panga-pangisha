@@ -29,6 +29,7 @@ export type Person = {
 export type Listing = {
     id: number;
     owner_id: number;
+    owner?: Person | null;
     property_name: string | null;
     property_type: string | null;
     description: string | null;

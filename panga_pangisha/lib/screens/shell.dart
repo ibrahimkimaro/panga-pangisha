@@ -13,6 +13,7 @@ import 'map.dart';
 import 'owner/properties.dart';
 import 'owner/rentals.dart';
 import 'owner/landlord_dashboard.dart';
+import 'owner/utilities_coming_soon.dart';
 import 'veyora_assistant.dart';
 import 'profile.dart';
 
@@ -51,6 +52,11 @@ class _ShellState extends State<Shell> {
               Icons.chat_bubble_outline_rounded,
               t('Messages', 'Ujumbe'),
               const MessagesTab(),
+            ),
+            (
+              Icons.water_drop_rounded,
+              t('Utilities', 'Huduma'),
+              const UtilitiesComingSoonTab(),
             ),
             (
               Icons.person_outline_rounded,
@@ -110,67 +116,68 @@ class _ShellState extends State<Shell> {
                       ),
                     ),
                   ),
-              Positioned(
-                right: 18,
-                bottom: 74,
-                child: Press(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    push(context, VeyoraAssistantScreen());
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [C.teal, const Color(0xFF0F766E)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+              if (!Api.isOwner)
+                Positioned(
+                  right: 18,
+                  bottom: 74,
+                  child: Press(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      push(context, VeyoraAssistantScreen());
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
                       ),
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: C.teal.withValues(alpha: 0.35),
-                          blurRadius: 14,
-                          offset: const Offset(0, 5),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [C.teal, const Color(0xFF0F766E)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                      ],
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.25),
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const ThinkingOrb(
-                          state: OrbState.breathing,
-                          size: 20,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Veyora AI',
-                          style: body(
-                            13,
-                            color: Colors.white,
-                            weight: FontWeight.w800,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: C.teal.withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            offset: const Offset(0, 5),
                           ),
+                        ],
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          width: 1.2,
                         ),
-                      ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const ThinkingOrb(
+                            state: OrbState.breathing,
+                            size: 20,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Veyora AI',
+                            style: body(
+                              13,
+                              color: Colors.white,
+                              weight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
           bottomNavigationBar: SafeArea(
             minimum: const EdgeInsets.fromLTRB(14, 0, 14, 10),
             child: Row(
               children: [
-                // 1. Sleek Frosted Glass Floating Navigation Bar (Tabs 0..3)
+                // 1. Sleek Frosted Glass Floating Navigation Bar (Tabs 0..tabs.length - 2)
                 Expanded(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(26),
@@ -212,7 +219,7 @@ class _ShellState extends State<Shell> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            for (var i = 0; i < 4; i++)
+                            for (var i = 0; i < tabs.length - 1; i++)
                               _TabButton(
                                 icon: tabs[i].$1,
                                 label: tabs[i].$2,
@@ -233,14 +240,14 @@ class _ShellState extends State<Shell> {
                 ),
                 const SizedBox(width: 8),
 
-                // 2. Circular Frosted Glass Floating Account Button (Tab 4)
+                // 2. Circular Frosted Glass Floating Account Button (Last Tab)
                 _AccountSideButton(
-                  on: _at == 4,
+                  on: _at == tabs.length - 1,
                   onTap: () {
                     HapticFeedback.selectionClick();
                     setState(() {
-                      _at = 4;
-                      _opened.add(4);
+                      _at = tabs.length - 1;
+                      _opened.add(tabs.length - 1);
                     });
                   },
                 ),

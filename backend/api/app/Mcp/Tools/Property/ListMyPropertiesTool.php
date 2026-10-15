@@ -17,7 +17,7 @@ class ListMyPropertiesTool extends Tool
 
     public function description(): string
     {
-        return 'List all properties owned or managed by the authenticated landlord/owner.';
+        return 'Read-only capability to retrieve all registered properties and buildings belonging to the authenticated landlord. Data returned: property id, property_name, property_type, district, ward, street, napa_number, total units count, vacant units count, and verification status. Authorization: Landlord or Admin only. Parameters: none. Success: returns list of owned properties. Failure: returns error object when unauthenticated.';
     }
 
     public function schema(JsonSchema $schema): array

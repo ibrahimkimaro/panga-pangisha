@@ -17,7 +17,7 @@ class ListMaintenanceTool extends Tool
 
     public function description(): string
     {
-        return 'List maintenance and repair tickets for properties owned by the landlord or leased by the tenant.';
+        return 'Read-only capability to inspect maintenance and repair service tickets. Data returned: ticket_id, property_name, unit, title, details, status (open, in_progress, completed, cancelled), and created date. Authorization: Landlords view tickets across owned properties; tenants view tickets for their leased unit. Parameters: status (optional string), house_id (optional integer). Success: returns list of maintenance tickets. Failure: returns error object when unauthenticated.';
     }
 
     public function schema(JsonSchema $schema): array

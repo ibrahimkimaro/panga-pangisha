@@ -17,7 +17,7 @@ class ListTenanciesTool extends Tool
 
     public function description(): string
     {
-        return 'List active or historical rental agreements/tenancies for the authenticated user (landlord viewing their properties or tenant viewing their lease).';
+        return 'Read-only capability to inspect active and historical rental lease agreements (tenancies). Data returned: tenancy_id, property_name, unit, tenant_name, monthly_rent (TZS), starts_on, ends_on, deposit held, and lease status (active, pending, ended). Authorization: Landlords view tenancies across owned properties; tenants view their own active lease agreement. Parameters: status (optional string: active, pending, ended), house_id (optional integer). Success: returns list of tenancies. Failure: returns error object when unauthenticated.';
     }
 
     public function schema(JsonSchema $schema): array

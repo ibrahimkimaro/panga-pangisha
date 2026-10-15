@@ -36,121 +36,82 @@ class VeyoraKnowledgeEngine
             return true;
         }
 
-        // Check if string starts with standard greetings and is very short
-        if (mb_strlen($normalized) <= 25) {
-            foreach (['hi ', 'hello ', 'mambo ', 'habari ', 'hey '] as $prefix) {
-                if (str_starts_with($normalized, $prefix)) {
-                    return true;
-                }
-            }
+        // Exact short 2-word greetings
+        $exactShortGreetings = ['hi there', 'hello there', 'habari veyora', 'hello veyora', 'hi veyora', 'mambo veyora', 'niaje veyora'];
+        if (in_array($normalized, $exactShortGreetings)) {
+            return true;
         }
 
         return false;
     }
 
     /**
-     * Generates an immediate, friendly, personalized greeting.
+     * Generates an immediate, friendly, personalized greeting without overwhelming lists.
      */
     public static function directGreeting(User $user, string $text): string
     {
-        $firstName = explode(' ', trim($user->fullname ?? 'Mteja'))[0];
+        $firstName = explode(' ', trim($user->fullname ?? 'Rafiki'))[0];
         $isSw = self::detectSwahili($text);
-        $role = $user->role ?? 'renter';
 
         if ($isSw) {
-            if ($role === 'landlord') {
-                return "Habari {$firstName}! Mimi ni Veyora, msaidizi wako rasmi wa AI wa nyumba (Panga na Kupangisha).\n\n"
-                    . "Kama mwenye nyumba, naweza kukusaidia:\n"
-                    . "• Kukagua nyumba na vyumba vyako vilivyo sokoni au vilivyopangishwa\n"
-                    . "• Kuangalia kodi zilizoingia na orodha ya wapangaji wako\n"
-                    . "• Kukuongoza kusajili nyumba au vyumba vipya (Master vs Standard)\n"
-                    . "• Kufuatilia tiketi za marekebisho (maji, umeme, ukarabati)\n\n"
-                    . "Ungependa nianze na nini leo?";
-            }
-
-            return "Habari {$firstName}! Mimi ni Veyora, msaidizi wako rasmi wa AI wa nyumba (Panga na Kupangisha).\n\n"
-                . "Nipo hapa kukusaidia:\n"
-                . "• Kutafuta vyumba na nyumba zilizothibitishwa (k.m. 'Tafuta vyumba 2 Kinondoni')\n"
-                . "• Kuangalia mkataba wako wa upangaji na masharti yake\n"
-                . "• Kuangalia historia ya malipo yako ya kodi ya pango\n"
-                . "• Kufungua tiketi ya marekebisho ya maji au umeme\n\n"
-                . "Nikusaidie nini leo?";
+            return "Habari {$firstName}! 😊 Karibu sana. Unaendeleaje leo?";
         }
 
-        if ($role === 'landlord') {
-            return "Hello {$firstName}! I am Veyora, your official Housing AI Assistant for Panga na Kupangisha.\n\n"
-                . "As a landlord, I can assist you with:\n"
-                . "• Inspecting your listed properties and tracking vacant vs occupied units\n"
-                . "• Reviewing your rent collection ledger and active tenants\n"
-                . "• Registering new properties and configuring rentable units/rooms\n"
-                . "• Monitoring maintenance requests across your portfolio\n\n"
-                . "What would you like to start with today?";
-        }
-
-        return "Hello {$firstName}! I am Veyora, your official Housing AI Assistant for Panga na Kupangisha.\n\n"
-            . "I am here to help you:\n"
-            . "• Discover verified rental houses and apartments (e.g. 'Find 2-bedroom in Masaki')\n"
-            . "• Review your active tenancy agreement and lease terms\n"
-            . "• Check your payment history and rent receipts\n"
-            . "• Submit maintenance requests for plumbing or electrical repairs\n\n"
-            . "How can I assist you today?";
+        return "Hello {$firstName}! 😊 Great to connect with you. How are you doing today?";
     }
 
     /**
-     * Resolves an inquiry using authorized database queries and structured domain knowledge.
+     * Resolves general platform domain knowledge inquiries safely without keyword hijacking.
      */
-    public static function answerWithKnowledge(User $user, string $query, array $context = []): string
+    public static function answerWithKnowledge(User $user, string $query, array $context = [], array $recentHistory = []): string
     {
-        $q = mb_strtolower(trim($query));
         $isSw = self::detectSwahili($query);
-        $firstName = explode(' ', trim($user->fullname ?? 'Mteja'))[0];
+        $firstName = explode(' ', trim($user->fullname ?? 'Rafiki'))[0];
 
-        // 1. Property search inquiry
-        if (preg_match('/(tafuta|search|find|chumba|vyumba|nyumba|house|apartment|masaki|kinondoni|upanga|mikocheni|ilala|kigamboni)/i', $q)) {
-            return self::handlePropertySearch($user, $q, $isSw);
-        }
-
-        // 2. Tenancy agreement inquiry
-        if (preg_match('/(mkataba|tenancy|agreement|lease|mpangaji|mwenye nyumba|contract)/i', $q)) {
-            return self::handleTenancyInquiry($user, $isSw);
-        }
-
-        // 3. Rent payments & ledger inquiry
-        if (preg_match('/(malipo|kodi|rent|payment|ledger|receipt|risiti|paid|pesa)/i', $q)) {
-            return self::handlePaymentInquiry($user, $isSw);
-        }
-
-        // 4. Maintenance / repairs inquiry
-        if (preg_match('/(rekebisho|karabati|maji|umeme|bomba|leak|plumbing|electric|maintenance|repair|tiketi|ticket)/i', $q)) {
-            return self::handleMaintenanceInquiry($user, $isSw);
-        }
-
-        // 5. Landlord property registration inquiry
-        if (preg_match('/(sajili|register|ongeza|weka|add|create|wizard|property|unit|vyumba vipya)/i', $q)) {
-            return self::handleRegistrationGuidance($isSw);
-        }
-
-        // Default conversational housing guidance
         if ($isSw) {
-            return "Habari {$firstName}! Nimepokea swali lako kuhusu: \"{$query}\".\n\n"
-                . "Kwenye mfumo wa Veyora, unaweza kufanya yafuatayo:\n"
-                . "1. **Kutafuta Nyumba**: Andika 'Tafuta vyumba 2 Kinondoni' au 'Nyumba Masaki chini ya milioni 1'.\n"
-                . "2. **Mkataba wa Upangaji**: Andika 'Onyesha mkataba wangu' kuona muda, kodi, na masharti.\n"
-                . "3. **Historia ya Kodi**: Andika 'Malipo yangu ya kodi' kuona rekodi zote za risiti.\n"
-                . "4. **Marekebisho**: Andika 'Fungua tiketi ya maji' kwa matatizo ya umeme au mabomba.\n"
-                . "5. **Kusajili Nyumba (Wenye Nyumba)**: Andika 'Jinsi ya kusajili nyumba' kupata maelekezo ya hatua 5.\n\n"
-                . "Tafadhali chagua moja ya hayo nikupe maelezo kamili!";
+            return "Samahani {$firstName}, siwezi kupata taarifa hizo kwa sasa. Tafadhali jaribu tena baada ya muda mfupi au uliza swali lako kwa njia nyingine.";
         }
 
-        return "Hello {$firstName}! I understand you are inquiring about: \"{$query}\".\n\n"
-            . "Here are quick actions you can run with Veyora:\n"
-            . "1. **Search Rentals**: Type 'Search 2-bedroom in Kinondoni' or 'Apartments under 800k TZS'.\n"
-            . "2. **Tenancy Agreement**: Type 'Show my tenancy' to inspect your active lease agreement.\n"
-            . "3. **Rent Ledger**: Type 'Show payment history' to view confirmed rent receipts.\n"
-            . "4. **Maintenance**: Type 'Report water issue' to log plumbing or electrical tickets.\n"
-            . "5. **Landlord Registration**: Type 'How to register a property' for the 5-step unit creation walkthrough.\n\n"
-            . "How can I specifically assist you right now?";
+        return "I'm temporarily unable to retrieve that information right now. Please try again shortly or rephrase your request.";
     }
+
+    private static function handleRentalUnitsInquiry(User $user, bool $isSw): string
+    {
+        if ($user->role !== 'landlord' && $user->role !== 'admin') {
+            return $isSw
+                ? "Ni wamiliki wa nyumba (landlords) pekee wanaoweza kutazama orodha ya vyumba vyao vya kupangisha. Kama wewe ni mpangaji, unaweza kutafuta vyumba wazi kwenye ukurasa wa Gundua."
+                : "Only landlords can view their rental units portfolio. If you are a renter, you can search available units in the Explore tab.";
+        }
+
+        $houseIds = House::where('owner_id', $user->id)->pluck('id');
+        $units = \App\Models\Unit::whereIn('house_id', $houseIds)
+            ->with('house:id,property_name,district,ward')
+            ->latest('id')
+            ->get();
+
+        if ($units->isEmpty()) {
+            return $isSw
+                ? "Bado haujasajili chumba au unit yoyote chini ya nyumba zako. Je, ungependa nikuelekeze jinsi ya kuongeza chumba?"
+                : "You currently don't have any rental units registered under your properties. Would you like guidance on adding a unit?";
+        }
+
+        $lines = [];
+        foreach ($units as $u) {
+            $rent = number_format($u->monthly_rent);
+            $propName = $u->house?->property_name ?? 'Property';
+            $status = $u->status ?: ($u->is_available ? 'available' : 'occupied');
+            $statusLabel = $status === 'available' ? ($isSw ? 'Wazi' : 'Available') : ($isSw ? 'Kimepangishwa' : 'Occupied');
+            $lines[] = "• **{$propName} — Unit {$u->unit_number}**: TZS {$rent}/mwezi ({$statusLabel})";
+        }
+        $unitsText = implode("\n", $lines);
+
+        if ($isSw) {
+            return "Hii hapa orodha ya vyumba vyako vya kupangisha ({$units->count()} jumla):\n\n{$unitsText}";
+        }
+
+        return "Here are your registered rental units ({$units->count()} total):\n\n{$unitsText}";
+    }
+
 
     private static function handlePropertySearch(User $user, string $query, bool $isSw): string
     {
@@ -305,7 +266,7 @@ class VeyoraKnowledgeEngine
             . "To start, open your Landlord Dashboard and tap '+ Register Property'.";
     }
 
-    private static function detectSwahili(string $text): bool
+    public static function detectSwahili(string $text): bool
     {
         $swahiliWords = [
             'habari', 'mambo', 'jambo', 'niaje', 'salama', 'kodi', 'nyumba', 'chumba',

@@ -11,15 +11,15 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
 
         // ✅ Kotlin DSL correct syntax
         isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
@@ -40,9 +40,6 @@ android {
 dependencies {
     // ✅ Kotlin DSL correct syntax for desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") // flutter_local_notifications needs 2.1.4+
-
-    // Replace `$kotlin_version` if it's undefined, or define it at the top of build.gradle.kts
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0")
 }
 
 flutter {

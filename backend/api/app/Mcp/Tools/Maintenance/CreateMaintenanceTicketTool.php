@@ -19,16 +19,16 @@ class CreateMaintenanceTicketTool extends Tool
 
     public function description(): string
     {
-        return 'Create a new maintenance or repair ticket for the tenant leased unit or landlord property.';
+        return 'State-changing mutation capability to submit a new maintenance or repair ticket for a tenant-leased unit or landlord-managed property. Data created: maintenance_request record with pending status, notification to property owner. Authorization: Authenticated tenants with active lease, or landlords/admins. Parameters: title (required string), details (required string), house_id (optional integer), tenancy_id (optional integer). Success: returns ticket id and confirmation message. Failure: returns validation error or authorization rejection.';
     }
 
     public function schema(JsonSchema $schema): array
     {
         return [
-            'title' => $schema->string()->required()->description('Brief summary of the issue (e.g. Leaking faucet)'),
-            'details' => $schema->string()->required()->description('Detailed description of the repair needed'),
-            'house_id' => $schema->integer()->description('Property ID (optional if tenancy_id is provided)'),
-            'tenancy_id' => $schema->integer()->description('Active tenancy ID'),
+            'title' => $schema->string()->required()->description('Brief summary of the issue (e.g. Leaking bathroom pipe, circuit breaker tripping)'),
+            'details' => $schema->string()->required()->description('Detailed description of the repair or maintenance needed'),
+            'house_id' => $schema->integer()->description('Target property ID (optional if tenancy_id is provided)'),
+            'tenancy_id' => $schema->integer()->description('Active tenancy ID if submitted by tenant'),
         ];
     }
 

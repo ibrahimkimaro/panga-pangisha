@@ -19,7 +19,7 @@ class CreatePropertyDraftTool extends Tool
 
     public function description(): string
     {
-        return 'Create or save a property draft with units for the authenticated landlord. Requires explicit landlord confirmation.';
+        return 'State-changing mutation capability to create and save a new draft property listing with units for the authenticated landlord. Data created: house record in pending draft status with associated units. Authorization: Landlord or Admin only. Requires explicit user intent or confirmation before executing changes. Parameters: property_name, property_type, district, monthly_rent, and optional units array. Success: returns created draft property ID. Failure: returns validation error or authorization rejection.';
     }
 
     public function schema(JsonSchema $schema): array

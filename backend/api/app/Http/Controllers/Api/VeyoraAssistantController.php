@@ -2,11 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Ai\Agents\VeyoraAssistant;
-use App\Ai\Knowledge\VeyoraKnowledgeEngine;
+use App\Ai\Orchestration\VeyoraOrchestrator;
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\Ai\AiGateway;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -16,20 +14,21 @@ use Throwable;
 
 /**
  * Mobile and web application API endpoint for the interactive Veyora AI Assistant.
- * Provides resilient conversational intelligence, direct greeting handling,
- * conversation session history, and scoped authorization.
+ * Uses VeyoraOrchestrator for layered, intelligent, permission-safe processing.
  */
 class VeyoraAssistantController extends Controller
 {
     /**
-     * Send a message to Veyora and receive an intelligent response.
+     * Send a message to Veyora and receive an orchestrated response.
      */
-    public function message(Request $r, AiGateway $gateway): JsonResponse
+    public function message(Request $r, VeyoraOrchestrator $orchestrator): JsonResponse
     {
         $d = $r->validate([
             'message' => 'required|string|min:1|max:3000',
             'conversation_id' => 'nullable|string|uuid',
             'context' => 'nullable|array',
+            'context.client' => 'nullable|string|max:40',
+            'context.device' => 'nullable|string|max:40',
             'context.screen' => 'nullable|string|max:80',
             'context.property_id' => 'nullable|integer',
             'context.unit_id' => 'nullable|integer',
@@ -37,65 +36,40 @@ class VeyoraAssistantController extends Controller
         ]);
 
         $user = $r->user();
-        $messageText = trim($d['message']);
-        $convId = $d['conversation_id'] ?? (string) Str::uuid();
+        $convId = $d['conversation_id'] ?? null;
 
         // Verify existing conversation ownership
-        if (! empty($d['conversation_id'])) {
-            $existing = Conversation::find($d['conversation_id']);
-            if ($existing && ($existing->participant_id != $user->id || $existing->participant_type !== Conversation::participantType($user))) {
+        if (! empty($convId)) {
+            $existing = Conversation::find($convId);
+            if (! $existing) {
+                return response()->json(['error' => 'Conversation not found.'], 404);
+            }
+            if ($existing->participant_id != $user->id || $existing->participant_type !== Conversation::participantType($user)) {
                 return response()->json(['error' => 'Unauthorized conversation access.'], 403);
             }
         }
 
-        // 1. Direct Conversational Fast-Path (Greetings, intros, identity queries)
-        if (VeyoraKnowledgeEngine::isGreeting($messageText)) {
-            $greetingResponse = VeyoraKnowledgeEngine::directGreeting($user, $messageText);
+        // Delegate to Intelligent Conversation Orchestrator
+        $result = $orchestrator->handle(
+            $user,
+            $d['message'],
+            $convId,
+            $d['context'] ?? []
+        );
 
-            $this->recordMessagePair($convId, $user, $messageText, $greetingResponse);
-
-            return response()->json([
-                'conversation_id' => $convId,
-                'response' => $greetingResponse,
-                'usage' => ['input_tokens' => 0, 'output_tokens' => 0],
-            ]);
-        }
-
-        // 2. Full LLM Agent Execution via Laravel AI SDK
-        $assistant = (new VeyoraAssistant)
-            ->withContext($user, $d['context'] ?? []);
-
-        if (! empty($d['conversation_id'])) {
-            $assistant->continue($convId, $user);
-        } else {
-            $assistant->forUser($user);
-        }
-
-        try {
-            $response = $gateway->ask($user, 'veyora_assistant', $assistant, $messageText);
-
-            $activeConvId = $assistant->currentConversation() ?: $convId;
-
-            return response()->json([
-                'conversation_id' => $activeConvId,
-                'response' => $response->text,
-                'usage' => [
-                    'input_tokens' => $response->usage?->inputTokens ?? 0,
-                    'output_tokens' => $response->usage?->outputTokens ?? 0,
-                ],
-            ]);
-        } catch (Throwable $e) {
-            // 3. Resilient Knowledge Fallback: Never crash on timeout or provider error
-            $fallbackResponse = VeyoraKnowledgeEngine::answerWithKnowledge($user, $messageText, $d['context'] ?? []);
-
-            $this->recordMessagePair($convId, $user, $messageText, $fallbackResponse);
-
-            return response()->json([
-                'conversation_id' => $convId,
-                'response' => $fallbackResponse,
-                'usage' => ['input_tokens' => 0, 'output_tokens' => 0],
-            ]);
-        }
+        return response()->json([
+            'conversation_id' => $result['conversation_id'],
+            'response' => $result['response'],
+            'route' => $result['route'],
+            'presentation' => $result['presentation'] ?? 'text',
+            'title' => $result['title'] ?? null,
+            'structured_data' => $result['structured_data'] ?? null,
+            'actions' => $result['actions'] ?? [],
+            'pagination' => $result['pagination'] ?? null,
+            'latency_ms' => $result['latency_ms'],
+            'usage' => $result['usage'],
+            'tools_invoked' => $result['tools_invoked'],
+        ]);
     }
 
     /**

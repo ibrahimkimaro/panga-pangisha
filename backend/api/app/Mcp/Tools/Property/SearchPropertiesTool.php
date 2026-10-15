@@ -17,7 +17,7 @@ class SearchPropertiesTool extends Tool
 
     public function description(): string
     {
-        return 'Search available property listings with optional location, price range, and property type filters.';
+        return 'Read-only public search capability to find verified available rental properties and apartments across Tanzania. Data returned: list of property objects with property_id, property_name, property_type, district, ward, monthly_rent (TZS), and available units count. Authorization: Publicly accessible to renters, landlords, and guests. Parameters: q (search text), property_type, district, max_price, and limit. Success: returns list of matching properties. Failure: returns empty list if no listings match.';
     }
 
     public function schema(JsonSchema $schema): array

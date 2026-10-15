@@ -12,4 +12,6 @@ backend/api/storage/framework/cache/*
 backend/api/storage/framework/sessions/*
 backend/api/storage/framework/views/*
 backend/api/storage/framework/testing/*
+node_modules/
+.playwright-mcp/
 

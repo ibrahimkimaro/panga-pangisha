@@ -18,7 +18,7 @@ class GetPaymentHistoryTool extends Tool
 
     public function description(): string
     {
-        return 'Retrieve confirmed rent payment ledger records and summaries for authorized properties or tenancies.';
+        return 'Read-only financial ledger capability that retrieves confirmed rent payments and transaction history. Data returned: payment_id, tenancy_id, amount in TZS, payment method (M-Pesa, TigoPesa, AirtelMoney, Bank, Cash), paid_on date, and payment status. Authorization: Landlords view payments for owned properties; tenants view their own payment receipts. Parameters: tenancy_id (optional), house_id (optional). Success: returns payment history array and total paid. Failure: returns error object when unauthenticated.';
     }
 
     public function schema(JsonSchema $schema): array
