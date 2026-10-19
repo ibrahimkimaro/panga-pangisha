@@ -1,6 +1,6 @@
 // End-to-end check of the realtime chat: auth, privacy, delivery (no drops, no dups, order),
 // offline catch-up, typing, admin monitoring, and latency.
-//   node realtime_chat/bench/chat_check.mjs
+//   node backend/realtime-chat/bench/chat_check.mjs
 // Env: CHAT_URL (ws://localhost:4000/socket), CHAT_SECRET (must match SECRET_KEY of the stack).
 // Creates throwaway users chattest_* in Postgres via `docker exec` and deletes them (and their messages) at the end.
 import { createHmac, randomUUID } from "node:crypto";

@@ -1,7 +1,7 @@
 // End-to-end check of call signaling (voice/video over WebRTC): auth and privacy, busy/decline/
 // cancel/missed/offline, multi-tab, payload validation, TURN credentials, reconnect grace, and a
 // load run of 100 users in 50 simultaneous calls with sockets dropping mid-call.
-//   node realtime_chat/bench/call_check.mjs
+//   node backend/realtime-chat/bench/call_check.mjs
 // Env: CHAT_URL (ws://localhost:4000/socket), CHAT_SECRET (= SECRET_KEY), TURN_SECRET (= TURN_SECRET),
 //      PHOENIX_PATH (phoenix JS client; defaults to the frontend's node_modules), DB_CONTAINER.
 // Media itself is browser to browser and never touches the server, so signaling is what has to hold.
