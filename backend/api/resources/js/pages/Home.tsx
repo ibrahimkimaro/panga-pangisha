@@ -290,7 +290,7 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
                         </div>
                     </div>
                 </div>
-                </motion.section>
+            </section>
 
             {/* HOMES: Fluid Grid with "Wishlist" feature */}
             <section id="homes" className="mx-auto max-w-7xl px-6 py-32 scroll-mt-24">
@@ -363,7 +363,7 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
                         ))}
                     </div>
                 )}
-                </motion.section>
+            </section>
 
             {/* HOW IT WORKS: Modern Steps */}
             <section id="how" className="bg-paper py-32 px-6">
@@ -391,7 +391,7 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
                         ))}
                     </div>
                 </div>
-                </motion.section>
+            </section>
 
             {/* NEW: Trust Indicators (Airbnb Style) */}
             <section className="py-24 bg-white overflow-hidden">
@@ -424,7 +424,7 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
                         ))}
                     </div>
                 </div>
-                </motion.section>
+            </section>
 
             <section id="owners" className="mx-auto grid max-w-6xl scroll-mt-6 items-center gap-12 px-5 py-20 lg:grid-cols-2">
                 <div>
@@ -451,7 +451,7 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
                         {t('Every listing has a report button. Our team reads each report and can suspend the listing or the account.', 'Kila tangazo lina kitufe cha kuripoti. Timu yetu husoma kila ripoti na inaweza kusimamisha tangazo au akaunti.')}
                     </p>
                 </div>
-                </motion.section>
+            </section>
 
             <footer className="bg-navy text-white">
                 <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-8 px-5 py-16">
