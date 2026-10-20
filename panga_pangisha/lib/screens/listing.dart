@@ -9,6 +9,7 @@ import '../l10n.dart';
 import '../ui.dart';
 import 'chat.dart';
 import 'explore.dart';
+import 'owner/rental_agreements_screen.dart';
 
 const osmTiles = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const osmAgent = 'com.example.panga_pangisha';
@@ -241,6 +242,69 @@ class _ListingScreenState extends State<ListingScreen> {
                   if (h.deposit != null)
                     _line(t('Upfront', 'Malipo ya awali'), tzs(h.deposit!)),
                 ],
+                _heading(t('Tenancy Documents & Rental Agreement', 'Nyaraka & Mkataba wa Upangaji')),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: C.card,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: C.line, width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: C.goodTint,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(Icons.verified_user_rounded, color: C.good, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              t('Standard Legal Tenancy Contract Available', 'Mkataba Halali wa Kisheria Unapatikana'),
+                              style: display(14.5, color: C.wino, weight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        t(
+                          'Review key lease clauses (6-12 month duration, security deposit, 30-day notice, LUKU & DAWASA sub-metering) and required NIDA/identification documents.',
+                          'Soma vipengele vya mkataba (miezi 6-12, dhamana, notisi ya siku 30, mita za LUKU & DAWASA) na orodha ya nyaraka za utambulisho.',
+                        ),
+                        style: body(13, color: C.muted, height: 1.4),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Button(
+                              t('View & Manage Agreements', 'Tazama & Simamia Mikataba'),
+                              tone: Tone.teal,
+                              icon: Icons.description_outlined,
+                              onTap: () {
+                                push(context, const RentalAgreementsScreen());
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
                 if (h.amenities.isNotEmpty) ...[
                   _heading(t('What it has', 'Ilicho nacho')),
                   Wrap(

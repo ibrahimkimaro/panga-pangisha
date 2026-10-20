@@ -2,7 +2,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:loading_icon_button/loading_icon_button.dart';
 
 import '../api.dart';
 import '../l10n.dart';
@@ -14,7 +13,6 @@ import 'owner/properties.dart';
 import 'owner/rentals.dart';
 import 'owner/landlord_dashboard.dart';
 import 'owner/utilities_coming_soon.dart';
-import 'veyora_assistant.dart';
 import 'profile.dart';
 
 /// The signed-in app: a set of tabs for the active workspace, renter or owner.
@@ -65,7 +63,7 @@ class _ShellState extends State<Shell> {
             ),
           ]
         : [
-            (Icons.search_rounded, t('Explore', 'Tafuta'), const ExploreTab()),
+            (Icons.home_rounded, t('Home', 'Mwanzo'), const ExploreTab()),
             (Icons.map_outlined, t('Map', 'Ramani'), const MapTab()),
             (
               Icons.favorite_border_rounded,
@@ -84,14 +82,20 @@ class _ShellState extends State<Shell> {
             ),
           ];
 
+    final safeAt = tabs.isEmpty ? 0 : _at.clamp(0, tabs.length - 1);
+    if (_at != safeAt) {
+      _at = safeAt;
+      _opened.add(safeAt);
+    }
+
     return PopScope(
-      canPop: _at == 0,
+      canPop: safeAt == 0,
       onPopInvokedWithResult: (popped, _) {
         if (!popped) setState(() => _at = 0);
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         // Hidden tabs stay in the tree, so the status bar style is decided here, for the visible one.
-        value: tabs[_at].$3 is ProfileTab
+        value: (tabs.isNotEmpty && tabs[safeAt].$3 is ProfileTab)
             ? SystemUiOverlayStyle.light
             : C.overlay,
         child: Scaffold(
@@ -100,77 +104,22 @@ class _ShellState extends State<Shell> {
           body: Stack(
             children: [
               for (var i = 0; i < tabs.length; i++)
-                if (_opened.contains(i))
+                if (_opened.contains(i) || i == safeAt)
                   IgnorePointer(
-                    ignoring: i != _at,
+                    ignoring: i != safeAt,
                     child: AnimatedOpacity(
-                      opacity: i == _at ? 1 : 0,
+                      opacity: i == safeAt ? 1 : 0,
                       duration: const Duration(milliseconds: 220),
                       curve: Curves.easeOut,
                       child: TickerMode(
-                        enabled: i == _at,
+                        enabled: i == safeAt,
                         child: ExcludeSemantics(
-                          excluding: i != _at,
+                          excluding: i != safeAt,
                           child: tabs[i].$3,
                         ),
                       ),
                     ),
                   ),
-              if (!Api.isOwner)
-                Positioned(
-                  right: 18,
-                  bottom: 74,
-                  child: Press(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      push(context, VeyoraAssistantScreen());
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [C.teal, const Color(0xFF0F766E)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: C.teal.withValues(alpha: 0.35),
-                            blurRadius: 14,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.25),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const ThinkingOrb(
-                            state: OrbState.breathing,
-                            size: 20,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Veyora AI',
-                            style: body(
-                              13,
-                              color: Colors.white,
-                              weight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
           bottomNavigationBar: SafeArea(
@@ -223,7 +172,7 @@ class _ShellState extends State<Shell> {
                               _TabButton(
                                 icon: tabs[i].$1,
                                 label: tabs[i].$2,
-                                on: i == _at,
+                                on: i == safeAt,
                                 onTap: () {
                                   HapticFeedback.selectionClick();
                                   setState(() {
@@ -241,16 +190,17 @@ class _ShellState extends State<Shell> {
                 const SizedBox(width: 8),
 
                 // 2. Circular Frosted Glass Floating Account Button (Last Tab)
-                _AccountSideButton(
-                  on: _at == tabs.length - 1,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _at = tabs.length - 1;
-                      _opened.add(tabs.length - 1);
-                    });
-                  },
-                ),
+                if (tabs.isNotEmpty)
+                  _AccountSideButton(
+                    on: safeAt == tabs.length - 1,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _at = tabs.length - 1;
+                        _opened.add(tabs.length - 1);
+                      });
+                    },
+                  ),
               ],
             ),
           ),

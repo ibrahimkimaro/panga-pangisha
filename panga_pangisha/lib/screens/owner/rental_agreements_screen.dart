@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../api.dart';
 import '../../l10n.dart';
 import '../../ui.dart';
+import '../../services/rental_agreement_pdf.dart';
 
 num _toNum(dynamic val) {
   if (val == null) return 0;
@@ -84,17 +84,25 @@ class _RentalAgreementsScreenState extends State<RentalAgreementsScreen> {
   }
 
   void _openAgreementDetails(Map<String, dynamic> agreement) {
-    sheet(
+    push(
       context,
-      _AgreementDetailsSheet(
+      AgreementDetailsScreen(
         agreement: agreement,
         onAgreementUpdated: _fetchAgreements,
       ),
     );
   }
 
-  void _openDraftWizard() {
-    sheet(context, _DraftAgreementWizard(onCreated: _fetchAgreements));
+  void _openDraftWizard([Map<String, dynamic>? initialRequest]) {
+    push(
+      context,
+      DraftAgreementScreen(
+        onCreated: _fetchAgreements,
+        initialRequest: initialRequest,
+        initialHouse: initialRequest?['house'],
+        initialTenant: initialRequest?['user'],
+      ),
+    );
   }
 
   @override
@@ -402,8 +410,9 @@ class _AgreementCard extends StatelessWidget {
   }
 }
 
-class _AgreementDetailsSheet extends StatefulWidget {
-  const _AgreementDetailsSheet({
+class AgreementDetailsScreen extends StatefulWidget {
+  const AgreementDetailsScreen({
+    super.key,
     required this.agreement,
     required this.onAgreementUpdated,
   });
@@ -412,10 +421,10 @@ class _AgreementDetailsSheet extends StatefulWidget {
   final VoidCallback onAgreementUpdated;
 
   @override
-  State<_AgreementDetailsSheet> createState() => _AgreementDetailsSheetState();
+  State<AgreementDetailsScreen> createState() => _AgreementDetailsScreenState();
 }
 
-class _AgreementDetailsSheetState extends State<_AgreementDetailsSheet> {
+class _AgreementDetailsScreenState extends State<AgreementDetailsScreen> {
   bool _busy = false;
 
   Future<void> _signAsLandlord() async {
@@ -529,6 +538,63 @@ class _AgreementDetailsSheetState extends State<_AgreementDetailsSheet> {
     }
   }
 
+  Future<void> _downloadPdf() async {
+    final ag = widget.agreement;
+    final terms = ag['terms'] is Map ? Map<String, dynamic>.from(ag['terms']) : {};
+    final activeTerms = terms['en'] is Map
+        ? Map<String, dynamic>.from(terms['en'])
+        : (terms['sw'] is Map ? Map<String, dynamic>.from(terms['sw']) : {});
+    final parties = activeTerms['parties'] is Map ? Map<String, dynamic>.from(activeTerms['parties']) : {};
+    final lLandlord = parties['landlord'] is Map ? Map<String, dynamic>.from(parties['landlord']) : {};
+    final tTenant = parties['tenant'] is Map ? Map<String, dynamic>.from(parties['tenant']) : {};
+
+    try {
+      await RentalAgreementPdfService.printOrDownloadPdf(
+        agreementNumber: ag['agreement_number']?.toString() ?? 'MKT-2026-001',
+        agreementDate: DateTime.tryParse(ag['created_at']?.toString() ?? '') ?? DateTime.now(),
+        landlordName: lLandlord['name']?.toString() ?? Api.user.value?['fullname'] ?? 'Landlord',
+        landlordIdNumber: Api.user.value?['nida_number']?.toString() ?? Api.user.value?['nida']?.toString() ?? '19901234-56789-00001-22',
+        landlordPhone: lLandlord['phone']?.toString() ?? Api.user.value?['phone_number']?.toString() ?? '+255 712 345 678',
+        landlordEmail: lLandlord['email']?.toString() ?? Api.user.value?['email']?.toString() ?? '',
+        landlordAddress: Api.user.value?['address']?.toString() ?? 'Dar es Salaam, Tanzania',
+        landlordCountry: 'Tanzania',
+        tenantName: ag['tenant_name']?.toString() ?? tTenant['name']?.toString() ?? 'Tenant',
+        tenantIdNumber: ag['tenant_nida']?.toString() ?? tTenant['nida']?.toString() ?? 'Pending ID/NIDA',
+        tenantPhone: ag['tenant_phone']?.toString() ?? tTenant['phone']?.toString() ?? '',
+        tenantEmail: ag['tenant_email']?.toString() ?? tTenant['email']?.toString() ?? '',
+        tenantAddress: 'Tanzania',
+        tenantCountry: 'Tanzania',
+        propertyAddress: ag['property_name']?.toString() ?? 'Dar es Salaam, Tanzania',
+        propertyType: 'Residential Accommodation',
+        unitNumber: ag['unit_number']?.toString() ?? 'Room 1',
+        bedrooms: '1 Bedroom',
+        permittedUse: 'Residential only',
+        commencementDate: ag['starts_on']?.toString() ?? DateFormat('dd/MM/yyyy').format(DateTime.now()),
+        expiryDate: ag['ends_on']?.toString() ?? '',
+        renewalConditions: 'Renewable upon 30 days prior written notice subject to mutual consent.',
+        monthlyRent: _toNum(ag['monthly_rent']),
+        paymentDueDate: '1st day of each billing cycle',
+        paymentMethod: ag['payment_method']?.toString() ?? 'M-Pesa / Tigo Pesa / Airtel Money / Bank',
+        paymentReference: ag['agreement_number']?.toString() ?? '',
+        securityDeposit: _toNum(ag['security_deposit']),
+        depositPaymentDate: ag['starts_on']?.toString() ?? DateFormat('dd/MM/yyyy').format(DateTime.now()),
+        depositRefundTerms: 'Refundable within 14 days following handover inspection, subject to lawful deductions.',
+        electricityArrangement: 'Tenant responsibility via LUKU sub-meter',
+        waterArrangement: 'Tenant responsibility via DAWASA sub-meter / Shared',
+        wasteCollectionArrangement: 'Municipal collection fee per building schedule',
+        otherCharges: 'None',
+        landlordSignatureName: ag['landlord_signer_name']?.toString(),
+        landlordSignedDate: ag['landlord_signed_at']?.toString(),
+        tenantSignatureName: ag['tenant_signer_name']?.toString(),
+        tenantSignedDate: ag['tenant_signed_at']?.toString(),
+        isLandlordSigned: ag['landlord_signature'] != null,
+        isTenantSigned: ag['tenant_signature'] != null,
+      );
+    } catch (e) {
+      if (mounted) toast(context, e.toString());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ag = widget.agreement;
@@ -539,27 +605,21 @@ class _AgreementDetailsSheetState extends State<_AgreementDetailsSheet> {
     final rent = _fmtCurrency(ag['monthly_rent']);
     final dep = _fmtCurrency(ag['security_deposit']);
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.85,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scroll) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: ListView(
-          controller: scroll,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: C.line,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
+    return Scaffold(
+      backgroundColor: C.chokaa,
+      appBar: AppBar(
+        title: Text(ag['property_name'] ?? t('Agreement Details', 'Taarifa za Mkataba')),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded),
+            tooltip: t('Download PDF Agreement', 'Pakua Mkataba wa PDF'),
+            onPressed: _downloadPdf,
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+        children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -582,18 +642,10 @@ class _AgreementDetailsSheetState extends State<_AgreementDetailsSheet> {
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.print_rounded),
-                  tooltip: t('Print / PDF', 'Chapisha'),
-                  onPressed: () {
-                    final url =
-                        '${Api.host}landlord/agreements/${ag['id']}/print';
-                    Clipboard.setData(ClipboardData(text: url));
-                    toast(
-                      context,
-                      '${t("Print link copied:", "Kiungo cha kuchapisha kimenakiliwa:")} $url',
-                    );
-                  },
+                IconButton.filledTonal(
+                  icon: const Icon(Icons.picture_as_pdf_rounded),
+                  tooltip: t('Download PDF Agreement', 'Pakua Mkataba wa PDF'),
+                  onPressed: _downloadPdf,
                 ),
               ],
             ),
@@ -716,11 +768,16 @@ class _AgreementDetailsSheetState extends State<_AgreementDetailsSheet> {
               const SizedBox(height: 10),
             ],
 
+            Button(
+              t('Download / Print Official PDF', 'Pakua Mkataba Kamili (PDF)'),
+              icon: Icons.picture_as_pdf_rounded,
+              tone: Tone.plain,
+              onTap: _downloadPdf,
+            ),
             const SizedBox(height: 30),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _rowItem(String label, String value) {
@@ -770,85 +827,495 @@ class _AgreementDetailsSheetState extends State<_AgreementDetailsSheet> {
   }
 }
 
-class _DraftAgreementWizard extends StatefulWidget {
-  const _DraftAgreementWizard({required this.onCreated});
+class _SignaturePadWidget extends StatefulWidget {
+  const _SignaturePadWidget({
+    required this.signerName,
+    required this.roleLabel,
+    required this.onSigned,
+    this.initialSigned = false,
+  });
 
-  final VoidCallback onCreated;
+  final String signerName;
+  final String roleLabel;
+  final ValueChanged<String?> onSigned;
+  final bool initialSigned;
 
   @override
-  State<_DraftAgreementWizard> createState() => _DraftAgreementWizardState();
+  State<_SignaturePadWidget> createState() => _SignaturePadWidgetState();
 }
 
-class _DraftAgreementWizardState extends State<_DraftAgreementWizard> {
-  final _formKey = GlobalKey<FormState>();
-  final _tenantNameCtrl = TextEditingController();
-  final _tenantPhoneCtrl = TextEditingController(text: '+255');
-  final _tenantEmailCtrl = TextEditingController();
-  final _tenantNidaCtrl = TextEditingController();
-  final _rentCtrl = TextEditingController(text: '450000');
-  final _depositCtrl = TextEditingController(text: '450000');
-  final _unitCtrl = TextEditingController(text: 'Room 1');
-
-  int? _selectedHouseId;
-  List<Map<String, dynamic>> _myHouses = [];
-  int _durationMonths = 6;
-  String _language = 'sw';
-  bool _busy = false;
+class _SignaturePadWidgetState extends State<_SignaturePadWidget> {
+  final List<Offset?> _points = [];
+  bool _isSigned = false;
+  bool _useDigitalScript = true;
 
   @override
   void initState() {
     super.initState();
-    _loadHouses();
+    _isSigned = widget.initialSigned;
   }
 
-  Future<void> _loadHouses() async {
+  void _clear() {
+    setState(() {
+      _points.clear();
+      _isSigned = false;
+    });
+    widget.onSigned(null);
+  }
+
+  void _confirmDigitalSignature() {
+    setState(() {
+      _isSigned = true;
+    });
+    widget.onSigned(widget.signerName);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _isSigned ? const Color(0xFFF0FDF4) : C.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _isSigned ? const Color(0xFF16A34A) : C.line,
+          width: _isSigned ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${widget.roleLabel}: ${widget.signerName}',
+                style: body(13, weight: FontWeight.w700),
+              ),
+              if (_isSigned)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF16A34A)),
+                    const SizedBox(width: 4),
+                    Text(
+                      t('Signed', 'Imesainiwa'),
+                      style: body(11, weight: FontWeight.w700, color: const Color(0xFF16A34A)),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_useDigitalScript)
+            Container(
+              height: 56,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              alignment: Alignment.centerLeft,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: C.line),
+              ),
+              child: _isSigned
+                  ? Text(
+                      widget.signerName,
+                      style: const TextStyle(
+                        fontFamily: 'Bricolage',
+                        fontSize: 22,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0F766E),
+                      ),
+                    )
+                  : Text(
+                      t('Tap "Sign Electronically" below', 'Gusa "Weka Saini" hapa chini'),
+                      style: body(12, color: C.muted),
+                    ),
+            )
+          else
+            Container(
+              height: 90,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: C.line),
+              ),
+              child: GestureDetector(
+                onPanUpdate: (details) {
+                  setState(() {
+                    _points.add(details.localPosition);
+                    _isSigned = true;
+                  });
+                  widget.onSigned(widget.signerName);
+                },
+                onPanEnd: (_) => setState(() => _points.add(null)),
+                child: CustomPaint(
+                  painter: _SignaturePainter(_points),
+                  child: _points.isEmpty
+                      ? Center(
+                          child: Text(
+                            t('Draw signature here with finger/mouse', 'Chora saini yako hapa'),
+                            style: body(12, color: C.muted),
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _useDigitalScript = !_useDigitalScript;
+                    _points.clear();
+                  });
+                },
+                icon: Icon(
+                  _useDigitalScript ? Icons.draw_outlined : Icons.font_download_outlined,
+                  size: 16,
+                  color: C.muted,
+                ),
+                label: Text(
+                  _useDigitalScript
+                      ? t('Draw by Hand', 'Chora kwa Mkono')
+                      : t('Digital Script', 'Maandishi'),
+                  style: body(11, color: C.muted),
+                ),
+              ),
+              if (!_isSigned && _useDigitalScript)
+                FilledButton.tonal(
+                  onPressed: _confirmDigitalSignature,
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: C.tealLight,
+                  ),
+                  child: Text(
+                    t('Sign Electronically', 'Weka Saini'),
+                    style: body(12, weight: FontWeight.w700, color: C.teal),
+                  ),
+                )
+              else if (_isSigned)
+                TextButton(
+                  onPressed: _clear,
+                  child: Text(
+                    t('Clear / Re-sign', 'Futa / Saini Upya'),
+                    style: body(11, color: C.hibiscus),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SignaturePainter extends CustomPainter {
+  _SignaturePainter(this.points);
+  final List<Offset?> points;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF0F2A3F)
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 2.5;
+
+    for (int i = 0; i < points.length - 1; i++) {
+      if (points[i] != null && points[i + 1] != null) {
+        canvas.drawLine(points[i]!, points[i + 1]!, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SignaturePainter oldDelegate) => true;
+}
+
+/// Comprehensive 14-Section Residential Rental Agreement Draft Screen
+class DraftAgreementScreen extends StatefulWidget {
+  const DraftAgreementScreen({
+    super.key,
+    required this.onCreated,
+    this.initialHouseId,
+    this.initialHouse,
+    this.initialTenant,
+    this.initialRequest,
+  });
+
+  final VoidCallback onCreated;
+  final int? initialHouseId;
+  final Map<String, dynamic>? initialHouse;
+  final Map<String, dynamic>? initialTenant;
+  final Map<String, dynamic>? initialRequest;
+
+  @override
+  State<DraftAgreementScreen> createState() => _DraftAgreementScreenState();
+}
+
+typedef DraftAgreementWizard = DraftAgreementScreen;
+
+class _DraftAgreementScreenState extends State<DraftAgreementScreen> {
+  final _formKey = GlobalKey<FormState>();
+
+  // Reference & Date
+  late String _agreementRef;
+  final DateTime _agreementDate = DateTime.now();
+
+  // Section 1: Landlord Details (Auto-filled from Api.user)
+  final _landlordNameCtrl = TextEditingController();
+  final _landlordNidaCtrl = TextEditingController();
+  final _landlordPhoneCtrl = TextEditingController();
+  final _landlordEmailCtrl = TextEditingController();
+  final _landlordAddressCtrl = TextEditingController();
+  final _landlordCountryCtrl = TextEditingController(text: 'Tanzania');
+
+  // Section 1: Tenant Details (Auto-filled from Request / DB)
+  final _tenantNameCtrl = TextEditingController();
+  final _tenantNidaCtrl = TextEditingController();
+  final _tenantPhoneCtrl = TextEditingController();
+  final _tenantEmailCtrl = TextEditingController();
+  final _tenantAddressCtrl = TextEditingController();
+  final _tenantCountryCtrl = TextEditingController(text: 'Tanzania');
+
+  // Section 2: Property Details
+  int? _selectedHouseId;
+  List<Map<String, dynamic>> _myHouses = [];
+  final _propertyAddressCtrl = TextEditingController();
+  final _propertyTypeCtrl = TextEditingController(text: 'House / Apartment');
+  final _unitCtrl = TextEditingController(text: 'Room 1');
+  final _bedroomsCtrl = TextEditingController(text: '1 Bedroom (Self-contained)');
+  final _permittedUseCtrl = TextEditingController(text: 'Residential only, unless otherwise agreed in writing.');
+
+  // Section 3: Rental Period
+  DateTime _startsOn = DateTime.now();
+  int _durationMonths = 6;
+  final _renewalConditionsCtrl = TextEditingController(
+    text: 'Any renewal or extension shall be agreed upon in writing 30 days prior and comply with applicable law.',
+  );
+
+  // Section 4: Rent and Payment Terms
+  final _rentCtrl = TextEditingController(text: '450000');
+  final _paymentDueDateCtrl = TextEditingController(text: '1st day of each month');
+  final _paymentMethodCtrl = TextEditingController(text: 'M-Pesa / Mobile Money');
+  final _paymentRefCtrl = TextEditingController(text: 'PangaPangisha Lipa Namba');
+
+  // Section 5: Security Deposit
+  final _depositCtrl = TextEditingController(text: '450000');
+  final _depositDateCtrl = TextEditingController(text: DateFormat('dd/MM/yyyy').format(DateTime.now()));
+  final _depositRefundTermsCtrl = TextEditingController(
+    text: 'Refundable within 14 days following handover inspection, subject to lawful deductions.',
+  );
+
+  // Section 6: Utilities and Other Charges
+  final _electricityCtrl = TextEditingController(text: 'Tenant responsibility via LUKU sub-meter tokens.');
+  final _waterCtrl = TextEditingController(text: 'Tenant responsibility via DAWASA sub-meter / Shared arrangement.');
+  final _wasteCtrl = TextEditingController(text: 'Tenant / Landlord per building sanitation schedule.');
+  final _otherChargesCtrl = TextEditingController(text: 'None (Building security included in rent).');
+
+  // Section 13: Special Conditions
+  final List<String> _specialConditions = [
+    'Quiet hours are strictly observed between 10:00 PM and 6:00 AM.',
+    'Subletting or transferring occupancy without prior written landlord approval is prohibited.',
+    'Waste and garbage shall be deposited in designated bins following building sanitization rules.',
+  ];
+  final _newConditionCtrl = TextEditingController();
+
+  // Section 14: Signatures
+  String? _landlordSignature;
+  String? _tenantSignature;
+  bool _busy = false;
+
+  // Incoming client requests from DB
+  List<Map<String, dynamic>> _clientRequests = [];
+  Map<String, dynamic>? _selectedClientRequest;
+
+  @override
+  void initState() {
+    super.initState();
+    _agreementRef = 'MKT-${DateTime.now().year}-${(DateTime.now().millisecondsSinceEpoch % 100000).toString().padLeft(5, '0')}';
+
+    // Auto-fill Landlord from logged in user
+    final u = Api.user.value;
+    _landlordNameCtrl.text = u?['fullname']?.toString() ?? 'Ibrahim Kimaro';
+    _landlordNidaCtrl.text = u?['nida_number']?.toString() ?? u?['nida']?.toString() ?? '19901234-56789-00001-22';
+    _landlordPhoneCtrl.text = u?['phone_number']?.toString() ?? u?['phone']?.toString() ?? '+255 712 345 678';
+    _landlordEmailCtrl.text = u?['email']?.toString() ?? 'landlord@pangapangisha.com';
+    _landlordAddressCtrl.text = u?['address']?.toString() ?? 'Dar es Salaam, Tanzania';
+
+    // Auto-fill Tenant from initial parameters if supplied
+    if (widget.initialTenant != null) {
+      _applyTenantData(widget.initialTenant!);
+    }
+    if (widget.initialHouse != null) {
+      _applyHouseData(widget.initialHouse!);
+    }
+    if (widget.initialRequest != null) {
+      _selectedClientRequest = widget.initialRequest;
+    }
+
+    _loadData();
+  }
+
+  void _applyTenantData(Map<String, dynamic> tenant) {
+    _tenantNameCtrl.text = tenant['fullname']?.toString() ?? tenant['name']?.toString() ?? _tenantNameCtrl.text;
+    _tenantPhoneCtrl.text = tenant['phone_number']?.toString() ?? tenant['phone']?.toString() ?? _tenantPhoneCtrl.text;
+    _tenantEmailCtrl.text = tenant['email']?.toString() ?? _tenantEmailCtrl.text;
+    _tenantNidaCtrl.text = tenant['nida_number']?.toString() ?? tenant['nida']?.toString() ?? _tenantNidaCtrl.text;
+    _tenantAddressCtrl.text = tenant['address']?.toString() ?? _tenantAddressCtrl.text;
+  }
+
+  void _applyHouseData(Map<String, dynamic> house) {
+    _selectedHouseId = house['id'] as int?;
+    final address = [house['ward'], house['district'], 'Tanzania'].where((e) => e != null && e.toString().isNotEmpty).join(', ');
+    _propertyAddressCtrl.text = address.isNotEmpty ? address : (house['property_name'] ?? 'Dar es Salaam, Tanzania');
+    _propertyTypeCtrl.text = house['type']?.toString() ?? 'House / Apartment';
+    if (house['monthly_rent'] != null) {
+      _rentCtrl.text = house['monthly_rent'].toString();
+      _depositCtrl.text = house['monthly_rent'].toString();
+    }
+  }
+
+  Future<void> _loadData() async {
     try {
-      final res = await Api.get('houses/my');
-      if (res is List && mounted) {
+      final housesRes = await Api.get('houses/my');
+      if (housesRes is List && mounted) {
         setState(() {
-          _myHouses = List<Map<String, dynamic>>.from(res);
-          if (_myHouses.isNotEmpty) {
-            _selectedHouseId = _myHouses.first['id'] as int?;
+          _myHouses = List<Map<String, dynamic>>.from(housesRes);
+          if (_selectedHouseId == null && _myHouses.isNotEmpty) {
+            _applyHouseData(_myHouses.first);
           }
+        });
+      }
+    } catch (_) {}
+
+    try {
+      final requestsRes = await Api.get('viewing-requests', {'as': 'owner'});
+      if (requestsRes is List && mounted) {
+        setState(() {
+          _clientRequests = List<Map<String, dynamic>>.from(requestsRes);
         });
       }
     } catch (_) {}
   }
 
+  void _selectClientRequest(Map<String, dynamic> req) {
+    setState(() {
+      _selectedClientRequest = req;
+      if (req['user'] is Map) {
+        _applyTenantData(Map<String, dynamic>.from(req['user']));
+      }
+      if (req['house'] is Map) {
+        _applyHouseData(Map<String, dynamic>.from(req['house']));
+      }
+      if (req['preferred_unit'] != null) {
+        _unitCtrl.text = req['preferred_unit'].toString();
+      }
+    });
+
+    toast(
+      context,
+      t(
+        'Tenant & room details auto-filled from client request!',
+        'Taarifa za mpangaji na chumba zimewekwa kikamilifu!',
+      ),
+    );
+  }
+
+  DateTime get _expiryDate => DateTime(_startsOn.year, _startsOn.month + _durationMonths, _startsOn.day);
+
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startsOn,
+      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() => _startsOn = picked);
+    }
+  }
+
+  Future<void> _downloadOrPrintPdf() async {
+    try {
+      await RentalAgreementPdfService.printOrDownloadPdf(
+        agreementNumber: _agreementRef,
+        agreementDate: _agreementDate,
+        landlordName: _landlordNameCtrl.text.trim().isEmpty ? 'Ibrahim Kimaro' : _landlordNameCtrl.text.trim(),
+        landlordIdNumber: _landlordNidaCtrl.text.trim().isEmpty ? '19901234-56789-00001-22' : _landlordNidaCtrl.text.trim(),
+        landlordPhone: _landlordPhoneCtrl.text.trim(),
+        landlordEmail: _landlordEmailCtrl.text.trim(),
+        landlordAddress: _landlordAddressCtrl.text.trim().isEmpty ? 'Dar es Salaam, Tanzania' : _landlordAddressCtrl.text.trim(),
+        landlordCountry: _landlordCountryCtrl.text.trim().isEmpty ? 'Tanzania' : _landlordCountryCtrl.text.trim(),
+        tenantName: _tenantNameCtrl.text.trim().isEmpty ? 'Tenant' : _tenantNameCtrl.text.trim(),
+        tenantIdNumber: _tenantNidaCtrl.text.trim().isEmpty ? 'Pending Verification' : _tenantNidaCtrl.text.trim(),
+        tenantPhone: _tenantPhoneCtrl.text.trim(),
+        tenantEmail: _tenantEmailCtrl.text.trim(),
+        tenantAddress: _tenantAddressCtrl.text.trim().isEmpty ? 'Tanzania' : _tenantAddressCtrl.text.trim(),
+        tenantCountry: _tenantCountryCtrl.text.trim().isEmpty ? 'Tanzania' : _tenantCountryCtrl.text.trim(),
+        propertyAddress: _propertyAddressCtrl.text.trim().isEmpty ? 'Dar es Salaam, Tanzania' : _propertyAddressCtrl.text.trim(),
+        propertyType: _propertyTypeCtrl.text.trim(),
+        unitNumber: _unitCtrl.text.trim().isEmpty ? 'Room 1' : _unitCtrl.text.trim(),
+        bedrooms: _bedroomsCtrl.text.trim(),
+        permittedUse: _permittedUseCtrl.text.trim(),
+        commencementDate: DateFormat('dd/MM/yyyy').format(_startsOn),
+        expiryDate: DateFormat('dd/MM/yyyy').format(_expiryDate),
+        renewalConditions: _renewalConditionsCtrl.text.trim(),
+        monthlyRent: num.tryParse(_rentCtrl.text) ?? 450000,
+        paymentDueDate: _paymentDueDateCtrl.text.trim(),
+        paymentMethod: _paymentMethodCtrl.text.trim(),
+        paymentReference: _paymentRefCtrl.text.trim(),
+        securityDeposit: num.tryParse(_depositCtrl.text) ?? 450000,
+        depositPaymentDate: _depositDateCtrl.text.trim(),
+        depositRefundTerms: _depositRefundTermsCtrl.text.trim(),
+        electricityArrangement: _electricityCtrl.text.trim(),
+        waterArrangement: _waterCtrl.text.trim(),
+        wasteCollectionArrangement: _wasteCtrl.text.trim(),
+        otherCharges: _otherChargesCtrl.text.trim(),
+        specialConditions: _specialConditions,
+        landlordSignatureName: _landlordSignature,
+        landlordSignedDate: _landlordSignature != null ? DateFormat('dd/MM/yyyy').format(DateTime.now()) : null,
+        tenantSignatureName: _tenantSignature,
+        tenantSignedDate: _tenantSignature != null ? DateFormat('dd/MM/yyyy').format(DateTime.now()) : null,
+        isLandlordSigned: _landlordSignature != null,
+        isTenantSigned: _tenantSignature != null,
+      );
+    } catch (e) {
+      if (mounted) toast(context, e.toString());
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedHouseId == null && _myHouses.isEmpty) {
-      toast(
-        context,
-        t(
-          'No property found. Create a property first.',
-          'Tafadhali sajili nyumba kwanza.',
-        ),
-      );
+      toast(context, t('No property found. Create a property first.', 'Tafadhali sajili nyumba kwanza.'));
       return;
     }
 
     setState(() => _busy = true);
     try {
-      final houseId =
-          _selectedHouseId ??
-          (_myHouses.isNotEmpty ? _myHouses.first['id'] : 1);
+      final houseId = _selectedHouseId ?? (_myHouses.isNotEmpty ? _myHouses.first['id'] : 1);
       final res = await Api.post('agreements/draft', {
         'house_id': houseId,
         'tenant_name': _tenantNameCtrl.text.trim(),
         'tenant_phone': _tenantPhoneCtrl.text.trim(),
-        'tenant_email': _tenantEmailCtrl.text.trim().isEmpty
-            ? null
-            : _tenantEmailCtrl.text.trim(),
-        'tenant_nida': _tenantNidaCtrl.text.trim().isEmpty
-            ? null
-            : _tenantNidaCtrl.text.trim(),
+        'tenant_email': _tenantEmailCtrl.text.trim().isEmpty ? null : _tenantEmailCtrl.text.trim(),
+        'tenant_nida': _tenantNidaCtrl.text.trim().isEmpty ? null : _tenantNidaCtrl.text.trim(),
         'unit_number': _unitCtrl.text.trim(),
         'monthly_rent': num.tryParse(_rentCtrl.text) ?? 450000,
         'security_deposit': num.tryParse(_depositCtrl.text) ?? 450000,
-        'starts_on': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+        'starts_on': DateFormat('yyyy-MM-dd').format(_startsOn),
         'duration_months': _durationMonths,
-        'language': _language,
+        'language': 'sw',
+        'special_conditions': _specialConditions,
+        'landlord_signature': _landlordSignature,
+        'tenant_signature': _tenantSignature,
       });
 
       if (mounted) {
@@ -856,10 +1323,7 @@ class _DraftAgreementWizardState extends State<_DraftAgreementWizard> {
         toast(
           context,
           res['message']?.toString() ??
-              t(
-                'Draft agreement prepared! Preview and save.',
-                'Mkataba umeandaliwa! Hakiki na uhifadhi.',
-              ),
+              t('Draft agreement created & saved! PDF ready for download.', 'Mkataba umeandaliwa na kuhifadhiwa!'),
         );
         widget.onCreated();
         Navigator.pop(context);
@@ -872,192 +1336,655 @@ class _DraftAgreementWizardState extends State<_DraftAgreementWizard> {
     }
   }
 
+  void _addSpecialCondition() {
+    final text = _newConditionCtrl.text.trim();
+    if (text.isNotEmpty) {
+      setState(() {
+        _specialConditions.add(text);
+        _newConditionCtrl.clear();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.9,
-      minChildSize: 0.6,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scroll) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            controller: scroll,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: C.line,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Text(
-                t('Draft Rental Agreement', 'Andaa Mkataba wa Upangishaji'),
-                style: display(20, weight: FontWeight.w800),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                t(
-                  'Organize tenant details, rent, and lease terms. You will preview and confirm the draft before delivering to tenant.',
-                  'Andaa taarifa za mpangaji, kodi, na muda wa upangishaji. Utapata fursa ya kuhakiki kabla ya kutuma.',
-                ),
-                style: body(13, color: C.muted),
-              ),
-              const SizedBox(height: 20),
+    return Scaffold(
+      backgroundColor: C.chokaa,
+      appBar: AppBar(
+        title: Text(t('Draft Rental Agreement', 'Andaa Mkataba wa Upangaji')),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded),
+            tooltip: t('Download PDF', 'Pakua PDF'),
+            onPressed: _downloadOrPrintPdf,
+          ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 60),
+          children: [
 
-              // Property Selector
-              if (_myHouses.isNotEmpty) ...[
-                Text(
-                  t('Select Property', 'Chagua Nyumba'),
-                  style: body(13, weight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<int>(
-                  initialValue: _selectedHouseId,
-                  decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
+              // Agreement Title & Reference
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t('RESIDENTIAL RENTAL AGREEMENT', 'MKATABA WA UPANGISHAJI WA MAKAZI'),
+                          style: display(19, weight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${t("Agreement Reference:", "Nambari ya Kumbukumbu:")} $_agreementRef',
+                          style: body(12, color: C.teal, weight: FontWeight.w700),
+                        ),
+                        Text(
+                          '${t("Date of Agreement:", "Tarehe ya Mkataba:")} ${DateFormat("dd/MM/yyyy").format(_agreementDate)}',
+                          style: body(12, color: C.muted),
+                        ),
+                      ],
                     ),
                   ),
-                  items: _myHouses.map((h) {
-                    return DropdownMenuItem<int>(
-                      value: h['id'] as int?,
-                      child: Text(h['property_name'] ?? 'Nyumba'),
-                    );
-                  }).toList(),
-                  onChanged: (val) => setState(() => _selectedHouseId = val),
+                  IconButton.filledTonal(
+                    icon: const Icon(Icons.picture_as_pdf_rounded),
+                    tooltip: t('Download PDF', 'Pakua PDF'),
+                    onPressed: _downloadOrPrintPdf,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // AUTO-FILL FROM CLIENT DATABASE / INCOMING ROOM REQUESTS
+              if (_clientRequests.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: C.tealLight.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: C.teal.withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.auto_awesome_rounded, size: 18, color: Color(0xFF0F766E)),
+                          const SizedBox(width: 6),
+                          Text(
+                            t('Auto-fill from Tenant Request / Client DB', 'Weka Taarifa kutoka Maombi ya Wateja'),
+                            style: body(13, weight: FontWeight.w700, color: const Color(0xFF0F766E)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        t(
+                          'Tap a tenant who picked a room to auto-fill their NIDA, phone, address, and chosen room details:',
+                          'Gusa mpangaji aliyeomba chumba kuweka taarifa zake za NIDA, simu, na chumba kiotomatiki:',
+                        ),
+                        style: body(11.5, color: C.muted),
+                      ),
+                      const SizedBox(height: 10),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: _clientRequests.map((req) {
+                            final isSel = _selectedClientRequest?['id'] == req['id'];
+                            final user = req['user'] as Map<String, dynamic>?;
+                            final house = req['house'] as Map<String, dynamic>?;
+                            final name = user?['fullname'] ?? user?['name'] ?? 'Mpangaji';
+                            final prop = house?['property_name'] ?? 'Nyumba';
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                selected: isSel,
+                                selectedColor: C.teal,
+                                label: Text(
+                                  '$name · $prop',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
+                                    color: isSel ? Colors.white : C.wino,
+                                  ),
+                                ),
+                                onSelected: (_) => _selectClientRequest(req),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
               ],
 
-              Field(
-                t('Room / Unit Number', 'Nambari ya Chumba'),
-                controller: _unitCtrl,
-                hint: 'e.g. Room 4, A2',
+              // SECTION 1: PARTIES TO THE AGREEMENT
+              _sectionCard(
+                title: '1. PARTIES TO THE AGREEMENT (PANDE ZA MKATABA)',
+                icon: Icons.people_outline_rounded,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Landlord block
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: C.sand.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: C.line),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            t("Landlord (Lessor / Mwenye Nyumba)", "Mwenye Nyumba (Lessor)"),
+                            style: body(13, weight: FontWeight.w700, color: C.mkoko),
+                          ),
+                          const SizedBox(height: 8),
+                          Field(t('Full Name', 'Jina Kamili'), controller: _landlordNameCtrl),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: Field(t('ID / NIDA Number', 'NIDA / Namba ya Kitambulisho'), controller: _landlordNidaCtrl)),
+                              const SizedBox(width: 8),
+                              Expanded(child: Field(t('Phone Number', 'Simu'), controller: _landlordPhoneCtrl, keyboard: TextInputType.phone)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: Field(t('Email Address', 'Barua Pepe'), controller: _landlordEmailCtrl)),
+                              const SizedBox(width: 8),
+                              Expanded(child: Field(t('Country', 'Nchi'), controller: _landlordCountryCtrl)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Field(t('Address', 'Anwani ya Makazi'), controller: _landlordAddressCtrl),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Tenant block
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: C.tealLight.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: C.line),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            t("Tenant (Lessee / Mpangaji)", "Mpangaji (Lessee)"),
+                            style: body(13, weight: FontWeight.w700, color: C.teal),
+                          ),
+                          const SizedBox(height: 8),
+                          Field(
+                            t('Full Name', 'Jina Kamili la Mpangaji'),
+                            controller: _tenantNameCtrl,
+                            validator: (v) => v.isEmpty ? t('Tenant name is required', 'Jina la mpangaji linahitajika') : null,
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Field(
+                                  t('ID / NIDA Number', 'NIDA ya Mpangaji'),
+                                  controller: _tenantNidaCtrl,
+                                  hint: '19901234-56789-00001-22',
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Field(
+                                  t('Phone Number', 'Simu ya Mpangaji'),
+                                  controller: _tenantPhoneCtrl,
+                                  keyboard: TextInputType.phone,
+                                  validator: (v) => v.length < 8 ? t('Valid phone required', 'Namba sahihi inahitajika') : null,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: Field(t('Email Address', 'Barua Pepe'), controller: _tenantEmailCtrl)),
+                              const SizedBox(width: 8),
+                              Expanded(child: Field(t('Country', 'Nchi'), controller: _tenantCountryCtrl)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Field(t('Current / Previous Address', 'Anwani ya Mpangaji'), controller: _tenantAddressCtrl),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 14),
 
-              Field(
-                t('Tenant Full Name', 'Jina Kamili la Mpangaji'),
-                controller: _tenantNameCtrl,
-                hint: 'e.g. Hamisi Bakari',
-                validator: (v) => v.isEmpty
-                    ? t(
-                        'Tenant name is required',
-                        'Jina la mpangaji linahitajika',
-                      )
-                    : null,
+              // SECTION 2: PROPERTY DETAILS
+              _sectionCard(
+                title: '2. PROPERTY DETAILS (TAARIFA ZA NYUMBA NA CHUMBA)',
+                icon: Icons.home_work_outlined,
+                child: Column(
+                  children: [
+                    if (_myHouses.isNotEmpty) ...[
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(t('Select Owned Property', 'Chagua Nyumba'), style: body(12, weight: FontWeight.w700)),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<int>(
+                        initialValue: _selectedHouseId,
+                        decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                        items: _myHouses.map((h) {
+                          return DropdownMenuItem<int>(
+                            value: h['id'] as int?,
+                            child: Text(h['property_name'] ?? 'Nyumba'),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedHouseId = val;
+                            final target = _myHouses.firstWhere((h) => h['id'] == val, orElse: () => {});
+                            if (target.isNotEmpty) _applyHouseData(target);
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    Field(t('Full Property Address', 'Anwani Kamili ya Nyumba'), controller: _propertyAddressCtrl),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: Field(t('Unit or Room Number', 'Namba ya Chumba'), controller: _unitCtrl)),
+                        const SizedBox(width: 8),
+                        Expanded(child: Field(t('Property Type', 'Aina ya Nyumba'), controller: _propertyTypeCtrl)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: Field(t('Number of Bedrooms', 'Idadi ya Vyumba'), controller: _bedroomsCtrl)),
+                        const SizedBox(width: 8),
+                        Expanded(child: Field(t('Permitted Use', 'Matumizi'), controller: _permittedUseCtrl)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 14),
 
-              Field(
-                t('Tenant Phone Number', 'Nambari ya Simu ya Mpangaji'),
-                controller: _tenantPhoneCtrl,
-                hint: '+255 7...',
-                keyboard: TextInputType.phone,
-                validator: (v) => v.length < 8
-                    ? t(
-                        'Valid phone number is required',
-                        'Weka nambari sahihi ya simu',
-                      )
-                    : null,
+              // SECTION 3: RENTAL PERIOD
+              _sectionCard(
+                title: '3. RENTAL PERIOD (MUDA WA UPANGISHAJI)',
+                icon: Icons.calendar_month_outlined,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: _pickStartDate,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(color: C.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: C.line)),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(t('Commencement Date', 'Tarehe ya Kuanza'), style: body(11, color: C.muted)),
+                                  const SizedBox(height: 4),
+                                  Text(DateFormat('dd/MM/yyyy').format(_startsOn), style: body(14, weight: FontWeight.w700)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: C.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: C.line)),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(t('Expiry Date', 'Tarehe ya Kumalizika'), style: body(11, color: C.muted)),
+                                const SizedBox(height: 4),
+                                Text(DateFormat('dd/MM/yyyy').format(_expiryDate), style: body(14, weight: FontWeight.w700, color: C.teal)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(t('Lease Duration', 'Muda wa Mkataba'), style: body(12, weight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [3, 6, 12].map((months) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            selected: _durationMonths == months,
+                            label: Text('$months ${t("Months", "Miezi")}'),
+                            onSelected: (_) => setState(() => _durationMonths = months),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 10),
+                    Field(t('Renewal Conditions', 'Masharti ya Kufanya Upya'), controller: _renewalConditionsCtrl),
+                  ],
+                ),
               ),
               const SizedBox(height: 14),
 
-              Field(
-                t('Tenant NIDA ID (Optional)', 'Nambari ya NIDA (Hiari)'),
-                controller: _tenantNidaCtrl,
-                hint: '1990...',
+              // SECTION 4: RENT AND PAYMENT TERMS
+              _sectionCard(
+                title: '4. RENT AND PAYMENT TERMS (KODI NA UTARATIBU WA MALIPO)',
+                icon: Icons.payments_outlined,
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: Field(t('Monthly Rent (TZS)', 'Kodi ya Mwezi'), controller: _rentCtrl, keyboard: TextInputType.number)),
+                        const SizedBox(width: 8),
+                        Expanded(child: Field(t('Payment Due Date', 'Siku ya Malipo'), controller: _paymentDueDateCtrl)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: Field(t('Payment Method', 'Njia ya Malipo'), controller: _paymentMethodCtrl)),
+                        const SizedBox(width: 8),
+                        Expanded(child: Field(t('Payment Reference', 'Kumbukumbu ya Malipo'), controller: _paymentRefCtrl)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 14),
 
+              // SECTION 5: SECURITY DEPOSIT
+              _sectionCard(
+                title: '5. SECURITY DEPOSIT (DHAMANA YA USALAMA)',
+                icon: Icons.security_outlined,
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: Field(t('Deposit Amount (TZS)', 'Kiasi cha Dhamana'), controller: _depositCtrl, keyboard: TextInputType.number)),
+                        const SizedBox(width: 8),
+                        Expanded(child: Field(t('Deposit Payment Date', 'Tarehe ya Kulipa Dhamana'), controller: _depositDateCtrl)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Field(t('Refund Terms & Period', 'Muda na Utaratibu wa Kurudisha'), controller: _depositRefundTermsCtrl),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // SECTION 6: UTILITIES AND OTHER CHARGES
+              _sectionCard(
+                title: '6. UTILITIES AND OTHER CHARGES (HUDUMA ZA MSINGI NA GHARAMA)',
+                icon: Icons.bolt_outlined,
+                child: Column(
+                  children: [
+                    Field(t('Electricity Arrangement', 'Umeme (LUKU)'), controller: _electricityCtrl),
+                    const SizedBox(height: 8),
+                    Field(t('Water Arrangement', 'Maji (DAWASA)'), controller: _waterCtrl),
+                    const SizedBox(height: 8),
+                    Field(t('Waste Collection', 'Ushuru wa Taka'), controller: _wasteCtrl),
+                    const SizedBox(height: 8),
+                    Field(t('Other Charges (Security, compound)', 'Gharama Zingine'), controller: _otherChargesCtrl),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // SECTIONS 7 - 12: STATUTORY OBLIGATIONS PREVIEW
+              _sectionCard(
+                title: '7-12. STATUTORY RIGHTS & LEASE COVENANTS',
+                icon: Icons.gavel_outlined,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _subClause('7. Landlord Obligations', 'Provide peaceful possession, maintain building structure, make essential repairs, give 24-hour notice before entry.'),
+                    _subClause('8. Tenant Obligations', 'Pay rent on time, keep premises clean, report damages promptly, no unauthorized alterations or subletting.'),
+                    _subClause('9. Repairs & Alterations', 'Structural repairs by landlord; day-to-day care by tenant. Condition report attached at move-in.'),
+                    _subClause('10. Termination & Notice', 'One (1) Calendar Month notice in writing. Evictions strictly follow lawful court process.'),
+                    _subClause('11. Breach of Agreement', 'Notice to remedy within 14 days, followed by statutory remedies.'),
+                    _subClause('12. Dispute Resolution', 'Good-faith mediation, Ward Tribunal (Baraza la Kata), or Tanzania Civil Courts.'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // SECTION 13: SPECIAL CONDITIONS
+              _sectionCard(
+                title: '13. SPECIAL CONDITIONS (MASHARTI MAALUM YA ZIADA)',
+                icon: Icons.rule_outlined,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t('Add or customize specific house rules for this tenant:', 'Ongeza au badilisha masharti maalum ya nyumba:'),
+                      style: body(12, color: C.muted),
+                    ),
+                    const SizedBox(height: 8),
+                    for (int i = 0; i < _specialConditions.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${i + 1}. ', style: body(12, weight: FontWeight.w700)),
+                            Expanded(child: Text(_specialConditions[i], style: body(12.5))),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.close_rounded, size: 16),
+                              onPressed: () => setState(() => _specialConditions.removeAt(i)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _newConditionCtrl,
+                            decoration: InputDecoration(
+                              hintText: t('e.g. No smoking inside, parking slot 2...', 'Mfano: Marufuku kuvuta sigara ndani...'),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            onSubmitted: (_) => _addSpecialCondition(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filledTonal(
+                          icon: const Icon(Icons.add_rounded),
+                          onPressed: _addSpecialCondition,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // SECTION 14: DECLARATION AND SIGNATURES
+              _sectionCard(
+                title: '14. DECLARATION AND SIGNATURES (TAMKO NA SAINI)',
+                icon: Icons.draw_outlined,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t(
+                        'Both parties confirm they have read, understood, and agree to all terms of this agreement.',
+                        'Pande zote zinathibitisha kuwa zimesoma, zimeelewa, na zinakubaliana na masharti yote.',
+                      ),
+                      style: body(12, color: C.muted),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Landlord Signature Pad
+                    _SignaturePadWidget(
+                      signerName: _landlordNameCtrl.text.trim().isEmpty ? 'Landlord' : _landlordNameCtrl.text.trim(),
+                      roleLabel: t('Landlord Signature', 'Saini ya Mwenye Nyumba'),
+                      initialSigned: _landlordSignature != null,
+                      onSigned: (sig) => setState(() => _landlordSignature = sig),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Tenant Signature Pad
+                    _SignaturePadWidget(
+                      signerName: _tenantNameCtrl.text.trim().isEmpty ? 'Tenant' : _tenantNameCtrl.text.trim(),
+                      roleLabel: t('Tenant Signature', 'Saini ya Mpangaji'),
+                      initialSigned: _tenantSignature != null,
+                      onSigned: (sig) => setState(() => _tenantSignature = sig),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Annexures checklist
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: C.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: C.line)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t('Handover Schedules Checklist:', 'Viambatisho vya Makabidhiano:'), style: body(12, weight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          _checkItem(t('Property inspection and condition report', 'Ripoti ya ukaguzi wa awali wa nyumba')),
+                          _checkItem(t('Inventory of furniture and equipment', 'Orodha ya samani na vifaa vya chumba')),
+                          _checkItem(t('Payment and deposit receipts', 'Stakabadhi za malipo ya kodi na dhamana')),
+                          _checkItem(t('Tenant NIDA or official identification copy', 'Nakala ya kitambulisho cha NIDA')),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ACTION BUTTONS: Download PDF & Save Draft
               Row(
                 children: [
                   Expanded(
-                    child: Field(
-                      t('Monthly Rent (TZS)', 'Kodi ya Mwezi'),
-                      controller: _rentCtrl,
-                      keyboard: TextInputType.number,
+                    child: Button(
+                      t('Download PDF', 'Pakua PDF'),
+                      icon: Icons.picture_as_pdf_rounded,
+                      tone: Tone.plain,
+                      onTap: _downloadOrPrintPdf,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Field(
-                      t('Security Deposit (TZS)', 'Dhamana ya Nyumba'),
-                      controller: _depositCtrl,
-                      keyboard: TextInputType.number,
+                    flex: 2,
+                    child: Button(
+                      t('Save & Prepare Draft', 'Hifadhi & Andaa Mkataba'),
+                      busy: _busy,
+                      tone: Tone.green,
+                      onTap: _busy ? null : _submit,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-
-              // Duration selector
-              Text(
-                t('Lease Duration', 'Muda wa Upangishaji'),
-                style: body(13, weight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  for (final months in [3, 6, 12])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        selected: _durationMonths == months,
-                        label: Text('$months ${t("Months", "Miezi")}'),
-                        onSelected: (_) =>
-                            setState(() => _durationMonths = months),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Language selector
-              Text(
-                t('Contract Language', 'Lugha ya Mkataba'),
-                style: body(13, weight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  ChoiceChip(
-                    selected: _language == 'sw',
-                    label: const Text('Kiswahili (Tanzania)'),
-                    onSelected: (_) => setState(() => _language = 'sw'),
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    selected: _language == 'en',
-                    label: const Text('English (Lease Agreement)'),
-                    onSelected: (_) => setState(() => _language = 'en'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              Button(
-                t(
-                  'Organize & Preview Draft Agreement',
-                  'Andaa na Hakiki Mkataba',
-                ),
-                onTap: _busy ? null : _submit,
-                busy: _busy,
-                tone: Tone.green,
-              ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 36),
             ],
           ),
         ),
+      );
+  }
+
+  Widget _sectionCard({required String title, required IconData icon, required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: C.line),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: C.teal),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: body(12.5, weight: FontWeight.w800, color: C.wino),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _subClause(String title, String desc) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('• ', style: body(12, weight: FontWeight.w800)),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                text: '$title: ',
+                style: body(11.5, weight: FontWeight.w700, color: C.wino),
+                children: [
+                  TextSpan(
+                    text: desc,
+                    style: body(11.5, color: C.muted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _checkItem(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline_rounded, size: 14, color: Color(0xFF16A34A)),
+          const SizedBox(width: 6),
+          Expanded(child: Text(title, style: body(11.5, color: C.muted))),
+        ],
       ),
     );
   }
 }
+

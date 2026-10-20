@@ -500,14 +500,14 @@ class Photo extends StatelessWidget {
       ),
     );
     if (url == null) return blank;
-    final w = width ?? MediaQuery.sizeOf(context).width;
+    final screenW = MediaQuery.sizeOf(context).width;
+    final w = (width != null && width!.isFinite && width! > 0) ? width! : screenW;
+    final pr = MediaQuery.devicePixelRatioOf(context);
+    final cacheW = (w * pr).isFinite ? (w * pr).round().clamp(1, 1400) : 1400;
     return Image.network(
       url!,
       fit: fit,
-      cacheWidth: (w * MediaQuery.devicePixelRatioOf(context)).round().clamp(
-        1,
-        1400,
-      ),
+      cacheWidth: cacheW,
       errorBuilder: (_, _, _) => blank,
       frameBuilder: (_, child, frame, sync) => sync
           ? child

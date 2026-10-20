@@ -70,10 +70,24 @@ class Api {
   /// Stores the session returned by register / sign in / password reset.
   static void _signedIn(Map body) {
     final tokens = body['tokens'] ?? body;
-    _token = tokens['access'];
-    _prefs.setString('token', _token!);
-    setUser(Map<String, dynamic>.from(body['user']));
+    _token = tokens['access'] ?? tokens['token'];
+    if (_token != null) _prefs.setString('token', _token!);
+    if (body['user'] != null) {
+      setUser(Map<String, dynamic>.from(body['user']));
+    }
   }
+
+  /// Saves token only without prematurely notifying user listeners
+  static void saveSessionToken(Map body) {
+    final tokens = body['tokens'] ?? body;
+    final t = tokens['access'] ?? tokens['token'];
+    if (t != null) {
+      _token = t.toString();
+      _prefs.setString('token', _token!);
+    }
+  }
+
+  static void saveSession(Map body) => _signedIn(body);
 
   static Future<void> signOut() async {
     if (_token != null) post('user/logout/').ignore();

@@ -92,9 +92,11 @@ Route::prefix('admin')->group(function () {
         Route::get('users/export', [UserController::class, 'export']);
         Route::get('users/{user}', [UserController::class, 'show']);
         Route::patch('users/{user}', [UserController::class, 'update']);
+        Route::post('users/{user}/password', [UserController::class, 'updatePassword']);
         Route::post('users/{user}/message', [UserController::class, 'message'])->middleware('throttle:60,1');
         Route::post('users/{user}/suspend', [UserController::class, 'suspend']);
         Route::post('users/{user}/reactivate', [UserController::class, 'reactivate']);
+        Route::delete('users/{user}', [UserController::class, 'destroy']);
 
         Route::get('listings', [ListingController::class, 'index']);
         Route::get('listings/export', [ListingController::class, 'export']);

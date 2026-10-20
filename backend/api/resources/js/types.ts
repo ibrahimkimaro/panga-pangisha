@@ -91,7 +91,7 @@ export type Viewing = {
 
 export type IdentityCheck = {
     id: number;
-    method: 'nida_number' | 'nida_card';
+    method: 'nida_number' | 'nida_card' | 'driving_licence' | 'voter_id' | (string & {});
     nida_number: string | null;
     has_document: boolean;
     status: 'pending' | 'approved' | 'rejected';

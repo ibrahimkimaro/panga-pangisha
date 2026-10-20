@@ -8,6 +8,7 @@ import '../l10n.dart';
 import '../ui.dart';
 import 'appearance.dart';
 import 'owner/rentals.dart';
+import 'owner/rental_agreements_screen.dart';
 import 'chat.dart';
 import 'notifications.dart';
 import 'profile_edit_screens.dart';
@@ -1188,8 +1189,13 @@ class _ProfileTabState extends State<ProfileTab> {
 
             // 3. Payment & Preferences Group (Clay Container)
             _sectionHeader(t('Finance & Preferences', 'Fedha na Mapendeleo')),
-            const SizedBox(height: 8),
             _Group([
+              _SettingsRow(
+                icon: Icons.description_outlined,
+                title: t('Rental Agreements', 'Mikataba ya Upangaji'),
+                subtitle: t('Review, sign and manage tenancy contracts', 'Soma, saini na simamia mikataba ya upangaji'),
+                onTap: () => push(context, const RentalAgreementsScreen()),
+              ),
               _SettingsRow(
                 icon: Icons.credit_card_outlined,
                 title: t('Payment Methods', 'Njia za Malipo'),
@@ -1674,9 +1680,28 @@ class _ViewingState extends State<_Viewing> {
               child: Tag(label, bg: bg, fg: fg),
             ),
           ),
+          if (widget.asOwner && status == 'accepted') ...[
+            const SizedBox(height: 12),
+            Button(
+              t('Prepare Rental Agreement', 'Andaa Mkataba wa Upangaji'),
+              tone: Tone.green,
+              icon: Icons.description_outlined,
+              onTap: () {
+                push(
+                  context,
+                  DraftAgreementScreen(
+                    onCreated: widget.changed,
+                    initialRequest: v,
+                    initialHouse: v['house'] is Map ? Map<String, dynamic>.from(v['house']) : null,
+                    initialTenant: v['user'] is Map ? Map<String, dynamic>.from(v['user']) : null,
+                  ),
+                );
+              },
+            ),
+          ],
           if (status == 'pending') ...[
             const SizedBox(height: 14),
-            if (widget.asOwner)
+            if (widget.asOwner) ...[
               Row(
                 children: [
                   Expanded(
@@ -1697,8 +1722,29 @@ class _ViewingState extends State<_Viewing> {
                     ),
                   ),
                 ],
-              )
-            else
+              ),
+              const SizedBox(height: 8),
+              Button(
+                t('Accept & Prepare Agreement', 'Kubali & Andaa Mkataba'),
+                tone: Tone.green,
+                icon: Icons.handshake_outlined,
+                busy: _busy == 'accepted',
+                onTap: _busy != null ? null : () async {
+                  await _set('accepted');
+                  if (context.mounted) {
+                    push(
+                      context,
+                      DraftAgreementScreen(
+                        onCreated: widget.changed,
+                        initialRequest: v,
+                        initialHouse: v['house'] is Map ? Map<String, dynamic>.from(v['house']) : null,
+                        initialTenant: v['user'] is Map ? Map<String, dynamic>.from(v['user']) : null,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ] else
               Button(
                 t('Cancel request', 'Ghairi ombi'),
                 tone: Tone.plain,

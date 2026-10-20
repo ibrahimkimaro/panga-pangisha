@@ -1,7 +1,7 @@
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import AdminLayout from '@/layouts/AdminLayout';
-import { Avatar, Badge, Empty, Filters, Pagination, Table } from '@/components/ui';
-import { Download } from 'lucide-react';
+import { Avatar, Badge, Confirm, Empty, Filters, Pagination, Table } from '@/components/ui';
+import { Download, Trash2 } from 'lucide-react';
 import { country, date, roleLabel } from '@/lib/format';
 import type { Paged, Person } from '@/types';
 
@@ -30,7 +30,7 @@ export default function Users({ users, filters, countries }: { users: Paged<Pers
             {users.data.length === 0 ? (
                 <Empty title="No users match">Try a shorter search, or clear the filters.</Empty>
             ) : (
-                <Table head={['Person', 'Phone', 'Country', 'Role', 'Listings', 'Joined', 'Status']}>
+                <Table head={['Person', 'Phone', 'Country', 'Role', 'Listings', 'Joined', 'Status', '']}>
                     {users.data.map((u) => (
                         <tr key={u.id}>
                             <td>
@@ -48,6 +48,18 @@ export default function Users({ users, filters, countries }: { users: Paged<Pers
                             <td className="tabular-nums">{u.houses_count}</td>
                             <td className="whitespace-nowrap text-muted">{date(u.created_at)}</td>
                             <td>{u.suspended_at ? <Badge tone="bad">Suspended</Badge> : <Badge tone="good">Active</Badge>}</td>
+                            <td className="whitespace-nowrap text-right">
+                                <Confirm
+                                    label={<span className="inline-flex items-center p-1.5 text-muted hover:text-red-600 rounded-md hover:bg-red-50"><Trash2 className="size-4" /></span>}
+                                    variant="danger"
+                                    danger
+                                    title={`Permanently delete ${u.fullname}?`}
+                                    confirmLabel="Delete"
+                                    onConfirm={() => router.delete(`/admin/users/${u.id}`, { preserveScroll: true })}
+                                >
+                                    This will permanently delete this account, their properties, tokens, and records.
+                                </Confirm>
+                            </td>
                         </tr>
                     ))}
                 </Table>

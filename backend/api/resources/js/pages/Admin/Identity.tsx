@@ -98,7 +98,9 @@ export default function Identity({ checks, filters }: { checks: Paged<IdentityCh
                                         </span>
                                     )}
                                     <span className="text-sm">
-                                        <span className="block text-xs text-muted">Photo of the NIDA card</span>
+                                        <span className="block text-xs text-muted">
+                                            {c.method === 'nida_card' ? 'Photo of NIDA card' : c.method === 'driving_licence' ? 'Photo of Driving Licence' : c.method === 'voter_id' ? 'Photo of Voter ID' : 'Photo of ID document'}
+                                        </span>
                                         <span className="font-semibold text-teal group-hover:underline">Open full size</span>
                                     </span>
                                 </button>

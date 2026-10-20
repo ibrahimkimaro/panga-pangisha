@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Notifications\AppNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -73,6 +74,48 @@ class UserController extends Controller
         return back()->with('flash', 'Role updated.');
     }
 
+    public function updatePassword(Request $r, User $user)
+    {
+        abort_if($user->role === 'admin' && auth()->id() !== $user->id, 403, 'Cannot change password of another administrator.');
+
+        $d = $r->validate([
+            'password' => 'required|string|min:6|max:100',
+            'revoke_sessions' => 'nullable|boolean',
+            'notify_user' => 'nullable|boolean',
+        ]);
+
+        $revokeSessions = $r->boolean('revoke_sessions', true);
+        $notifyUser = $r->boolean('notify_user', false);
+
+        DB::transaction(function () use ($user, $d, $revokeSessions, $notifyUser) {
+            $user->forceFill([
+                'password' => Hash::make($d['password']),
+            ])->save();
+
+            if ($revokeSessions) {
+                $user->tokens()->delete();
+                $user->deviceTokens()->delete();
+            }
+
+            if ($notifyUser) {
+                $user->notify(new AppNotification(
+                    'Security notice: Password changed',
+                    'Your Panga account password has been changed by system administration. If you did not request this, please reach out to support immediately.',
+                    null,
+                    'security'
+                ));
+            }
+
+            AdminAction::record(
+                'user.password_changed',
+                $user,
+                "Changed password for {$user->fullname} (#{$user->id})" . ($revokeSessions ? ' and revoked active sessions' : '')
+            );
+        });
+
+        return back()->with('flash', "Password for {$user->fullname} updated successfully." . ($revokeSessions ? ' Active sessions revoked.' : ''));
+    }
+
     /** A message to one person. It is stored in their notifications and pushed live to their open app. */
     public function message(Request $r, User $user)
     {
@@ -102,5 +145,41 @@ class UserController extends Controller
         $user->forceFill(['suspended_at' => null])->save();
         AdminAction::record('user.reactivated', $user, "Reactivated {$user->fullname}");
         return back()->with('flash', "{$user->fullname} can sign in again.");
+    }
+
+    public function destroy(User $user)
+    {
+        abort_if($user->role === 'admin', 403, 'Cannot delete an administrator account.');
+        
+        $userName = $user->fullname;
+        $userId = $user->id;
+
+        DB::transaction(function () use ($user, $userName, $userId) {
+            AdminAction::record('user.deleted', $user, "Permanently deleted user {$userName} (#{$userId})", $userId);
+
+            // Delete device tokens
+            $user->deviceTokens()->delete();
+            // Delete API tokens
+            $user->tokens()->delete();
+            // Delete verifications
+            $user->identities()->delete();
+            // Delete viewing requests
+            $user->viewingRequests()->delete();
+            // Delete business profile
+            $user->business()?->delete();
+            // Delete favorites
+            $user->favorites()->detach();
+            // Delete houses and related units
+            foreach ($user->houses as $house) {
+                $house->units()->delete();
+                $house->delete();
+            }
+            // Delete profile
+            $user->profile()?->delete();
+            // Delete user
+            $user->delete();
+        });
+
+        return redirect('/admin/users')->with('flash', "User {$userName} has been permanently deleted.");
     }
 }

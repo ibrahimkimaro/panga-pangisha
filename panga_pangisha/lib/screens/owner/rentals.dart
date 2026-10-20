@@ -146,7 +146,221 @@ class _Page extends StatelessWidget {
   }
 }
 
-/// Two to four choices side by side; the chosen one fills with the accent.
+/// Tactile volumetric 3D container with dual clay shadows and specular highlights.
+class _ClayBox extends StatelessWidget {
+  const _ClayBox({
+    required this.child,
+    this.color,
+    this.radius = 20,
+    this.padding,
+    this.onTap,
+  });
+
+  final Widget child;
+  final Color? color;
+  final double radius;
+  final EdgeInsetsGeometry? padding;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = C.dark;
+    final baseColor = color ?? (isDark ? const Color(0xFF1E242B) : Colors.white);
+    final edge = isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFF1F5F9);
+    final darkShadow = isDark
+        ? Colors.black.withValues(alpha: 0.45)
+        : const Color(0x180F2A3F).withValues(alpha: 0.22);
+    final lightShadow = isDark
+        ? Colors.white.withValues(alpha: 0.04)
+        : Colors.white.withValues(alpha: 0.95);
+
+    final box = Container(
+      decoration: BoxDecoration(
+        color: baseColor,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: edge, width: 1.6),
+        boxShadow: [
+          // Soft ambient clay drop shadow (bottom-right)
+          BoxShadow(
+            color: darkShadow,
+            offset: const Offset(4, 6),
+            blurRadius: 14,
+            spreadRadius: -1,
+          ),
+          // Bright specular light reflection (top-left)
+          BoxShadow(
+            color: lightShadow,
+            offset: const Offset(-3, -3),
+            blurRadius: 10,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(radius > 2 ? radius - 2 : radius),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: padding ?? const EdgeInsets.all(16),
+          child: child,
+        ),
+      ),
+    );
+
+    if (onTap != null) {
+      return Press(onTap: onTap, child: box);
+    }
+    return box;
+  }
+}
+
+/// Claymorphic quick action item with vibrant bulb icon and bold label.
+class _ClayQuickActionItem extends StatelessWidget {
+  const _ClayQuickActionItem({
+    required this.icon,
+    required this.label,
+    required this.accentColor,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color accentColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = C.dark;
+    return Press(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E242B) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFF1F5F9),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isDark ? Colors.black.withValues(alpha: 0.35) : const Color(0x140F2A3F),
+              offset: const Offset(3, 5),
+              blurRadius: 10,
+              spreadRadius: -1,
+            ),
+            BoxShadow(
+              color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
+              offset: const Offset(-2, -2),
+              blurRadius: 6,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: isDark ? 0.22 : 0.12),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(
+                  color: accentColor.withValues(alpha: isDark ? 0.35 : 0.25),
+                  width: 1,
+                ),
+              ),
+              child: Icon(icon, size: 17, color: accentColor),
+            ),
+            const SizedBox(width: 9),
+            Text(
+              label,
+              style: body(13, weight: FontWeight.w700, color: C.wino),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Recessed / sunken clay search field with clear action.
+class _ClaySearchField extends StatelessWidget {
+  const _ClaySearchField({
+    required this.onChanged,
+    required this.hintText,
+    this.onClear,
+    this.hasQuery = false,
+  });
+
+  final ValueChanged<String> onChanged;
+  final String hintText;
+  final VoidCallback? onClear;
+  final bool hasQuery;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = C.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF191E24) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black.withValues(alpha: 0.3) : const Color(0x100F2A3F),
+            offset: const Offset(2, 3),
+            blurRadius: 6,
+          ),
+          BoxShadow(
+            color: isDark ? Colors.white.withValues(alpha: 0.02) : Colors.white,
+            offset: const Offset(-2, -2),
+            blurRadius: 5,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 14),
+          Icon(Icons.search_rounded, color: C.teal, size: 21),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              onChanged: onChanged,
+              style: body(14, weight: FontWeight.w600),
+              decoration: InputDecoration(
+                filled: false,
+                isDense: true,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 13),
+                hintText: hintText,
+                hintStyle: body(14, color: C.muted),
+              ),
+            ),
+          ),
+          if (hasQuery && onClear != null)
+            GestureDetector(
+              onTap: onClear,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Icon(Icons.close_rounded, size: 18, color: C.muted),
+              ),
+            )
+          else
+            const SizedBox(width: 12),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tactile 3D Clay Segment Selector: sunken track with elevated sliding clay pill.
 class _Seg extends StatelessWidget {
   const _Seg(this.names, this.at, this.onTap);
   final List<String> names;
@@ -154,33 +368,78 @@ class _Seg extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   @override
-  Widget build(BuildContext context) => Glass(
-    radius: 16,
-    padding: const EdgeInsets.all(4),
-    child: Row(
-      children: [
-        for (final (i, name) in names.indexed)
-          Expanded(
-            child: Press(
-              onTap: () => onTap(i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(color: at == i ? C.mkoko : Colors.transparent, borderRadius: BorderRadius.circular(12)),
-                child: Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: body(12.5, weight: FontWeight.w700, color: at == i ? Colors.white : C.muted, height: 1.2),
+  Widget build(BuildContext context) {
+    final isDark = C.dark;
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF191E24) : const Color(0xFFEDF2F7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black.withValues(alpha: 0.3) : const Color(0x100F2A3F),
+            offset: const Offset(2, 3),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          for (final (i, name) in names.indexed)
+            Expanded(
+              child: Press(
+                onTap: () => onTap(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: at == i ? (isDark ? const Color(0xFF252C35) : Colors.white) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(15),
+                    border: at == i
+                        ? Border.all(
+                            color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.white,
+                            width: 1.5,
+                          )
+                        : null,
+                    boxShadow: at == i
+                        ? [
+                            BoxShadow(
+                              color: isDark ? Colors.black.withValues(alpha: 0.35) : const Color(0x160F2A3F),
+                              offset: const Offset(2, 4),
+                              blurRadius: 8,
+                            ),
+                            BoxShadow(
+                              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                              offset: const Offset(-2, -2),
+                              blurRadius: 6,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: body(
+                      13,
+                      weight: at == i ? FontWeight.w800 : FontWeight.w600,
+                      color: at == i ? (isDark ? Colors.white : C.mkoko) : C.muted,
+                      height: 1.2,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 /// Fades between the bodies of a [_Seg].
@@ -190,20 +449,27 @@ Widget _switch(int at, Widget child) => AnimatedSwitcher(
   child: KeyedSubtree(key: ValueKey(at), child: child),
 );
 
-/// A line of quiet text in a glass card: "nothing here yet".
-Widget _none(String text) => Glass(
+/// A line of quiet text in a clay card: "nothing here yet".
+Widget _none(String text) => _ClayBox(
   radius: 18,
   child: SizedBox(width: double.infinity, child: Text(text, style: body(13.5, color: C.muted, height: 1.4))),
 );
 
 Widget _bones() => ListView(
   padding: const EdgeInsets.symmetric(horizontal: 20),
-  children: const [Bone(height: 72, radius: 18), SizedBox(height: 10), Bone(height: 72, radius: 18), SizedBox(height: 10), Bone(height: 72, radius: 18)],
+  children: const [
+    Bone(height: 110, radius: 22),
+    SizedBox(height: 12),
+    Bone(height: 110, radius: 22),
+    SizedBox(height: 12),
+    Bone(height: 110, radius: 22),
+  ],
 );
 
 Widget _failed(String error, VoidCallback again) =>
     Notice(icon: Icons.cloud_off_outlined, title: t('This did not load', 'Imeshindwa kufunguka'), text: error, action: t('Try again', 'Jaribu tena'), onAction: again);
 
+/// Redesigned Claymorphism Tenant List Item.
 class _TenantRow extends StatelessWidget {
   const _TenantRow(this.tn, {required this.onTap});
   final _J tn;
@@ -211,40 +477,225 @@ class _TenantRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = C.dark;
+    final isActive = tn['status'] == 'active';
     final (label, fg, bg) = _tenancy('${tn['status']}');
     final (paid, paidColor) = _paid(tn);
-    return Press(
+    final houseName = '${tn['house']?['property_name'] ?? ''}';
+    final unit = '${tn['unit'] ?? ''}';
+    final rent = _n(tn['monthly_rent']);
+    final userId = tn['user_id'];
+
+    return _ClayBox(
       onTap: onTap,
-      child: Glass(
-        radius: 18,
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Avatar('${tn['name']}', size: 40),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      radius: 22,
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 3D tactile avatar with active status badge
+              Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  Text('${tn['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, weight: FontWeight.w600, height: 1.25)),
-                  Text(_unitAndTime(tn), style: body(12.5, color: C.muted, height: 1.3)),
-                  Text('${tn['house']?['property_name'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted, height: 1.3)),
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: isDark ? Colors.black45 : const Color(0x180F2A3F),
+                          offset: const Offset(2, 4),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: Avatar('${tn['name']}', size: 48),
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: isActive ? C.good : C.muted,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF1E242B) : Colors.white,
+                          width: 2.2,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${tn['name']}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: display(15.5, weight: FontWeight.w800, color: C.wino),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                          decoration: BoxDecoration(
+                            color: bg,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: fg.withValues(alpha: 0.25),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            label,
+                            style: body(11, weight: FontWeight.w800, color: fg, height: 1.1),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (houseName.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF28303A) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.home_work_outlined, size: 12, color: C.muted),
+                                const SizedBox(width: 4),
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 130),
+                                  child: Text(
+                                    houseName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: body(11.5, weight: FontWeight.w600, color: C.muted),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (unit.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: C.teal.withValues(alpha: isDark ? 0.2 : 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              t('Unit $unit', 'Chumba $unit'),
+                              style: body(11.5, weight: FontWeight.w700, color: C.teal),
+                            ),
+                          ),
+                        Text(
+                          _lived(tn),
+                          style: body(11.5, color: C.muted),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Clay footer strip: Rent amount + Payment status + Quick actions
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF161A20) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFEDF2F7),
+                width: 1,
+              ),
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            child: Row(
               children: [
-                _Badge(label, fg, bg),
-                if (tn['status'] == 'active') ...[
-                  const SizedBox(height: 6),
-                  Text(paid, style: body(11, weight: FontWeight.w700, height: 1.1, color: paidColor)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        t('Monthly rent', 'Kodi ya mwezi'),
+                        style: body(10.5, color: C.muted, height: 1.1),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        tzs(rent),
+                        style: display(13.5, weight: FontWeight.w800, color: C.wino),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isActive) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: paidColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: paidColor.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          paidColor == C.good ? Icons.check_circle_rounded : Icons.schedule_rounded,
+                          size: 13,
+                          color: paidColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          paid,
+                          style: body(11, weight: FontWeight.w800, color: paidColor, height: 1.1),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                 ],
+                if (userId != null) ...[
+                  Press(
+                    onTap: () => push(context, ChatScreen(peerId: userId, name: '${tn['name']}')),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: C.teal.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Icon(Icons.chat_bubble_outline_rounded, size: 15, color: C.teal),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Icon(Icons.chevron_right_rounded, size: 18, color: C.muted),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -668,11 +1119,7 @@ class _TenantsTabState extends State<TenantsTab> {
       title: t('Tenants', 'Wapangaji'),
       sub: all == null ? ' ' : (active == 1 ? t('1 tenant', 'Mpangaji 1') : t('$active tenants', 'Wapangaji $active')),
       actions: [
-        RoundIcon(Icons.description_outlined, label: t('Agreements', 'Mikataba'), onTap: () => _open(const RentalAgreementsScreen())),
-        RoundIcon(Icons.receipt_long_outlined, label: t('Invoices', 'Ankara'), onTap: () => _open(const InvoicesScreen())),
-        RoundIcon(Icons.timelapse_rounded, label: t('Occupancy', 'Ukaaji'), onTap: () => _open(const OccupancyScreen())),
-        RoundIcon(Icons.payments_outlined, label: t('Rent payments', 'Malipo ya kodi'), onTap: () => _open(const RentPaymentsScreen())),
-        RoundIcon(Icons.build_outlined, label: t('Maintenance', 'Matengenezo'), onTap: () => _open(const MaintenanceScreen())),
+        RoundIcon(Icons.person_add_alt_1_rounded, label: t('Add tenant', 'Ongeza mpangaji'), onTap: _add),
       ],
       child: Column(
         children: [
@@ -680,33 +1127,51 @@ class _TenantsTabState extends State<TenantsTab> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: _Seg([t('Tenants', 'Wapangaji'), t('Viewing requests', 'Maombi ya kuona')], _seg, (i) => setState(() => _seg = i)),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+          // Middle Claymorphism Quick Navigation Tools (Chosen 1 unified place with Icon + Name)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                ActionChip(
-                  avatar: const Icon(Icons.description_outlined, size: 16),
-                  label: Text(t('Mkataba wa Nyumba', 'Mikataba')),
-                  onPressed: () => _open(const RentalAgreementsScreen()),
+                _ClayQuickActionItem(
+                  icon: Icons.description_rounded,
+                  label: t('Mikataba', 'Mikataba'),
+                  accentColor: const Color(0xFF0D9488),
+                  onTap: () => _open(const RentalAgreementsScreen()),
                 ),
-                const SizedBox(width: 8),
-                ActionChip(
-                  avatar: const Icon(Icons.receipt_long_outlined, size: 16),
-                  label: Text(t('Ankara & Bili', 'Ankara')),
-                  onPressed: () => _open(const InvoicesScreen()),
+                const SizedBox(width: 10),
+                _ClayQuickActionItem(
+                  icon: Icons.receipt_long_rounded,
+                  label: t('Ankara & Bili', 'Ankara & Bili'),
+                  accentColor: const Color(0xFF6366F1),
+                  onTap: () => _open(const InvoicesScreen()),
                 ),
-                const SizedBox(width: 8),
-                ActionChip(
-                  avatar: const Icon(Icons.timelapse_rounded, size: 16),
-                  label: Text(t('Ukaaji wa Vyumba', 'Ukaaji na Muda')),
-                  onPressed: () => _open(const OccupancyScreen()),
+                const SizedBox(width: 10),
+                _ClayQuickActionItem(
+                  icon: Icons.pie_chart_rounded,
+                  label: t('Ukaaji wa Vyumba', 'Ukaaji'),
+                  accentColor: const Color(0xFFF59E0B),
+                  onTap: () => _open(const OccupancyScreen()),
+                ),
+                const SizedBox(width: 10),
+                _ClayQuickActionItem(
+                  icon: Icons.payments_rounded,
+                  label: t('Malipo ya Kodi', 'Malipo'),
+                  accentColor: const Color(0xFF10B981),
+                  onTap: () => _open(const RentPaymentsScreen()),
+                ),
+                const SizedBox(width: 10),
+                _ClayQuickActionItem(
+                  icon: Icons.handyman_rounded,
+                  label: t('Matengenezo', 'Matengenezo'),
+                  accentColor: const Color(0xFFE11D48),
+                  onTap: () => _open(const MaintenanceScreen()),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Expanded(
             child: _seg == 1
                 ? const ViewingsList(asOwner: true)
@@ -715,24 +1180,12 @@ class _TenantsTabState extends State<TenantsTab> {
                       Column(
                         children: [
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                            child: Glass(
-                              radius: 16,
-                              padding: EdgeInsets.zero,
-                              child: TextField(
-                                onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
-                                style: body(14.5),
-                                decoration: InputDecoration(
-                                  filled: false,
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 13),
-                                  prefixIcon: Icon(Icons.search_rounded, color: C.muted, size: 20),
-                                  hintText: t('Search tenants', 'Tafuta wapangaji'),
-                                  hintStyle: body(14, color: C.muted),
-                                ),
-                              ),
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                            child: _ClaySearchField(
+                              hasQuery: _query.isNotEmpty,
+                              onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+                              onClear: () => setState(() => _query = ''),
+                              hintText: t('Search tenants, units, properties...', 'Tafuta mpangaji, chumba, nyumba...'),
                             ),
                           ),
                           Expanded(
@@ -760,7 +1213,7 @@ class _TenantsTabState extends State<TenantsTab> {
                                     child: ListView.separated(
                                       padding: const EdgeInsets.fromLTRB(20, 2, 20, 170),
                                       itemCount: shown.length,
-                                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                                      separatorBuilder: (_, _) => const SizedBox(height: 12),
                                       itemBuilder: (_, i) => _TenantRow(shown[i], onTap: () => _open(_TenantScreen(shown[i]))).reveal(i.clamp(0, 6)),
                                     ),
                                   ),
@@ -771,7 +1224,23 @@ class _TenantsTabState extends State<TenantsTab> {
                         Positioned(
                           right: 20,
                           bottom: 100,
-                          child: Button(t('Add tenant', 'Ongeza mpangaji'), icon: Icons.person_add_alt_1_rounded, expand: false, onTap: _add),
+                          child: _ClayBox(
+                            color: C.mkoko,
+                            radius: 22,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                            onTap: _add,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 19),
+                                const SizedBox(width: 8),
+                                Text(
+                                  t('Add tenant', 'Ongeza mpangaji'),
+                                  style: body(13.5, weight: FontWeight.w800, color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -921,9 +1390,9 @@ class _TenantScreenState extends State<_TenantScreen> {
 
     return Column(
       children: [
-        Glass(
-          radius: 18,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        _ClayBox(
+          radius: 20,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Column(
             children: [
               _line(Icons.call_outlined, t('Phone', 'Simu'), phone.isEmpty ? t('Not given', 'Haijawekwa') : phone, onTap: phone.isEmpty ? null : () => copy(phone)),
@@ -931,10 +1400,10 @@ class _TenantScreenState extends State<_TenantScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 10),
-        Glass(
-          radius: 18,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        const SizedBox(height: 12),
+        _ClayBox(
+          radius: 20,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Column(
             children: [
               _line(Icons.apartment_rounded, '${tn['house']?['property_name'] ?? ''}', '${tn['unit'] ?? ''}'.isEmpty ? t('Whole property', 'Nyumba nzima') : t('Unit ${tn['unit']}', 'Chumba ${tn['unit']}')),
@@ -954,8 +1423,8 @@ class _TenantScreenState extends State<_TenantScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Glass(
-          radius: 18,
+        _ClayBox(
+          radius: 20,
           child: Row(
             children: [
               Expanded(

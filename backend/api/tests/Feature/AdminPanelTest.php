@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Page;
 use Tests\TestCase;
@@ -85,6 +86,49 @@ class AdminPanelTest extends TestCase
         // Admin accounts cannot be suspended or re-roled from the panel.
         $this->post("/admin/users/{$admin->id}/suspend")->assertNotFound();
         $this->patch("/admin/users/{$owner->id}", ['role' => 'admin'])->assertSessionHasErrors('role');
+    }
+
+    public function test_admin_can_securely_change_user_password_and_revoke_sessions(): void
+    {
+        $admin = $this->user('admin', 'admin@example.com');
+        $user = $this->user('renter', 'renter@example.com');
+        $oldHash = $user->password;
+
+        DB::table('personal_access_tokens')->insert([
+            'tokenable_type' => 'App\\Models\\User',
+            'tokenable_id' => $user->id,
+            'name' => 'mobile',
+            'token' => hash('sha256', 'token123'),
+            'abilities' => '["*"]'
+        ]);
+
+        $this->actingAs($admin);
+
+        // Cannot change another admin's password
+        $otherAdmin = $this->user('admin', 'otheradmin@example.com');
+        $this->post("/admin/users/{$otherAdmin->id}/password", [
+            'password' => 'NewSecur3Pass#',
+        ])->assertForbidden();
+
+        // Admin changes renter password and revokes sessions
+        $res = $this->post("/admin/users/{$user->id}/password", [
+            'password' => 'NewSecur3Pass#',
+            'revoke_sessions' => true,
+            'notify_user' => true,
+        ]);
+
+        $res->assertRedirect();
+        $this->assertTrue(Hash::check('NewSecur3Pass#', $user->fresh()->password));
+        $this->assertNotSame($oldHash, $user->fresh()->password);
+        $this->assertDatabaseMissing('personal_access_tokens', ['tokenable_id' => $user->id]);
+        $this->assertDatabaseHas('admin_actions', [
+            'action' => 'user.password_changed',
+            'admin_id' => $admin->id,
+            'subject_id' => $user->id,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $user->id,
+        ]);
     }
 
     public function test_listing_moderation(): void

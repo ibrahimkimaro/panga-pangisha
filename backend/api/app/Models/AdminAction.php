@@ -13,11 +13,12 @@ class AdminAction extends Model
 
     public function admin() { return $this->belongsTo(User::class, 'admin_id'); }
 
-    public static function record(string $action, Model $subject, string $summary): void
+    public static function record(string $action, ?Model $subject, string $summary, ?int $subjectId = null): void
     {
+        $id = $subject?->getKey() ?? $subjectId ?? 0;
         static::create([
             'admin_id' => auth()->id(), 'action' => $action, 'summary' => $summary, 'created_at' => now(),
-            'subject_type' => explode('.', $action)[0], 'subject_id' => $subject->getKey(),
+            'subject_type' => explode('.', $action)[0], 'subject_id' => $id,
         ]);
     }
 }
