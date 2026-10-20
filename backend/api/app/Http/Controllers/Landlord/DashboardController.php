@@ -496,11 +496,15 @@ class DashboardController extends Controller
 
         $token = $user->createToken('web', ['*'], now()->addDays(30))->plainTextToken;
 
-        $targetUrl = '/landlord/dashboard';
-        if ($user->role === 'admin') {
-            $targetUrl = '/admin';
-        } elseif ($user->role === 'renter') {
+        $portal = strtolower(trim((string) $request->input('portal', '')));
+
+        // Role-based routing: renter/tenant -> tenant dashboard, landlord/manager -> landlord dashboard
+        if ($user->role === 'renter' || $user->role === 'tenant' || $portal === 'tenant') {
             $targetUrl = '/tenant/dashboard';
+        } elseif ($user->role === 'admin' && $portal === 'admin') {
+            $targetUrl = '/admin';
+        } else {
+            $targetUrl = '/landlord/dashboard';
         }
 
         return response()->json([
