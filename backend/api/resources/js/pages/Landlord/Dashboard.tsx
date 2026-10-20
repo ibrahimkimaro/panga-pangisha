@@ -183,37 +183,42 @@ export default function LandlordDashboard({
     ];
 
     return (
-        <div className="min-h-screen bg-slate-50/50 text-slate-900 font-sans antialiased selection:bg-slate-900 selection:text-white">
+        <div className="min-h-screen bg-[#FAF8F5] text-[#12161A] font-sans antialiased selection:bg-[#12161A] selection:text-white">
             <Head title="Landlord Suite • Panga Pangisha" />
 
-            {/* 1. Main Navigation Bar (Airbnb x Linear Precision) */}
-            <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
-                <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+            {/* 1. Main Navigation Bar (Luxury Editorial Host Suite) */}
+            <header className="sticky top-0 z-40 border-b border-[#EFECE6] bg-[#FAF8F5]/90 backdrop-blur-md">
+                <div className="w-full max-w-full flex h-18 items-center justify-between px-4 sm:px-8 lg:px-12">
                     {/* Brand Logo & Host Pill */}
                     <div className="flex items-center gap-3">
                         <Link href="/" className="flex items-center gap-2 group">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white font-extrabold shadow-sm group-hover:scale-105 transition-transform">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#12161A] text-white font-serif text-xl font-bold shadow-sm group-hover:scale-105 transition-transform">
                                 P
                             </div>
-                            <span className="text-base font-extrabold tracking-tight text-slate-900">
-                                Panga Pangisha
-                            </span>
+                            <div className="flex flex-col">
+                                <span className="font-serif text-base font-bold tracking-tight text-[#12161A]">
+                                    Panga Pangisha
+                                </span>
+                                <span className="text-[10px] tracking-widest uppercase font-semibold text-[#8C827A] -mt-1">
+                                    Host Command Suite
+                                </span>
+                            </div>
                         </Link>
-                        <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-bold text-slate-700">
+                        <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1 text-[11px] font-bold text-stone-700 shadow-2xs">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            Hosting Suite
+                            Verified Portfolio
                         </span>
                     </div>
 
-                    {/* Quick Search & AI Pill (Airbnb style floating feel) */}
+                    {/* Quick Search & AI Pill (Floorspace / Linear precision) */}
                     <div className="hidden md:flex items-center">
                         <button
                             onClick={() => setIsAiModalOpen(true)}
-                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50/80 hover:bg-slate-100 px-4 py-1.5 text-xs text-slate-500 shadow-2xs transition-all hover:border-slate-300"
+                            className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white hover:bg-stone-50 px-4 py-2 text-xs text-stone-500 shadow-2xs transition-all hover:border-stone-400"
                         >
-                            <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-                            <span>Ask Veyora AI or Search...</span>
-                            <kbd className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-400 border border-slate-200 shadow-2xs">
+                            <Sparkles className="h-3.5 w-3.5 text-amber-600" />
+                            <span>Ask Veyora AI or Search Portfolio...</span>
+                            <kbd className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] font-bold text-stone-400 border border-stone-200 shadow-2xs">
                                 ⌘K
                             </kbd>
                         </button>
@@ -223,7 +228,7 @@ export default function LandlordDashboard({
                     <div className="flex items-center gap-2 sm:gap-3">
                         <button
                             onClick={() => setIsAddPropertyModalOpen(true)}
-                            className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-all active:scale-95"
+                            className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-[#12161A] px-4 py-2 text-xs uppercase tracking-wider font-bold text-white shadow-sm hover:bg-[#2A323D] transition-all active:scale-95"
                         >
                             <Plus className="h-3.5 w-3.5" />
                             Add Listing
@@ -231,7 +236,7 @@ export default function LandlordDashboard({
 
                         <button
                             onClick={() => setIsAiModalOpen(true)}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-all"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs uppercase tracking-wider font-bold text-amber-800 hover:bg-amber-100 transition-all"
                         >
                             <Sparkles className="h-3.5 w-3.5" />
                             <span className="hidden sm:inline">AI Copilot</span>
@@ -241,14 +246,14 @@ export default function LandlordDashboard({
                         <div className="relative">
                             <button
                                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                                className="flex items-center gap-2 rounded-full border border-slate-200 p-1 hover:border-slate-300 hover:shadow-xs transition-all"
+                                className="flex items-center gap-2 rounded-full border border-stone-200 p-1 hover:border-stone-300 hover:shadow-xs transition-all"
                             >
                                 <img
                                     src={currentUser.avatar}
                                     alt={currentUser.name}
                                     className="h-8 w-8 rounded-full object-cover"
                                 />
-                                <ChevronDown className="h-3.5 w-3.5 text-slate-400 mr-1 hidden sm:block" />
+                                <ChevronDown className="h-3.5 w-3.5 text-stone-400 mr-1 hidden sm:block" />
                             </button>
 
                             <AnimatePresence>
@@ -257,11 +262,11 @@ export default function LandlordDashboard({
                                         initial={{ opacity: 0, scale: 0.95, y: 4 }}
                                         animate={{ opacity: 1, scale: 1, y: 0 }}
                                         exit={{ opacity: 0, scale: 0.95, y: 4 }}
-                                        className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl z-50 text-xs"
+                                        className="absolute right-0 mt-2 w-56 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl z-50 text-xs"
                                     >
-                                        <div className="p-2 border-b border-slate-100">
-                                            <p className="font-bold text-slate-900">{currentUser.name}</p>
-                                            <p className="text-[11px] text-slate-500 truncate">{currentUser.email}</p>
+                                        <div className="p-2 border-b border-stone-100">
+                                            <p className="font-bold text-stone-900">{currentUser.name}</p>
+                                            <p className="text-[11px] text-stone-500 truncate">{currentUser.email}</p>
                                             <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 font-bold">
                                                 <ShieldCheck className="h-3 w-3" />
                                                 Verified Landlord
@@ -274,9 +279,9 @@ export default function LandlordDashboard({
                                                     setActiveSection('settings');
                                                     setUserDropdownOpen(false);
                                                 }}
-                                                className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-slate-700 hover:bg-slate-50 font-semibold"
+                                                className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-stone-700 hover:bg-stone-50 font-semibold"
                                             >
-                                                <Settings className="h-4 w-4 text-slate-400" />
+                                                <Settings className="h-4 w-4 text-stone-400" />
                                                 Host Settings & Payouts
                                             </button>
                                             <button
@@ -284,14 +289,14 @@ export default function LandlordDashboard({
                                                     setActiveSection('properties');
                                                     setUserDropdownOpen(false);
                                                 }}
-                                                className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-slate-700 hover:bg-slate-50 font-semibold"
+                                                className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-stone-700 hover:bg-stone-50 font-semibold"
                                             >
-                                                <Building2 className="h-4 w-4 text-slate-400" />
+                                                <Building2 className="h-4 w-4 text-stone-400" />
                                                 Properties Portfolio
                                             </button>
                                         </div>
 
-                                        <div className="border-t border-slate-100 pt-1">
+                                        <div className="border-t border-stone-100 pt-1">
                                             <button
                                                 onClick={handleSignOut}
                                                 className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-red-600 hover:bg-red-50 font-semibold"
@@ -308,9 +313,9 @@ export default function LandlordDashboard({
                 </div>
 
                 {/* 2. Subheader Navigation Tabs (Airbnb style category pills) */}
-                <div className="border-t border-slate-100 bg-white">
-                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                        <div className="flex space-x-1 sm:space-x-2 overflow-x-auto no-scrollbar py-2">
+                <div className="border-t border-[#EFECE6] bg-[#FAF8F5]">
+                    <div className="w-full max-w-full px-4 sm:px-8 lg:px-12">
+                        <div className="flex space-x-1 sm:space-x-2 overflow-x-auto no-scrollbar py-2.5">
                             {navTabs.map((tab) => {
                                 const Icon = tab.icon;
                                 const isActive = activeSection === tab.id;
@@ -318,18 +323,18 @@ export default function LandlordDashboard({
                                     <button
                                         key={tab.id}
                                         onClick={() => setActiveSection(tab.id as any)}
-                                        className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-all ${
+                                        className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all ${
                                             isActive
-                                                ? 'bg-slate-900 text-white shadow-xs'
-                                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                                ? 'bg-[#12161A] text-white shadow-xs'
+                                                : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
                                         }`}
                                     >
-                                        <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                                        <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-stone-400'}`} />
                                         <span>{tab.label}</span>
                                         {tab.count !== undefined && (
                                             <span
                                                 className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                                                    isActive ? 'bg-white/20 text-white' : 'bg-slate-200/70 text-slate-600'
+                                                    isActive ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-700'
                                                 }`}
                                             >
                                                 {tab.count}
@@ -343,8 +348,8 @@ export default function LandlordDashboard({
                 </div>
             </header>
 
-            {/* 3. Main Content Container */}
-            <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6">
+            {/* 3. Main Content Container (Full Width Edge to Edge) */}
+            <main className="w-full max-w-full px-4 sm:px-8 lg:px-12 pt-6">
                 {activeSection === 'dashboard' && (
                     <OverviewView
                         user={currentUser}

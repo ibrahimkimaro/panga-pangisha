@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Head, Link } from '@inertiajs/react';
-import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     BadgeCheck, Bath, BedDouble, CalendarCheck, Check,
     MapPin, MessageCircle, Search, ShieldCheck, TriangleAlert,
     UserRound, ChevronRight, ArrowRight, Info, Star,
-    Filter, Map as MapIcon, Heart, Sparkles, Zap, Building2
+    Filter, Map as MapIcon, Heart, Sparkles, Zap, Building2,
+    Calendar, Users, DollarSign, Key, Compass, Award, CheckCircle2,
+    PhoneCall, X, ArrowUpRight, Droplets, Waves, Wifi, Lock
 } from 'lucide-react';
-import { Logo, Thumb } from '@/components/ui';
+import { Logo } from '@/components/ui';
 
 type Home = {
     id: number;
@@ -26,12 +28,23 @@ type Home = {
 
 type Lang = 'en' | 'sw';
 
-export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[]; stats: { homes: number; districts: number }; downloadUrl: string | null }) {
+export default function HomePage({
+    homes,
+    stats,
+    downloadUrl,
+}: {
+    homes: Home[];
+    stats: { homes: number; districts: number };
+    downloadUrl: string | null;
+}) {
     const [lang, setLang] = useState<Lang>('en');
-    const { scrollYProgress } = useScroll();
-    const backgroundY = useTransform(scrollYProgress, [0, 1], ['0%', '20%']);
-    const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
-    const scale = useTransform(scrollYProgress, [0, 0.2], [1, 0.9]);
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [searchDistrict, setSearchDistrict] = useState<string>('all');
+    const [searchType, setSearchType] = useState<string>('all');
+    const [searchBedrooms, setSearchBedrooms] = useState<string>('all');
+    const [searchDuration, setSearchDuration] = useState<string>('all');
+    const [selectedPropertyModal, setSelectedPropertyModal] = useState<Home | null>(null);
+    const [wishlist, setWishlist] = useState<number[]>([]);
 
     useEffect(() => {
         try {
@@ -42,513 +55,967 @@ export default function HomePage({ homes, stats, downloadUrl }: { homes: Home[];
     const pick = (l: Lang) => {
         setLang(l);
         document.documentElement.lang = l;
-        try { localStorage.setItem('lang', l); } catch {}
+        try {
+            localStorage.setItem('lang', l);
+        } catch {}
     };
 
     const t = (en: string, sw: string) => (lang === 'sw' ? sw : en);
 
-    const ago = (iso: string | null) => {
-        const days = iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)) : 0;
-        if (days === 0) return t('today', 'leo');
-        if (days === 1) return t('yesterday', 'jana');
-        return t(`${days} days ago`, `siku ${days} zilizopita`);
+    const toggleWishlist = (id: number) => {
+        setWishlist((prev) =>
+            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+        );
     };
 
-    const rent = (n: number | string | null) => (n == null ? '' : `TSh ${Math.round(Number(n)).toLocaleString('en-US')}`);
+    const ago = (iso: string | null) => {
+        const days = iso
+            ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000))
+            : 0;
+        if (days === 0) return t('Today', 'Leo');
+        if (days === 1) return t('Yesterday', 'Jana');
+        return t(`${days} days ago`, `Siku ${days} zilizopita`);
+    };
+
+    const rent = (n: number | string | null) => {
+        if (n == null) return '';
+        const num = Math.round(Number(n));
+        return `TZS ${num.toLocaleString('en-US')}`;
+    };
+
+    const rentUSD = (n: number | string | null) => {
+        if (n == null) return '';
+        const usd = Math.round(Number(n) / 2600);
+        return `~$${usd.toLocaleString('en-US')}`;
+    };
+
     const photo = (h: Home) => (h.cover_image ? `/storage/${h.cover_image}` : null);
 
-    const trust = (h: Home) => [
-        {
-            icon: <UserRound className="size-3.5" />,
-            text: h.advertiser_role === 'representative'
-                ? t("Advertised by the owner's representative", 'Inatangazwa na mwakilishi wa mwenye nyumba')
-                : t('Advertised by the owner', 'Inatangazwa na mwenye nyumba'),
-            color: 'bg-mint text-teal'
-        },
-        {
-            icon: <ShieldCheck className="size-3.5" />,
-            text: h.verified_at ? t(`Right to let checked ${ago(h.verified_at)}`, `Haki ya kupangisha ilithibitishwa ${ago(h.verified_at)}`) : t('Not verified yet', 'Bado haijathibitishwa'),
-            color: h.verified_at ? 'bg-mint text-teal' : 'bg-sand text-brass-ink'
-        },
-        {
-            icon: <Check className="size-3.5" />,
-            text: t(`Confirmed available ${ago(h.availability_confirmed_at)}`, `Ilithibitishwa kuwa ipo ${ago(h.availability_confirmed_at)}`),
-            color: 'bg-mint text-teal'
-        },
-    ];
+    // Filter properties based on search bar and category tabs
+    const filteredHomes = useMemo(() => {
+        return homes.filter((h) => {
+            // Category filter
+            if (selectedCategory !== 'all') {
+                if (selectedCategory === 'villa' && !h.property_type?.toLowerCase().includes('house') && !h.property_type?.toLowerCase().includes('villa')) {
+                    return false;
+                }
+                if (selectedCategory === 'apartment' && !h.property_type?.toLowerCase().includes('apartment')) {
+                    return false;
+                }
+                if (selectedCategory === 'verified' && !h.verified_at) {
+                    return false;
+                }
+            }
 
-    const lead = homes[0];
+            // District filter
+            if (searchDistrict !== 'all' && h.district?.toLowerCase() !== searchDistrict.toLowerCase()) {
+                return false;
+            }
+
+            // Type filter
+            if (searchType !== 'all') {
+                if (!h.property_type?.toLowerCase().includes(searchType.toLowerCase())) {
+                    return false;
+                }
+            }
+
+            // Bedrooms filter
+            if (searchBedrooms !== 'all') {
+                if (searchBedrooms === '3+' && (h.bedrooms || 0) < 3) return false;
+                if (searchBedrooms === '2' && h.bedrooms !== 2) return false;
+                if (searchBedrooms === '1' && h.bedrooms !== 1) return false;
+            }
+
+            return true;
+        });
+    }, [homes, selectedCategory, searchDistrict, searchType, searchBedrooms]);
+
+    // Available districts from homes
+    const uniqueDistricts = useMemo(() => {
+        const set = new Set<string>();
+        homes.forEach((h) => {
+            if (h.district) set.add(h.district);
+        });
+        return Array.from(set);
+    }, [homes]);
 
     return (
-        <div className="bg-white selection:bg-teal/30">
-            <Head title={t('Know who you are renting from', 'Mjue unayepanga kwake')}>
-                <meta name="description" content="Panga na Kupangisha: rental homes in Tanzania with the advertiser, verification and availability shown on every listing." />
+        <div className="min-h-screen bg-[#FAF8F5] text-[#12161A] selection:bg-[#12161A] selection:text-white font-sans antialiased">
+            <Head title={t('Bespoke Residences & Boutique Vacation Stays • Panga Pangisha', 'Nyumba na Makazi ya Kipekee • Panga Pangisha')}>
+                <meta
+                    name="description"
+                    content="Experience luxury direct-booking vacation rentals and verified residential sanctuaries in Tanzania. Direct host rates, STS smart utility submetering, and zero booking markups."
+                />
             </Head>
 
-            {/* Full-bleed Navigation */}
-            <nav className="fixed top-0 z-50 w-full px-6 py-4 flex items-center justify-between backdrop-blur-md bg-navy/80 text-white">
-                <Logo onDark />
-                <div className="flex items-center gap-4 sm:gap-6">
-                    <div className="hidden md:flex gap-6 text-sm font-medium text-white/70">
-                        <a href="#homes" className="hover:text-white transition-colors">{t('Homes', 'Nyumba')}</a>
-                        <a href="#how" className="hover:text-white transition-colors">{t('How it works', 'Inavyofanya kazi')}</a>
-                        <a href="#owners" className="hover:text-white transition-colors">{t('For owners', 'Kwa wenye nyumba')}</a>
-                    </div>
-                    <div className="flex rounded-full bg-navy-raised p-1 text-[10px] font-bold">
-                        {(['en', 'sw'] as const).map((l) => (
-                            <button
-                                key={l}
-                                onClick={() => pick(l)}
-                                className={`rounded-full px-3 py-1 uppercase transition-all ${lang === l ? 'bg-white text-navy' : 'text-white/60 hover:text-white'}`}
-                            >
-                                {l}
-                            </button>
-                        ))}
-                    </div>
-                    <div className="flex items-center gap-2 sm:gap-3">
+            {/* 1. ARCHITECTURAL LUXURY NAVIGATION (Floorspace Aesthetic) */}
+            <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-[#FAF8F5]/90 border-b border-[#EFECE6] transition-all">
+                <div className="w-full max-w-full px-6 sm:px-10 lg:px-14 h-20 flex items-center justify-between">
+                    {/* Brand Logo with Editorial Serif Subtitle */}
+                    <Link href="/" className="flex items-center gap-3 group">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#12161A] text-white font-serif text-xl font-bold shadow-sm group-hover:scale-105 transition-transform">
+                            P
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-serif text-lg tracking-tight font-bold text-[#12161A]">
+                                PANGA PANGISHA
+                            </span>
+                            <span className="text-[10px] tracking-widest uppercase font-semibold text-[#8C827A] -mt-1">
+                                Residences & Stays
+                            </span>
+                        </div>
+                    </Link>
+
+                    {/* Desktop Navigation Links */}
+                    <nav className="hidden lg:flex items-center gap-8 text-xs uppercase tracking-wider font-semibold text-[#5C554E]">
+                        <a href="#collections" className="hover:text-[#12161A] transition-colors">
+                            {t('Curated Stays', 'Makazi Teule')}
+                        </a>
+                        <a href="#direct-standard" className="hover:text-[#12161A] transition-colors">
+                            {t('The Direct Standard', 'Viwango Vyetu')}
+                        </a>
+                        <a href="#amenities" className="hover:text-[#12161A] transition-colors">
+                            {t('Bespoke Amenities', 'Huduma Maalum')}
+                        </a>
+                        <a href="#host" className="hover:text-[#12161A] transition-colors">
+                            {t('Host With Us', 'Pangisha Nasi')}
+                        </a>
+                    </nav>
+
+                    {/* Right Action Bar */}
+                    <div className="flex items-center gap-3 sm:gap-5">
+                        {/* Language Switcher */}
+                        <div className="flex rounded-full border border-[#E5E0D8] bg-[#F3EFEA] p-0.5 text-[10px] font-bold">
+                            {(['en', 'sw'] as const).map((l) => (
+                                <button
+                                    key={l}
+                                    onClick={() => pick(l)}
+                                    className={`rounded-full px-2.5 py-1 uppercase transition-all ${
+                                        lang === l
+                                            ? 'bg-white text-[#12161A] shadow-xs'
+                                            : 'text-[#8C827A] hover:text-[#12161A]'
+                                    }`}
+                                >
+                                    {l}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Sign In */}
                         <Link
                             href="/login"
-                            className="hidden sm:inline-flex items-center px-3.5 py-1.5 text-sm font-semibold text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                            className="text-xs uppercase tracking-wider font-semibold text-[#12161A] hover:opacity-70 transition-opacity"
                         >
                             {t('Sign in', 'Ingia')}
                         </Link>
+
+                        {/* Landlord Portal / Host CTA */}
                         <Link
-                            href="/signup"
-                            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-teal-bright text-navy font-bold text-sm hover:bg-white transition-all shadow-sm active:scale-95"
+                            href="/landlord/dashboard"
+                            className="inline-flex items-center gap-2 rounded-full bg-[#12161A] px-5 py-2.5 text-xs uppercase tracking-wider font-bold text-white shadow-sm hover:bg-[#2A323D] transition-all active:scale-95"
                         >
-                            {t('Sign up', 'Jisajili')}
+                            <Key className="h-3.5 w-3.5 text-[#E5D7B7]" />
+                            <span>{t('Host Suite', 'Dashibodi')}</span>
                         </Link>
                     </div>
                 </div>
-            </nav>
+            </header>
 
-            {/* HERO SECTION: Airbnb Inspired Luxury */}
-            <motion.section
-                style={{ y: backgroundY, opacity, scale }}
-                className="relative min-h-screen flex items-center justify-center overflow-hidden bg-navy text-white px-6 pt-20"
-            >
+            {/* 2. HERO: Full-Bleed Architectural Sanctuary (Floorspace Inspired) */}
+            <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden bg-[#181D22] text-white">
+                {/* Background Imagery with Subtle Parallax & Warm Cinematic Vignette */}
                 <div className="absolute inset-0 z-0">
-                    <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-teal-bright/10 blur-[120px]" />
-                    <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-navy-raised/20 blur-[100px]" />
+                    <img
+                        src="https://images.unsplash.com/photo-1613977257363-707ba9348227?w=1920&auto=format&fit=crop&q=85"
+                        alt="Luxury Villa Sanctuary"
+                        className="h-full w-full object-cover object-center opacity-65 scale-105 animate-pulse duration-[12000ms]"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#12161A] via-[#12161A]/50 to-[#12161A]/70" />
                 </div>
 
-                <div className="relative z-10 grid max-w-7xl mx-auto items-center gap-16 lg:grid-cols-2">
+                <div className="relative z-10 w-full max-w-full px-6 sm:px-10 lg:px-16 py-20 text-center flex flex-col items-center">
+                    {/* Top Pill Badge */}
                     <motion.div
-                        initial={{ opacity: 0, x: -30 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6 }}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[11px] uppercase tracking-widest font-semibold backdrop-blur-md mb-8 text-[#FAF8F5]"
                     >
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-bright/20 text-teal-bright text-xs font-bold mb-6 ring-1 ring-teal-bright/30">
-                            <Star className="size-3" /> {t('Trusted by 10,000+ Renters', 'Inatumika na wapangaji 10,000+')}
-                        </div>
-                        <h1 className="text-6xl sm:text-7xl lg:text-8xl font-extrabold leading-[0.9] tracking-tight">
-                            {t('Know who you', 'Mjue')} <br/>
-                            <span className="text-teal-bright">{t('are renting from.', 'unayepanga kwake.')}</span>
-                        </h1>
-                        <p className="mt-8 max-w-lg text-xl leading-relaxed text-white/70 font-medium">
-                            {t(
-                                'Every home on Panga shows who is advertising it, whether we checked their right to let it, and when they last confirmed it is still available.',
-                                'Kila nyumba kwenye Panga inaonyesha anayeitangaza, kama tumethibitisha haki yake ya kuipangisha, na lini alithibitisha kuwa bado ipo.',
-                            )}
-                        </p>
-                        <div className="mt-10 flex flex-wrap gap-4 items-center">
-                            <a href="#homes" className="group relative inline-flex h-14 items-center rounded-2xl bg-teal-bright px-8 font-bold text-navy overflow-hidden transition-all hover:scale-105 active:scale-95">
-                                <span className="relative z-10 flex items-center gap-2">
-                                    {t('See homes', 'Tazama nyumba')} <ArrowRight className="size-5" />
-                                </span>
-                                <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity" />
-                            </a>
-                            <Link href="/signup?role=landlord" className="inline-flex h-14 items-center rounded-2xl px-8 font-bold text-white ring-1 ring-white/20 hover:bg-white/10 transition-all active:scale-95">
-                                {t('List your home', 'Tangaza nyumba yako')}
-                            </Link>
-                        </div>
-                        <p className="mt-3 text-xs text-white/50 font-medium">
-                            {t('Already have an account?', 'Tayari una akaunti?')}{' '}
-                            <Link href="/login" className="text-teal-bright font-bold hover:underline">
-                                {t('Sign in here →', 'Ingia hapa →')}
-                            </Link>
-                        </p>
-                        {stats.homes > 0 && (
-                            <motion.p
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ delay: 0.5 }}
-                                className="mt-10 text-sm font-medium text-white/50 flex items-center gap-2"
-                            >
-                                <div className="size-2 rounded-full bg-teal animate-pulse" />
-                                {t(`${stats.homes} homes live in ${stats.districts} districts of Dar es Salaam`, `Nyumba ${stats.homes} zipo sasa katika wilaya ${stats.districts} za Dar es Salaam`)}
-                            </motion.p>
-                        )}
+                        <Sparkles className="h-3.5 w-3.5 text-[#F5D485]" />
+                        <span>{t('Direct Bookings • Zero Middleman Fees', 'Weka Moja kwa Moja • Hakuna Dalali')}</span>
                     </motion.div>
 
-                    {lead && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, rotateY: -10 }}
-                            animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-                            transition={{ duration: 1, ease: "easeOut" }}
-                            className="relative w-full max-w-md mx-auto perspective-1000"
-                        >
-                            <div className="relative group">
-                                <div className="overflow-hidden rounded-[2rem] bg-navy-raised shadow-2xl ring-1 ring-white/10 transition-transform duration-500 group-hover:scale-[1.02]">
-                                    {photo(lead) && <img src={photo(lead)!} alt="" className="aspect-[4/3] w-full object-cover" />}
-                                    <div className="p-6">
-                                        <div className="flex items-baseline justify-between">
-                                            <p className="font-display text-3xl font-extrabold tabular-nums">
-                                                {rent(lead.monthly_rent)}
-                                            </p>
-                                            <span className="text-sm font-medium text-white/50">{t('a month', 'kwa mwezi')}</span>
-                                        </div>
-                                        <p className="mt-1 text-lg font-semibold text-white/90">{lead.property_name}</p>
-                                    </div>
-                                </div>
+                    {/* Headline in Majestic Editorial Serif */}
+                    <motion.h1
+                        initial={{ opacity: 0, y: 24 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, delay: 0.1 }}
+                        className="font-serif text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-normal tracking-tight text-white max-w-5xl leading-[1.05]"
+                    >
+                        {t('Where Architectural Serenity Meets Coastal Solitude', 'Makazi ya Kifahari na Utulivu wa Pwani')}
+                    </motion.h1>
 
-                                {/* Animated Trust Overlay */}
-                                <div className="absolute -bottom-6 -right-6 w-72 max-w-[90%] space-y-3 rounded-3xl bg-white p-5 text-sm font-bold text-ink shadow-2xl ring-1 ring-black/5">
-                                    <div className="mb-3 pb-3 border-b border-line">
-                                        <span className="text-xs uppercase tracking-wider text-muted font-black">Trust Verification</span>
-                                    </div>
-                                    {trust(lead).map((line, i) => (
-                                        <motion.div
-                                            key={i}
-                                            initial={{ opacity: 0, x: 20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: 0.5 + (i * 0.2) }}
-                                            className="flex items-center gap-3"
-                                        >
-                                            <span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${line.color}`}>
-                                                {line.icon}
-                                            </span>
-                                            <span className="text-ink/80 leading-tight">{line.text}</span>
-                                        </motion.div>
+                    {/* Subheading */}
+                    <motion.p
+                        initial={{ opacity: 0, y: 24 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, delay: 0.2 }}
+                        className="mt-6 max-w-2xl text-sm sm:text-base md:text-lg text-white/80 font-light leading-relaxed"
+                    >
+                        {t(
+                            'Curated luxury villas, cliffside sanctuaries, and urban penthouses across Tanzania. Verified title ownership, private STS smart utility submetering, and instant direct landlord agreements.',
+                            'Mikusanyiko ya majumba ya kifahari, makazi ya pwani na ghorofa za kisasa Tanzania nzima. Hati zilizothibitishwa, mita binafsi za umeme na maji, na mikataba ya moja kwa moja bila madalali.'
+                        )}
+                    </motion.p>
+
+                    {/* Floating Direct Booking Console (Floorspace Template Signature Widget) */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, delay: 0.3 }}
+                        className="mt-12 w-full max-w-5xl rounded-3xl sm:rounded-full bg-white p-3 sm:p-2.5 shadow-2xl text-[#12161A] flex flex-col sm:flex-row items-center gap-2 ring-1 ring-black/5"
+                    >
+                        {/* 1. Destination / District */}
+                        <div className="flex-1 w-full px-5 py-2.5 border-b sm:border-b-0 sm:border-r border-[#EBE7E1] text-left">
+                            <span className="block text-[10px] uppercase font-bold tracking-wider text-[#8C827A]">
+                                {t('Destination', 'Eneo')}
+                            </span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <MapPin className="h-4 w-4 text-[#C2704E] shrink-0" />
+                                <select
+                                    value={searchDistrict}
+                                    onChange={(e) => setSearchDistrict(e.target.value)}
+                                    className="w-full bg-transparent text-sm font-semibold text-[#12161A] outline-hidden cursor-pointer"
+                                >
+                                    <option value="all">{t('All Districts (Dar, Zanzibar...)', 'Maeneo Yote')}</option>
+                                    {uniqueDistricts.map((d) => (
+                                        <option key={d} value={d}>
+                                            {d}
+                                        </option>
                                     ))}
-                                </div>
+                                    <option value="kinondoni">Kinondoni (Masaki & Oyster Bay)</option>
+                                    <option value="ilala">Ilala</option>
+                                </select>
                             </div>
-                        </motion.div>
-                    )}
-                </div>
-                </motion.section>
+                        </div>
 
-            {/* SEARCH BAR: Airbnb Style Floating Bar */}
-            <section className="relative z-20 -mt-12 px-6">
-                <div className="mx-auto max-w-4xl bg-white rounded-full shadow-2xl ring-1 ring-black/5 p-2 flex flex-col md:flex-row items-center gap-2">
-                    <div className="flex-1 flex items-center gap-3 px-4 py-2 w-full border-b md:border-b-0 md:border-r border-line">
-                        <MapPin className="size-5 text-muted" />
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold uppercase text-muted leading-none">Location</span>
-                            <input type="text" placeholder="Where are you looking?" className="bg-transparent outline-none text-sm font-medium w-full" />
+                        {/* 2. Residence Type */}
+                        <div className="flex-1 w-full px-5 py-2.5 border-b sm:border-b-0 sm:border-r border-[#EBE7E1] text-left">
+                            <span className="block text-[10px] uppercase font-bold tracking-wider text-[#8C827A]">
+                                {t('Property Style', 'Aina ya Makazi')}
+                            </span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <Building2 className="h-4 w-4 text-[#8C827A] shrink-0" />
+                                <select
+                                    value={searchType}
+                                    onChange={(e) => setSearchType(e.target.value)}
+                                    className="w-full bg-transparent text-sm font-semibold text-[#12161A] outline-hidden cursor-pointer"
+                                >
+                                    <option value="all">{t('All Collections', 'Mikusanyiko Yote')}</option>
+                                    <option value="house">{t('Private Villas & Houses', 'Majumba ya Kifahari')}</option>
+                                    <option value="apartment">{t('Penthouses & Suites', 'Ghorofa na Vyumba')}</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex-1 flex items-center gap-3 px-4 py-2 w-full border-b md:border-b-0 md:border-r border-line">
-                        <BedDouble className="size-5 text-muted" />
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold uppercase text-muted leading-none">Rooms</span>
-                            <select className="bg-transparent outline-none text-sm font-medium w-full appearance-none">
-                                <option>Any size</option>
-                                <option>1 Bedroom</option>
-                                <option>2+ Bedrooms</option>
-                                <option>Studio</option>
-                            </select>
+
+                        {/* 3. Bedrooms / Capacity */}
+                        <div className="flex-1 w-full px-5 py-2.5 border-b sm:border-b-0 sm:border-r border-[#EBE7E1] text-left">
+                            <span className="block text-[10px] uppercase font-bold tracking-wider text-[#8C827A]">
+                                {t('Bedrooms', 'Vyumba vya Kulala')}
+                            </span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <BedDouble className="h-4 w-4 text-[#8C827A] shrink-0" />
+                                <select
+                                    value={searchBedrooms}
+                                    onChange={(e) => setSearchBedrooms(e.target.value)}
+                                    className="w-full bg-transparent text-sm font-semibold text-[#12161A] outline-hidden cursor-pointer"
+                                >
+                                    <option value="all">{t('Any Size', 'Idadi Yoyote')}</option>
+                                    <option value="1">1 {t('Bedroom', 'Chumba')}</option>
+                                    <option value="2">2 {t('Bedrooms', 'Vyumba')}</option>
+                                    <option value="3+">3+ {t('Bedrooms', 'Vyumba')}</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex-1 flex items-center gap-3 px-4 py-2 w-full">
-                        <Filter className="size-5 text-muted" />
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold uppercase text-muted leading-none">Budget</span>
-                            <input type="text" placeholder="Max rent..." className="bg-transparent outline-none text-sm font-medium w-full" />
+
+                        {/* 4. Duration / Lease Type */}
+                        <div className="flex-1 w-full px-5 py-2.5 text-left">
+                            <span className="block text-[10px] uppercase font-bold tracking-wider text-[#8C827A]">
+                                {t('Stay Terms', 'Muda wa Kukaa')}
+                            </span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <Calendar className="h-4 w-4 text-[#8C827A] shrink-0" />
+                                <select
+                                    value={searchDuration}
+                                    onChange={(e) => setSearchDuration(e.target.value)}
+                                    className="w-full bg-transparent text-sm font-semibold text-[#12161A] outline-hidden cursor-pointer"
+                                >
+                                    <option value="all">{t('Flexible Stay', 'Muda Wowote')}</option>
+                                    <option value="monthly">{t('Monthly Tenancy', 'Kodi ya Mwezi')}</option>
+                                    <option value="annual">{t('Long-term Annual', 'Mwaka Mzima')}</option>
+                                </select>
+                            </div>
                         </div>
-                    </div>
-                    <button className="h-12 w-12 rounded-full bg-teal-bright text-navy flex items-center justify-center hover:scale-105 transition-transform">
-                        <Search className="size-5" />
-                    </button>
+
+                        {/* Search Action Button */}
+                        <a
+                            href="#collections"
+                            className="w-full sm:w-auto h-13 px-8 rounded-full bg-[#12161A] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#2E3742] transition-all shrink-0 active:scale-95 shadow-md"
+                        >
+                            <Search className="h-4 w-4" />
+                            <span>{t('Explore Stays', 'Tazama')}</span>
+                        </a>
+                    </motion.div>
                 </div>
             </section>
 
-            {/* THE WALL: Cinematic Parallax Section */}
-            <section className="relative overflow-hidden bg-white py-32">
-                <div className="absolute inset-0 z-0 opacity-40">
-                    <svg width="100%" height="100%" className="absolute inset-0" aria-hidden="true">
-                        <filter id="sign-paint">
-                            <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="3" result="warp" />
-                            <feDisplacementMap in="SourceGraphic" in2="warp" scale="5" result="rough" />
-                            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="8" result="grain" />
-                            <feColorMatrix in="grain" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 9 -6.1" result="specks" />
-                            <feComposite in="rough" in2="specks" operator="out" />
-                        </filter>
-                    </svg>
+            {/* 3. CURATED SANCTUARIES & RESIDENCES (Floorspace Showcase Grid) */}
+            <section id="collections" className="w-full max-w-full px-6 sm:px-10 lg:px-14 py-24 scroll-mt-20">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                    <div>
+                        <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-[#C2704E] mb-2">
+                            <span>{t('Curated Portfolios', 'Mikusanyiko Maalum')}</span>
+                        </div>
+                        <h2 className="font-serif text-3xl sm:text-5xl font-normal text-[#12161A] tracking-tight">
+                            {t('Exclusive Coastal & City Stays', 'Makazi ya Kipekee ya Pwani na Mjini')}
+                        </h2>
+                        <p className="mt-2 text-sm text-[#706861] max-w-xl">
+                            {t(
+                                'Hand-inspected homes directly from certified property owners. Verified right to let, dedicated STS utility submeters, and zero intermediary fees.',
+                                'Nyumba zilizokaguliwa moja kwa moja kutoka kwa wamiliki. Hati zimethibitishwa, mita za kujitegemea za STS, na hakuna ada za dalali.'
+                            )}
+                        </p>
+                    </div>
+
+                    {/* Category Filter Tabs */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        {[
+                            { id: 'all', label: t('All Stays', 'Yote') },
+                            { id: 'villa', label: t('Private Villas', 'Majumba') },
+                            { id: 'apartment', label: t('Penthouses', 'Ghorofa') },
+                            { id: 'verified', label: t('100% Verified Only', 'Zilizothibitishwa') },
+                        ].map((cat) => (
+                            <button
+                                key={cat.id}
+                                onClick={() => setSelectedCategory(cat.id)}
+                                className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${
+                                    selectedCategory === cat.id
+                                        ? 'bg-[#12161A] text-white shadow-xs'
+                                        : 'bg-[#F2ECE4] text-[#5C554E] hover:bg-[#E5DDD3]'
+                                }`}
+                            >
+                                {cat.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <div className="relative z-10 mx-auto max-w-6xl px-6">
-                    <div className="flex flex-col lg:flex-row items-center gap-16">
-                        <div className="flex-1">
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                className="relative inline-block"
-                            >
-                                <p
-                                    lang="sw"
-                                    className="text-7xl sm:text-8xl lg:text-9xl font-display font-black text-navy opacity-10 leading-none select-none pointer-events-none"
-                                    style={{ filter: 'url(#sign-paint)' }}
+                {/* Property Card Grid */}
+                {filteredHomes.length === 0 ? (
+                    <div className="rounded-3xl border border-dashed border-[#DDD7CE] bg-[#F7F4EE] py-20 text-center">
+                        <Building2 className="h-10 w-10 text-[#8C827A] mx-auto mb-3" />
+                        <h3 className="font-serif text-xl font-bold text-[#12161A]">
+                            {t('No properties match your exact filters', 'Hakuna nyumba inayolingana na vigezo vyako')}
+                        </h3>
+                        <p className="text-xs text-[#706861] mt-1">
+                            {t('Try resetting your search filters or check all available collections.', 'Jaribu kuweka upya vigezo vyako kutazama zote.')}
+                        </p>
+                        <button
+                            onClick={() => {
+                                setSelectedCategory('all');
+                                setSearchDistrict('all');
+                                setSearchType('all');
+                                setSearchBedrooms('all');
+                            }}
+                            className="mt-4 rounded-full bg-[#12161A] px-5 py-2 text-xs uppercase font-bold text-white hover:bg-[#2E3742]"
+                        >
+                            {t('Reset Filters', 'Weka Upya')}
+                        </button>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {filteredHomes.map((home, idx) => {
+                            const isLiked = wishlist.includes(home.id);
+                            return (
+                                <motion.div
+                                    key={home.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    viewport={{ once: true }}
+                                    transition={{ duration: 0.5, delay: idx * 0.08 }}
+                                    className="group flex flex-col rounded-3xl bg-white border border-[#EBE7E1] overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300"
                                 >
-                                    Nyumba hii <br/> haiuzwi
-                                </p>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <p className="text-3xl sm:text-4xl font-extrabold text-navy leading-tight text-center max-w-md">
-                                        {t('“This house is not for sale.”', 'Onyo lililoandikwa ukutani.')}
-                                    </p>
+                                    {/* Large Editorial Photography Box (4:3 aspect) */}
+                                    <div className="relative aspect-4/3 w-full overflow-hidden bg-[#ECE8E1]">
+                                        {photo(home) ? (
+                                            <img
+                                                src={photo(home)!}
+                                                alt={home.property_name || 'Tanzanian Sanctuary'}
+                                                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                                                loading="lazy"
+                                                onError={(e) => {
+                                                    (e.target as HTMLElement).style.display = 'none';
+                                                }}
+                                            />
+                                        ) : (
+                                            <div className="flex h-full w-full items-center justify-center bg-[#EAE5DD]">
+                                                <Building2 className="h-12 w-12 text-[#9E958C]" />
+                                            </div>
+                                        )}
+
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 opacity-70 group-hover:opacity-50 transition-opacity" />
+
+                                        {/* Top Left Verified Badge */}
+                                        <div className="absolute top-4 left-4 flex flex-col gap-1.5 items-start">
+                                            {home.verified_at ? (
+                                                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-[#0F766E] shadow-sm backdrop-blur-md">
+                                                    <BadgeCheck className="h-3.5 w-3.5 text-[#0F766E]" />
+                                                    <span>{t('Verified Title', 'Imethibitishwa')}</span>
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold text-[#8C827A] shadow-sm backdrop-blur-md">
+                                                    <ShieldCheck className="h-3.5 w-3.5" />
+                                                    <span>{t('Direct Host', 'Mwenye Nyumba')}</span>
+                                                </span>
+                                            )}
+
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-md">
+                                                <Zap className="h-3 w-3 text-[#F5D485]" />
+                                                <span>{t('STS Smart Submeter', 'Mita ya STS')}</span>
+                                            </span>
+                                        </div>
+
+                                        {/* Top Right Wishlist Heart */}
+                                        <button
+                                            onClick={() => toggleWishlist(home.id)}
+                                            className="absolute top-4 right-4 h-9 w-9 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center text-[#12161A] hover:bg-white transition-all shadow-sm"
+                                            aria-label="Save to Wishlist"
+                                        >
+                                            <Heart
+                                                className={`h-4 w-4 ${isLiked ? 'fill-[#C2314B] text-[#C2314B]' : 'text-[#12161A]'}`}
+                                            />
+                                        </button>
+
+                                        {/* Bottom Overlay Location */}
+                                        <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
+                                            <div className="flex items-center gap-1.5 text-xs font-semibold drop-shadow-md">
+                                                <MapPin className="h-3.5 w-3.5 text-[#F5D485]" />
+                                                <span>{[home.ward, home.district].filter(Boolean).join(', ') || 'Dar es Salaam'}</span>
+                                            </div>
+                                            <span className="text-[10px] bg-white/20 backdrop-blur-md px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">
+                                                {home.property_type || 'Residential'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Card Content Details */}
+                                    <div className="p-6 flex flex-1 flex-col justify-between">
+                                        <div>
+                                            <h3 className="font-serif text-xl font-bold text-[#12161A] group-hover:text-[#C2704E] transition-colors line-clamp-1">
+                                                {home.property_name || 'Bespoke Coastal Sanctuary'}
+                                            </h3>
+
+                                            {/* Specs: Bedrooms & Bathrooms */}
+                                            <div className="mt-3 flex items-center gap-4 text-xs font-medium text-[#706861]">
+                                                {home.bedrooms != null && (
+                                                    <span className="inline-flex items-center gap-1.5">
+                                                        <BedDouble className="h-3.5 w-3.5 text-[#12161A]" />
+                                                        <span>{home.bedrooms} {t('Beds', 'Vyumba')}</span>
+                                                    </span>
+                                                )}
+                                                {home.bathrooms != null && (
+                                                    <span className="inline-flex items-center gap-1.5">
+                                                        <Bath className="h-3.5 w-3.5 text-[#12161A]" />
+                                                        <span>{home.bathrooms} {t('Baths', 'Bafu')}</span>
+                                                    </span>
+                                                )}
+                                                <span className="inline-flex items-center gap-1.5">
+                                                    <Wifi className="h-3.5 w-3.5 text-[#0F766E]" />
+                                                    <span>Fiber Ready</span>
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Pricing & Direct Booking Action */}
+                                        <div className="mt-6 pt-4 border-t border-[#F0EBE3] flex items-center justify-between">
+                                            <div>
+                                                <span className="block text-[10px] uppercase font-bold tracking-wider text-[#8C827A]">
+                                                    {t('Direct Host Rate', 'Kodi Moja kwa Moja')}
+                                                </span>
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="font-serif text-xl font-bold text-[#12161A]">
+                                                        {rent(home.monthly_rent)}
+                                                    </span>
+                                                    <span className="text-xs text-[#8C827A] font-medium">
+                                                        {rentUSD(home.monthly_rent)}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Open Quick View Details Modal */}
+                                            <button
+                                                onClick={() => setSelectedPropertyModal(home)}
+                                                className="inline-flex items-center gap-1.5 rounded-full bg-[#FAF8F5] border border-[#DDD7CE] hover:border-[#12161A] hover:bg-[#12161A] hover:text-white px-4 py-2 text-xs uppercase tracking-wider font-bold text-[#12161A] transition-all"
+                                            >
+                                                <span>{t('Explore', 'Angalia')}</span>
+                                                <ArrowUpRight className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </div>
+                )}
+            </section>
+
+            {/* 4. THE DIRECT BOOKING STANDARD (Floorspace Core Value Proposition) */}
+            <section id="direct-standard" className="w-full bg-[#F3EFEA] border-y border-[#EBE7E1] py-24">
+                <div className="w-full max-w-full px-6 sm:px-10 lg:px-14">
+                    <div className="max-w-3xl mb-16">
+                        <span className="text-xs uppercase tracking-widest font-bold text-[#C2704E]">
+                            {t('The Direct Booking Guarantee', 'Dhamana ya Upangaji Moja kwa Moja')}
+                        </span>
+                        <h2 className="font-serif text-3xl sm:text-5xl font-normal text-[#12161A] mt-2">
+                            {t('Elevating Residential & Vacation Living Across East Africa', 'Kuinua Kiwango cha Makazi Tanzania')}
+                        </h2>
+                        <p className="mt-4 text-sm sm:text-base text-[#706861] leading-relaxed">
+                            {t(
+                                'Traditional platforms take high commission cuts and obscure host identities. Panga Pangisha connects verified residents directly with real property owners with institutional verification and smart submeters.',
+                                'Mifumo mingine inatoza makato makubwa na kuficha utambulisho wa wenye nyumba. Panga Pangisha inakuunganisha moja kwa moja na wamiliki halisi kwa uwazi wa asilimia 100.'
+                            )}
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                        {[
+                            {
+                                icon: DollarSign,
+                                title: t('0% Middleman Markups', 'Hakuna Makato ya Dalali'),
+                                desc: t('Book directly at authentic owner prices. Save 15% to 20% compared to typical vacation rental commissions and brokers.', 'Weka makazi kwa bei halisi ya mwenye nyumba bila kulipa asilimia 15-20 kwa madalali au mawakala.'),
+                            },
+                            {
+                                icon: Zap,
+                                title: t('STS Smart Utility Submeters', 'Mita za STS za Kujitegemea'),
+                                desc: t('Every room or villa features its own prepaid smart electricity & water submeter. Complete autonomy with zero bill conflicts.', 'Kila nyumba ina mita yake binafsi ya umeme na maji. Hakuna tena migogoro ya bili za kugawana.'),
+                            },
+                            {
+                                icon: ShieldCheck,
+                                title: t('Title & Deed Verified', 'Hati ya Umiliki Imethibitishwa'),
+                                desc: t('We verify ownership deeds and representative letters before listings are published to prevent illicit broker listings.', 'Tunathibitisha hati za umiliki kabla ya kuruhusu tangazo ili kulinda wapangaji dhidi ya utapeli.'),
+                            },
+                            {
+                                icon: CheckCircle2,
+                                title: t('Digital Legal Agreements', 'Mkataba Rasmi wa Kidijitali'),
+                                desc: t('Generate and sign bilingual (English & Swahili) tenancy agreements backed by legal standards in minutes.', 'Tengeneza na saini mkataba halali wa upangaji kwa Kiswahili na Kiingereza papo hapo.'),
+                            },
+                        ].map((card, i) => {
+                            const Icon = card.icon;
+                            return (
+                                <div
+                                    key={i}
+                                    className="p-8 rounded-3xl bg-white border border-[#EBE7E1] shadow-2xs hover:shadow-md transition-all group"
+                                >
+                                    <div className="h-12 w-12 rounded-2xl bg-[#FAF8F5] border border-[#DDD7CE] flex items-center justify-center text-[#12161A] group-hover:scale-105 group-hover:bg-[#12161A] group-hover:text-white transition-all mb-6">
+                                        <Icon className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-serif text-xl font-bold text-[#12161A] mb-2">{card.title}</h3>
+                                    <p className="text-xs text-[#706861] leading-relaxed">{card.desc}</p>
                                 </div>
-                            </motion.div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </section>
+
+            {/* 5. BESPOKE AMENITIES & LIFESTYLE SHOWCASE (Floorspace Aesthetic) */}
+            <section id="amenities" className="w-full max-w-full px-6 sm:px-10 lg:px-14 py-24">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                    <div>
+                        <span className="text-xs uppercase tracking-widest font-bold text-[#C2704E]">
+                            {t('Uncompromising Comfort', 'Faraja Isiyo na Kikomo')}
+                        </span>
+                        <h2 className="font-serif text-3xl sm:text-5xl font-normal text-[#12161A] mt-2 leading-tight">
+                            {t('Designed for Discerning Travelers & Long-Term Residents', 'Imesanifiwa kwa Wasafiri na Wapangaji Wakuu')}
+                        </h2>
+                        <p className="mt-4 text-sm sm:text-base text-[#706861] leading-relaxed">
+                            {t(
+                                'Whether staying for a weekend coastal retreat or signing a multi-year residential lease in Masaki, every property is curated to ensure total tranquility, high-speed connectivity, and effortless autonomy.',
+                                'Iwe unakaa kwa mapumziko ya wikendi au unalipia kodi ya mwaka mzima, kila nyumba imeandaliwa kuhakikisha utulivu, intaneti ya kasi, na amani ya moyo.'
+                            )}
+                        </p>
+
+                        <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            {[
+                                { icon: Waves, title: t('Private Pools & Terraces', 'Bwawa Binafsi na Veranda') },
+                                { icon: Wifi, title: t('High-speed Starlink / Fiber', 'Intaneti ya Starlink na Fiber') },
+                                { icon: Zap, title: t('Autonomous STS Submeters', 'Mita Binafsi ya Umeme STS') },
+                                { icon: Droplets, title: t('Dedicated Backup Water', 'Maji ya Uhakika na Akiba') },
+                                { icon: Lock, title: t('24/7 Gated Security', 'Ulinzi wa Masaa 24 na Geti') },
+                                { icon: PhoneCall, title: t('Direct Host Concierge', 'Mawasiliano ya Moja kwa Moja') },
+                            ].map((amenity, idx) => {
+                                const Icon = amenity.icon;
+                                return (
+                                    <div key={idx} className="flex items-center gap-3">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F3EFEA] text-[#12161A] shrink-0">
+                                            <Icon className="h-4 w-4" />
+                                        </div>
+                                        <span className="text-xs font-semibold text-[#12161A]">{amenity.title}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
-                        <div className="flex-1">
-                            <p className="text-xl leading-relaxed text-ink/80 font-medium">
-                                {t(
-                                    'Owners across Tanzania paint it on their walls so nobody can sell the house behind their back. Panga does that job for renting: before you message anyone, you see who is advertising the home and whether we checked they may let it.',
-                                    'Wenye nyumba huandika hivi ukutani ili mtu asiiuze nyumba yao kwa siri. Panga inafanya kazi hiyo kwa upangaji: kabla hujamwandikia mtu, unaona anayetangaza nyumba na kama tumethibitisha ana haki ya kuipangisha.',
-                                )}
+                    </div>
+
+                    {/* Editorial Photo Collage */}
+                    <div className="relative">
+                        <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-[#EBE7E1] aspect-4/3">
+                            <img
+                                src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200&auto=format&fit=crop&q=80"
+                                alt="Luxury architecture"
+                                className="h-full w-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                            <div className="absolute bottom-6 left-6 right-6 text-white">
+                                <span className="text-xs uppercase tracking-widest text-[#F5D485] font-bold">
+                                    Oyster Bay & Masaki Sanctuary
+                                </span>
+                                <h4 className="font-serif text-xl font-bold mt-1">
+                                    {t('Where architecture meets the Indian Ocean breeze.', 'Usanifu wa kisasa unaokutana na upepo wa Bahari ya Hindi.')}
+                                </h4>
+                            </div>
+                        </div>
+
+                        {/* Floating Trust Card Overlay */}
+                        <div className="absolute -bottom-6 -left-6 rounded-2xl bg-white p-5 shadow-xl border border-[#EBE7E1] max-w-xs hidden sm:block">
+                            <div className="flex items-center gap-2 text-xs font-bold text-[#0F766E]">
+                                <BadgeCheck className="h-4 w-4" />
+                                <span>Verified Host Guarantee</span>
+                            </div>
+                            <p className="text-[11px] text-[#706861] mt-1">
+                                All properties undergo rigorous ownership title checks and real-time availability confirmation.
                             </p>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* HOMES: Fluid Grid with "Wishlist" feature */}
-            <section id="homes" className="mx-auto max-w-7xl px-6 py-32 scroll-mt-24">
-                <div className="mb-16 flex items-end justify-between">
-                    <div>
-                        <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight">{t('Homes you can ask about today', 'Nyumba unazoweza kuuliza leo')}</h2>
-                        <p className="mt-4 text-lg text-muted max-w-2xl">
-                            {t(
-                                'Straight from the app. Areas are shown by ward. The exact address is shared when the owner agrees to a viewing.',
-                                'Moja kwa moja kutoka kwenye app. Eneo linaonyeshwa kwa kata. Anwani kamili hutolewa mwenye nyumba akikubali kukuonyesha.',
-                            )}
-                        </p>
-                    </div>
-                    <button className="hidden md:flex items-center gap-2 text-teal font-bold hover:underline">
-                        <MapIcon className="size-5" /> {t('View Map', 'Tazama Ramani')}
-                    </button>
-                </div>
+            {/* 6. HOST WITH US / LANDLORD INVITATION (Floorspace Template Section) */}
+            <section id="host" className="w-full bg-[#181D22] text-white py-24">
+                <div className="w-full max-w-full px-6 sm:px-10 lg:px-14">
+                    <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#1E252B] to-[#12161A] p-8 sm:p-14 lg:p-18 border border-white/10 shadow-2xl">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                            <div>
+                                <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1 text-xs uppercase tracking-widest font-bold text-[#F5D485] backdrop-blur-md">
+                                    <Award className="h-3.5 w-3.5" />
+                                    <span>{t('For Property Owners & Hosts', 'Kwa Wenye Nyumba na Wawekezaji')}</span>
+                                </span>
 
-                {homes.length === 0 ? (
-                    <div className="rounded-3xl border-2 border-dashed border-line py-20 text-center text-muted">
-                        <p className="text-xl font-bold">{t('The first homes are being checked. Come back soon.', 'Nyumba za kwanza zinakaguliwa. Rudi hivi karibuni.')}</p>
-                    </div>
-                ) : (
-                    <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-                        {homes.map((h, i) => (
-                            <motion.div
-                                key={h.id}
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ delay: i * 0.1 }}
-                                className="group relative rounded-3xl bg-white ring-1 ring-line hover:ring-teal transition-all duration-300 hover:shadow-xl overflow-hidden"
-                            >
-                                <div className="relative aspect-[4/3] overflow-hidden">
-                                    {photo(h) ? (
-                                        <img src={photo(h)!} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                                    ) : (
-                                        <div className="w-full h-full bg-paper flex items-center justify-center"><Building2 className="size-10 text-muted" /></div>
+                                <h2 className="font-serif text-3xl sm:text-5xl font-normal text-white mt-6 leading-tight">
+                                    {t('Transform Your Property Into a High-Yield Direct Booking Sanctuary', 'Pangisha Nyumba Yako Moja kwa Moja kwa Faida Kubwa')}
+                                </h2>
+
+                                <p className="mt-4 text-sm sm:text-base text-white/80 leading-relaxed max-w-xl">
+                                    {t(
+                                        'Say goodbye to high platform commissions and utility disputes. Panga Pangisha provides autonomous STS submeter management, automated M-Pesa rent collections, digital leases, and verified tenants.',
+                                        'Achana na makato ya juu na migogoro ya bili. Panga Pangisha inakupa mfumo wa kisasa wa mita za STS, makusanyo ya kodi ya M-Pesa, na mikataba halali ya kidijitali.'
                                     )}
+                                </p>
 
-                                    <button className="absolute top-4 right-4 p-2 rounded-full bg-white/80 backdrop-blur-md text-ink hover:text-hibiscus transition-colors shadow-sm">
-                                        <Heart className="size-5" />
-                                    </button>
-
-                                    {h.verified_at && (
-                                        <div className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-bold text-teal shadow-sm ring-1 ring-teal/20">
-                                            <BadgeCheck className="size-3.5" /> {t('Verified', 'Imethibitishwa')}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="p-6">
-                                    <div className="flex items-baseline justify-between mb-2">
-                                        <p className="font-display text-2xl font-extrabold tabular-nums">{rent(h.monthly_rent)}</p>
-                                        <span className="text-xs font-medium text-muted">{t('a month', 'kwa mwezi')}</span>
-                                    </div>
-                                    <p className="font-bold text-lg truncate">{h.property_name}</p>
-                                    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
-                                        <span className="inline-flex items-center gap-1.5"><MapPin className="size-4" />{[h.ward, h.district].filter(Boolean).join(', ')}</span>
-                                        {h.bedrooms != null && <span className="inline-flex items-center gap-1.5"><BedDouble className="size-4" />{t(`${h.bedrooms} bed`, `vyumba ${h.bedrooms}`)}</span>}
-                                        {h.bathrooms != null && <span className="inline-flex items-center gap-1.5"><Bath className="size-4" />{t(`${h.bathrooms} bath`, `bafu ${h.bathrooms}`)}</span>}
-                                    </div>
-                                    <div className="mt-6 pt-4 border-t border-line flex items-center justify-between">
-                                        <span className="text-xs text-muted italic">{trust(h)[2].text}</span>
-                                        <button className="text-teal font-bold text-sm flex items-center gap-1 hover:underline">
-                                            {t('Details', 'Maelezo')} <ChevronRight className="size-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </div>
-                )}
-            </section>
-
-            {/* HOW IT WORKS: Modern Steps */}
-            <section id="how" className="bg-paper py-32 px-6">
-                <div className="max-w-7xl mx-auto">
-                    <h2 className="text-4xl sm:text-5xl font-extrabold text-center mb-20">{t('From search to keys', 'Kutoka kutafuta hadi funguo')}</h2>
-                    <div className="grid gap-12 md:grid-cols-3">
-                        {[
-                            { icon: Search, title: t('Search by area and budget', 'Tafuta kwa eneo na bajeti'), body: t('Filter by district, type, bedrooms and rent, or browse the map.', 'Chuja kwa wilaya, aina, vyumba na kodi, au tazama ramani.') },
-                            { icon: MessageCircle, title: t('Message the advertiser', 'Mwandikie mtangazaji'), body: t('Chat inside the app and filter by district, type, bedrooms and rent, or browse the map.', 'Chuja kwa wilaya, aina, vyumba na kodi, au tazama ramani.') },
-                            { icon: CalendarCheck, title: t('Visit before you pay', 'Tembelea kabla ya kulipa'), body: t('See the home in person. Never send money for a home you have not seen.', 'Ione nyumba ana kwa ana. Usitume pesa kwa nyumba ambayo hujaiona.') },
-                        ].map(({ icon: Icon, title, body }, i) => (
-                            <div key={i} className="relative group">
-                                <div className="absolute -inset-4 bg-teal/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                <div className="relative p-8 h-full rounded-2xl border border-line bg-white transition-all group-hover:shadow-xl group-hover:-translate-y-1">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <span className="font-display text-5xl font-black text-navy/10">{i + 1}</span>
-                                        <div className="p-3 rounded-xl bg-teal/10 text-teal">
-                                            {Icon && <Icon className="size-6" />}
-                                        </div>
-                                    </div>
-                                    <h3 className="text-xl font-bold mb-3">{title}</h3>
-                                    <p className="text-muted leading-relaxed">{body}</p>
+                                <div className="mt-8 flex flex-wrap items-center gap-4">
+                                    <Link
+                                        href="/signup?role=landlord"
+                                        className="inline-flex items-center gap-2 rounded-full bg-white px-7 py-3 text-xs uppercase tracking-wider font-bold text-[#12161A] shadow-md hover:bg-[#F3EFEA] transition-all active:scale-95"
+                                    >
+                                        <span>{t('List Your Property', 'Weka Nyumba Yako')}</span>
+                                        <ArrowRight className="h-4 w-4" />
+                                    </Link>
+                                    <Link
+                                        href="/landlord/dashboard"
+                                        className="inline-flex items-center gap-2 rounded-full border border-white/30 px-6 py-3 text-xs uppercase tracking-wider font-semibold text-white hover:bg-white/10 transition-all"
+                                    >
+                                        <Key className="h-4 w-4 text-[#F5D485]" />
+                                        <span>{t('Open Host Dashboard', 'Fungua Dashibodi')}</span>
+                                    </Link>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
 
-            {/* NEW: Trust Indicators (Airbnb Style) */}
-            <section className="py-24 bg-white overflow-hidden">
-                <div className="mx-auto max-w-7xl px-6">
-                    <div className="text-center mb-16">
-                        <h2 className="text-3xl font-extrabold sm:text-4xl mb-4">Designed for Total Transparency</h2>
-                        <p className="text-muted max-w-2xl mx-auto text-lg">
-                            {t('We believe renting should be stress-free. That is why we implement institutional-grade verification for every listing.', 'Tunaamini upangaji unapaswa kuwa bila stress. Ndio maana tunatumia uhakiki wa kiwango cha juu kwa kila tangazo.')}
-                        </p>
-                    </div>
-                    <div className="grid gap-8 md:grid-cols-3">
-                        {[
-                            { icon: <ShieldCheck className="size-8" />, title: t('Verified Ownership', 'Ummiliki Uliothibitishwa'), text: t('We check land titles and ownership documents to ensure the advertiser has the legal right to let the property.', 'Tunahakiki hati za ardhi na nyaraka za umiliki ili kuhakikisha mtangazaji ana haki ya kisheria ya kupangisha nyumba.') },
-                            { icon: <Zap className="size-8" />, title: t('Instant Availability', 'Upatikanaji wa Papo hapo'), text: t('Availability is confirmed in real-time. No more wasting time visiting homes that were rented yesterday.', 'Upatikanaji unathibitishwa papo hapo. Hakuna tena kupoteza muda kutembelea nyumba zilizopangwa jana.') },
-                            { icon: <Sparkles className="size-8" />, title: t('Veyora AI Support', 'Msaada wa AI ya Veyora'), text: t('Our AI companion helps you analyze rental agreements and find the best homes based on your specific needs.', 'Msaidizi wetu wa AI anakusaidia kuchambua mikataba ya upangaji na kupata nyumba bora kulingana na mahitaji yako.') },
-                        ].map((item, i) => (
-                            <motion.div
-                                key={i}
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                className="p-8 rounded-3xl bg-paper border border-line hover:border-teal transition-all group"
-                            >
-                                <div className="mb-6 p-3 rounded-2xl bg-white text-teal shadow-sm w-fit group-hover:scale-110 transition-transform">
-                                    {item.icon}
-                                </div>
-                                <h3 className="text-xl font-bold mb-3">{item.title}</h3>
-                                <p className="text-muted leading-relaxed">{item.text}</p>
-                            </motion.div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            <section id="owners" className="mx-auto grid max-w-6xl scroll-mt-6 items-center gap-12 px-5 py-20 lg:grid-cols-2">
-                <div>
-                    <h2 className="text-3xl font-extrabold sm:text-4xl">{t('Let your home to people who can see you are genuine', 'Pangisha kwa watu wanaoona kuwa wewe ni wa kweli')}</h2>
-                    <dl className="mt-8 space-y-6">
-                        {[
-                            [t('List in four steps', 'Tangaza kwa hatua nne'), t('Details, a pin on the map, photos, then review and publish.', 'Maelezo, mahali kwenye ramani, picha, kisha hakiki na uchapishe.')],
-                            [t('One tap keeps it current', 'Mguso mmoja unaiweka hai'), t('Confirm the home is still available so renters know the listing is fresh.', 'Thibitisha kuwa nyumba bado ipo ili wapangaji wajue tangazo ni la sasa.')],
-                            [t('Viewing requests in one place', 'Maombi ya kuona nyumba mahali pamoja'), t('Accept or decline each request and chat with the renter.', 'Kubali au kataa kila ombi na uongee na mpangaji.')],
-                        ].map(([title, body]) => (
-                            <div key={title} className="border-l-2 border-teal pl-5">
-                                <dt className="text-lg font-bold">{title}</dt>
-                                <dd className="mt-1 text-muted">{body}</dd>
+                            {/* Host Advantages Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                {[
+                                    {
+                                        title: t('Direct Cashflow', 'Makusanyo ya Moja kwa Moja'),
+                                        desc: t('Instant rent deposits into your Tanzanian bank or M-Pesa/Airtel Money wallet.', 'Pesa inaingia moja kwa moja kwenye akaunti ya benki au M-Pesa bila kuchelewa.'),
+                                    },
+                                    {
+                                        title: t('STS Submeter Tokens', 'Mita Binafsi za STS'),
+                                        desc: t('Automatic token generation for electricity and water submeters per unit.', 'Kizazi cha tokeni za umeme na maji kwa kila mpangaji bila usumbufu.'),
+                                    },
+                                    {
+                                        title: t('Zero Hidden Fees', 'Hakuna Makato ya Siri'),
+                                        desc: t('Transparent pricing model designed to maximize host yields and tenant satisfaction.', 'Ulipaji wa wazi unaosaidia kupata faida bora zaidi.'),
+                                    },
+                                    {
+                                        title: t('Veyora AI Copilot', 'Msaidizi wa AI wa Veyora'),
+                                        desc: t('Instant legal drafting for special lease conditions, notice letters, and tenant check-in.', 'Tengeneza vifungu vya mikataba na notisi kwa sekunde chache ukitumia AI.'),
+                                    },
+                                ].map((item, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md"
+                                    >
+                                        <h4 className="font-serif text-lg font-bold text-white mb-1">{item.title}</h4>
+                                        <p className="text-xs text-white/70 leading-relaxed">{item.desc}</p>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </dl>
-                    <div className="mt-10 flex flex-wrap items-center gap-4">
-                        <Link
-                            href="/landlord/signup"
-                            className="inline-flex h-12 items-center gap-2 rounded-xl bg-teal px-6 font-bold text-white hover:bg-navy transition-all shadow-md active:scale-95"
-                        >
-                            {t('Create Landlord Account', 'Fungua Akaunti ya Mwenye Nyumba')} <ArrowRight className="size-4" />
-                        </Link>
-                        <Link
-                            href="/landlord/login"
-                            className="inline-flex h-12 items-center px-6 font-semibold text-ink border border-line rounded-xl hover:border-teal transition-all"
-                        >
-                            {t('Landlord Sign In', 'Ingia Kama Mwenye Nyumba')}
-                        </Link>
+                        </div>
                     </div>
-                </div>
-                <div className="rounded-3xl bg-sand p-6 sm:p-8">
-                    <TriangleAlert className="size-7 text-brass-ink" aria-hidden="true" />
-                    <p className="mt-4 font-display text-2xl font-extrabold leading-snug text-ink">
-                        {t('If someone asks for money before a viewing, report the listing.', 'Mtu akikuomba pesa kabla ya kuona nyumba, ripoti tangazo.')}
-                    </p>
-                    <p className="mt-3 text-brass-ink">
-                        {t('Every listing has a report button. Our team reads each report and can suspend the listing or the account.', 'Kila tangazo lina kitufe cha kuripoti. Timu yetu husoma kila ripoti na inaweza kusimamisha tangazo au akaunti.')}
-                    </p>
                 </div>
             </section>
 
-            <footer className="bg-navy text-white">
-                <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-8 px-5 py-16">
-                    <div className="flex-1 min-w-[300px]">
-                        <Logo onDark className="mb-6" />
-                        <p className="text-white/60 max-w-md">
-                            {t('The most transparent way to find and manage rental homes in Tanzania. Built on trust, verified by data.', 'Njia ya wazi zaidi ya kutafuta na kusimamia nyumba za kupanga Tanzania. Imewekwa kwenye uaminifu, imethibitishwa na data.')}
-                        </p>
-                    </div>
-                    <div className="flex gap-12">
-                        <div className="space-y-4">
-                            <p className="font-bold text-white">Product</p>
-                            <ul className="space-y-2 text-sm text-white/60">
-                                <li><a href="#homes" className="hover:text-white">Find a Home</a></li>
-                                <li><a href="#owners" className="hover:text-white">For Landlords</a></li>
-                                <li><Link href="/login" className="hover:text-white">Sign In</Link></li>
-                                <li><Link href="/signup" className="hover:text-white">Create Account</Link></li>
-                                <li><Link href="/landlord/dashboard" className="hover:text-white">Landlord Command Center</Link></li>
+            {/* 7. ARCHITECTURAL FOOTER (Floorspace Luxury Standard) */}
+            <footer className="w-full bg-[#12161A] text-white border-t border-white/10 pt-20 pb-12">
+                <div className="w-full max-w-full px-6 sm:px-10 lg:px-14">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 pb-16 border-b border-white/10">
+                        {/* Brand Column */}
+                        <div className="lg:col-span-2 space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#12161A] font-serif text-xl font-bold">
+                                    P
+                                </div>
+                                <span className="font-serif text-xl tracking-tight font-bold text-white">
+                                    PANGA PANGISHA
+                                </span>
+                            </div>
+                            <p className="text-xs text-white/60 max-w-sm leading-relaxed">
+                                {t(
+                                    'The modern standard for residential leasing and luxury vacation sanctuaries in Tanzania. Direct host transparency, verified titles, and autonomous STS smart submetering.',
+                                    'Kiwango cha kisasa cha upangaji na makazi ya kifahari Tanzania. Uwazi wa moja kwa moja, hati zilizothibitishwa, na mita za kujitegemea za STS.'
+                                )}
+                            </p>
+                            <div className="pt-2 text-xs text-[#F5D485] font-semibold flex items-center gap-2">
+                                <BadgeCheck className="h-4 w-4" />
+                                <span>{t('Registered in Dar es Salaam, Tanzania', 'Imesajiliwa Dar es Salaam, Tanzania')}</span>
+                            </div>
+                        </div>
+
+                        {/* Navigation Columns */}
+                        <div>
+                            <p className="text-xs uppercase font-bold tracking-widest text-white/40 mb-4">
+                                {t('Destinations', 'Maeneo')}
+                            </p>
+                            <ul className="space-y-2.5 text-xs text-white/70">
+                                <li><a href="#collections" className="hover:text-white transition-colors">Masaki & Oyster Bay</a></li>
+                                <li><a href="#collections" className="hover:text-white transition-colors">Zanzibar Coast & Stone Town</a></li>
+                                <li><a href="#collections" className="hover:text-white transition-colors">Mikocheni & Msasani</a></li>
+                                <li><a href="#collections" className="hover:text-white transition-colors">Arusha & Meru</a></li>
+                                <li><a href="#collections" className="hover:text-white transition-colors">Dodoma Capital City</a></li>
                             </ul>
                         </div>
-                        <div className="space-y-4">
-                            <p className="font-bold text-white">Company</p>
-                            <ul className="space-y-2 text-sm text-white/60">
-                                <li><a href="#" className="hover:text-white">About Us</a></li>
-                                <li><a href="#" className="hover:text-white">How it Works</a></li>
-                                <li><a href="#" className="hover:text-white">Contact</a></li>
+
+                        <div>
+                            <p className="text-xs uppercase font-bold tracking-widest text-white/40 mb-4">
+                                {t('Portals', 'Mifumo')}
+                            </p>
+                            <ul className="space-y-2.5 text-xs text-white/70">
+                                <li><Link href="/landlord/dashboard" className="hover:text-white transition-colors">{t('Landlord Command Suite', 'Dashibodi ya Mwenye Nyumba')}</Link></li>
+                                <li><Link href="/tenant/dashboard" className="hover:text-white transition-colors">{t('Resident Portal', 'Mwenye Nyumba / Mpangaji')}</Link></li>
+                                <li><Link href="/login" className="hover:text-white transition-colors">{t('Sign In', 'Ingia')}</Link></li>
+                                <li><Link href="/signup" className="hover:text-white transition-colors">{t('Create Account', 'Fungua Akaunti')}</Link></li>
+                                <li><a href="/admin" className="hover:text-white transition-colors">{t('Staff Administration', 'Wafanyakazi')}</a></li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <p className="text-xs uppercase font-bold tracking-widest text-white/40 mb-4">
+                                {t('Direct Guarantee', 'Dhamana')}
+                            </p>
+                            <ul className="space-y-2.5 text-xs text-white/70">
+                                <li><span className="text-white/50">0% Middleman Fees</span></li>
+                                <li><span className="text-white/50">STS Submeter Audits</span></li>
+                                <li><span className="text-white/50">Title Deed Verification</span></li>
+                                <li><span className="text-white/50">Digital Lease Signing</span></li>
+                                {downloadUrl && (
+                                    <li className="pt-2">
+                                        <a
+                                            href={downloadUrl}
+                                            className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-white/20"
+                                        >
+                                            <span>Download App</span>
+                                            <ArrowUpRight className="h-3 w-3" />
+                                        </a>
+                                    </li>
+                                )}
                             </ul>
                         </div>
                     </div>
-                    {downloadUrl && (
-                        <div className="bg-navy-raised p-6 rounded-3xl ring-1 ring-white/10 text-center">
-                            <p className="text-sm font-bold mb-4">{t('Get the app', 'Pata app')}</p>
-                            <a href={downloadUrl} className="inline-flex h-12 items-center rounded-xl bg-teal-bright px-5 font-semibold text-navy hover:bg-white transition-all">
-                                {t('Download Android', 'Pakua Android')}
-                            </a>
+
+                    {/* Bottom Credits Bar */}
+                    <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/50">
+                        <span>© {new Date().getFullYear()} Panga Pangisha Inc. All rights reserved.</span>
+                        <div className="flex items-center gap-6">
+                            <span className="hover:text-white transition-colors cursor-pointer">Privacy Policy</span>
+                            <span className="hover:text-white transition-colors cursor-pointer">Terms of Service</span>
+                            <span className="hover:text-white transition-colors cursor-pointer">Security Standards</span>
                         </div>
-                    )}
-                </div>
-                <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 border-t border-navy-line px-5 py-6 text-sm text-white/60">
-                    <span className="flex items-center gap-3">
-                        <Logo onDark className="!text-base" /> Panga na Kupangisha, Dar es Salaam
-                    </span>
-                    <div className="flex gap-6">
-                        <a href="#" className="hover:text-white">Privacy Policy</a>
-                        <a href="#" className="hover:text-white">Terms of Service</a>
-                        <Link href="/landlord/login" className="hover:text-white">Landlord Portal</Link>
-                        <a href="/admin" className="hover:text-white">Staff sign in</a>
                     </div>
                 </div>
             </footer>
-        </div>
-    );
-}
 
-function NavItem({ icon, label, active = false }: { icon: React.ReactNode; label: string; active?: boolean }) {
-    return (
-        <button className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-            active
-                ? 'bg-teal text-navy font-bold shadow-lg shadow-teal/20'
-                : 'text-white/60 hover:text-white hover:bg-white/5'
-        }`}>
-            {icon}
-            {label}
-        </button>
+            {/* 8. INTERACTIVE PROPERTY QUICK-VIEW MODAL (Floorspace Detail Drawer) */}
+            <AnimatePresence>
+                {selectedPropertyModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl text-[#12161A]"
+                        >
+                            {/* Close Button */}
+                            <button
+                                onClick={() => setSelectedPropertyModal(null)}
+                                className="absolute top-5 right-5 h-9 w-9 rounded-full bg-[#FAF8F5] border border-[#DDD7CE] flex items-center justify-center text-[#12161A] hover:bg-[#12161A] hover:text-white transition-all shadow-xs z-10"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+
+                            {/* Modal Header & Photo */}
+                            <div className="relative aspect-16/9 w-full overflow-hidden rounded-2xl bg-[#F0EBE3] mb-6">
+                                {photo(selectedPropertyModal) ? (
+                                    <img
+                                        src={photo(selectedPropertyModal)!}
+                                        alt={selectedPropertyModal.property_name || 'Sanctuary View'}
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="flex h-full w-full items-center justify-center bg-[#E5DDD3]">
+                                        <Building2 className="h-12 w-12 text-[#8C827A]" />
+                                    </div>
+                                )}
+                                <div className="absolute bottom-4 left-4">
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md">
+                                        <MapPin className="h-3.5 w-3.5 text-[#F5D485]" />
+                                        <span>
+                                            {[selectedPropertyModal.ward, selectedPropertyModal.district].filter(Boolean).join(', ') || 'Dar es Salaam'}
+                                        </span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Property Details */}
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-[#F0EBE3]">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] uppercase tracking-wider font-bold text-[#C2704E]">
+                                            {selectedPropertyModal.property_type || 'Boutique Residence'}
+                                        </span>
+                                        {selectedPropertyModal.verified_at && (
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F766E] bg-[#D9F7F1] px-2 py-0.5 rounded-full">
+                                                <BadgeCheck className="h-3 w-3" />
+                                                Verified Title
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[#12161A] mt-1">
+                                        {selectedPropertyModal.property_name || 'Coastal Sanctuary'}
+                                    </h3>
+                                    <p className="text-xs text-[#706861] mt-1">
+                                        Confirmed available {ago(selectedPropertyModal.availability_confirmed_at)} • Direct Host listing
+                                    </p>
+                                </div>
+
+                                <div className="sm:text-right">
+                                    <span className="block text-[10px] uppercase font-bold text-[#8C827A]">
+                                        Direct Monthly Rate
+                                    </span>
+                                    <div className="font-serif text-2xl font-bold text-[#12161A]">
+                                        {rent(selectedPropertyModal.monthly_rent)}
+                                    </div>
+                                    <span className="text-xs text-[#8C827A]">
+                                        {rentUSD(selectedPropertyModal.monthly_rent)} / month
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Specs & Features */}
+                            <div className="py-6 border-b border-[#F0EBE3] grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#EBE7E1]">
+                                    <BedDouble className="h-5 w-5 text-[#12161A] mx-auto mb-1" />
+                                    <span className="block text-xs font-bold text-[#12161A]">
+                                        {selectedPropertyModal.bedrooms || '1'} Bedrooms
+                                    </span>
+                                    <span className="text-[10px] text-[#8C827A]">Master en-suite</span>
+                                </div>
+                                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#EBE7E1]">
+                                    <Bath className="h-5 w-5 text-[#12161A] mx-auto mb-1" />
+                                    <span className="block text-xs font-bold text-[#12161A]">
+                                        {selectedPropertyModal.bathrooms || '1'} Bathrooms
+                                    </span>
+                                    <span className="text-[10px] text-[#8C827A]">Modern fittings</span>
+                                </div>
+                                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#EBE7E1]">
+                                    <Zap className="h-5 w-5 text-[#0F766E] mx-auto mb-1" />
+                                    <span className="block text-xs font-bold text-[#12161A]">
+                                        STS Submeter
+                                    </span>
+                                    <span className="text-[10px] text-[#0F766E]">Prepaid Autonomy</span>
+                                </div>
+                                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#EBE7E1]">
+                                    <Wifi className="h-5 w-5 text-[#C2704E] mx-auto mb-1" />
+                                    <span className="block text-xs font-bold text-[#12161A]">
+                                        Fiber Ready
+                                    </span>
+                                    <span className="text-[10px] text-[#8C827A]">High Speed</span>
+                                </div>
+                            </div>
+
+                            {/* Host Direct Contact & Action Bar */}
+                            <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-full bg-[#12161A] text-white flex items-center justify-center font-bold text-sm">
+                                        {selectedPropertyModal.property_name?.charAt(0) || 'H'}
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs font-bold text-[#12161A]">
+                                            {selectedPropertyModal.advertiser_role === 'representative'
+                                                ? 'Property Representative'
+                                                : 'Direct Verified Owner'}
+                                        </span>
+                                        <span className="text-[11px] text-[#0F766E] font-medium flex items-center gap-1">
+                                            <Check className="h-3 w-3" />
+                                            Zero Broker Commission
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 w-full sm:w-auto">
+                                    <a
+                                        href={`https://wa.me/255712345678?text=Hello%2C%20I%20am%20interested%20in%20${encodeURIComponent(
+                                            selectedPropertyModal.property_name || 'this property'
+                                        )}%20listed%20on%20Panga%20Pangisha.`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#20BE5C] transition-all"
+                                    >
+                                        <MessageCircle className="h-4 w-4" />
+                                        <span>Inquire on WhatsApp</span>
+                                    </a>
+
+                                    <Link
+                                        href="/signup"
+                                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-full bg-[#12161A] px-5 py-2.5 text-xs uppercase font-bold text-white hover:bg-[#2E3742] transition-all"
+                                    >
+                                        <span>Book / Apply</span>
+                                        <ArrowRight className="h-3.5 w-3.5" />
+                                    </Link>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </div>
     );
 }

@@ -6,8 +6,9 @@
 
 /* Same palette and faces as the mobile app (panga_pangisha/lib/ui.dart). */
 @theme {
-    --font-sans: 'Figtree', ui-sans-serif, system-ui, sans-serif;
-    --font-display: 'Bricolage', 'Figtree', ui-sans-serif, sans-serif;
+    --font-sans: 'Plus Jakarta Sans', 'Figtree', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Outfit', 'Bricolage', ui-sans-serif, sans-serif;
+    --font-serif: 'Cormorant Garamond', Georgia, serif;
 
     --color-navy: #0b1b2b;
     --color-navy-raised: #142a40;
@@ -16,11 +17,14 @@
     --color-teal-bright: #2dd4bf; /* on navy only */
     --color-mint: #d9f7f1;
     --color-paper: #f4f6f8;
+    --color-linen: #faf8f5;
+    --color-warm-sand: #f5f0e6;
     --color-line: #e1e7ec;
     --color-ink: #10212f;
     --color-muted: #566676;
     --color-brass: #f2b01e;
     --color-brass-ink: #7a5200;
+    --color-terracotta: #c2694b;
     --color-sand: #fff3d1;
     --color-hibiscus: #c2314b;
     --color-blush: #fce8ec;
