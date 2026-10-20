@@ -7,7 +7,8 @@ import {
     UserRound, ChevronRight, ArrowRight, Info, Star,
     Filter, Map as MapIcon, Heart, Sparkles, Zap, Building2,
     Calendar, Users, DollarSign, Key, Compass, Award, CheckCircle2,
-    PhoneCall, X, ArrowUpRight, Droplets, Waves, Wifi, Lock
+    PhoneCall, X, ArrowUpRight, Droplets, Waves, Wifi, Lock,
+    Share2, Car, ExternalLink, Clock, Navigation
 } from 'lucide-react';
 import { Logo } from '@/components/ui';
 
@@ -44,6 +45,11 @@ export default function HomePage({
     const [searchBedrooms, setSearchBedrooms] = useState<string>('all');
     const [searchDuration, setSearchDuration] = useState<string>('all');
     const [selectedPropertyModal, setSelectedPropertyModal] = useState<Home | null>(null);
+    const [activeDetailTab, setActiveDetailTab] = useState<'overview' | 'rooms' | 'amenities' | 'location' | 'policies'>('overview');
+    const [activePhotoIndex, setActivePhotoIndex] = useState<number>(0);
+    const [viewingDate, setViewingDate] = useState<string>('Tomorrow, 10:00 AM');
+    const [selectedRoomId, setSelectedRoomId] = useState<string>('suite-1');
+    const [viewingScheduleSuccess, setViewingScheduleSuccess] = useState(false);
     const [wishlist, setWishlist] = useState<number[]>([]);
 
     useEffect(() => {
@@ -446,7 +452,13 @@ export default function HomePage({
                                     className="group flex flex-col rounded-3xl bg-white border border-[#EBE7E1] overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300"
                                 >
                                     {/* Large Editorial Photography Box (4:3 aspect) */}
-                                    <div className="relative aspect-4/3 w-full overflow-hidden bg-[#ECE8E1]">
+                                    <div
+                                        onClick={() => {
+                                            setSelectedPropertyModal(home);
+                                            setActivePhotoIndex(0);
+                                        }}
+                                        className="relative aspect-4/3 w-full overflow-hidden bg-[#ECE8E1] cursor-pointer"
+                                    >
                                         {photo(home) ? (
                                             <img
                                                 src={photo(home)!}
@@ -487,8 +499,11 @@ export default function HomePage({
 
                                         {/* Top Right Wishlist Heart */}
                                         <button
-                                            onClick={() => toggleWishlist(home.id)}
-                                            className="absolute top-4 right-4 h-9 w-9 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center text-[#12161A] hover:bg-white transition-all shadow-sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleWishlist(home.id);
+                                            }}
+                                            className="absolute top-4 right-4 h-9 w-9 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center text-[#12161A] hover:bg-white transition-all shadow-sm z-10"
                                             aria-label="Save to Wishlist"
                                         >
                                             <Heart
@@ -511,7 +526,13 @@ export default function HomePage({
                                     {/* Card Content Details */}
                                     <div className="p-6 flex flex-1 flex-col justify-between">
                                         <div>
-                                            <h3 className="font-serif text-xl font-bold text-[#12161A] group-hover:text-[#C2704E] transition-colors line-clamp-1">
+                                            <h3
+                                                onClick={() => {
+                                                    setSelectedPropertyModal(home);
+                                                    setActivePhotoIndex(0);
+                                                }}
+                                                className="font-serif text-xl font-bold text-[#12161A] group-hover:text-[#C2704E] transition-colors line-clamp-1 cursor-pointer"
+                                            >
                                                 {home.property_name || 'Bespoke Coastal Sanctuary'}
                                             </h3>
 
@@ -863,153 +884,703 @@ export default function HomePage({
                 </div>
             </footer>
 
-            {/* 8. INTERACTIVE PROPERTY QUICK-VIEW MODAL (Floorspace Detail Drawer) */}
+            {/* 8. CITYSCAPE RETREAT ARCHITECTURAL PROPERTY & ROOM DETAILS VIEW */}
             <AnimatePresence>
                 {selectedPropertyModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-sm">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5 bg-black/80 backdrop-blur-md overflow-y-auto">
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            initial={{ opacity: 0, scale: 0.96, y: 16 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl text-[#12161A]"
+                            exit={{ opacity: 0, scale: 0.96, y: 16 }}
+                            className="relative w-full max-w-5xl max-h-[94vh] overflow-y-auto rounded-3xl bg-white shadow-2xl text-[#12161A] p-4 sm:p-7"
                         >
-                            {/* Close Button */}
+                            {/* Floating Minimal Close Button (No redundant header) */}
                             <button
-                                onClick={() => setSelectedPropertyModal(null)}
-                                className="absolute top-5 right-5 h-9 w-9 rounded-full bg-[#FAF8F5] border border-[#DDD7CE] flex items-center justify-center text-[#12161A] hover:bg-[#12161A] hover:text-white transition-all shadow-xs z-10"
+                                onClick={() => {
+                                    setSelectedPropertyModal(null);
+                                    setActiveDetailTab('overview');
+                                    setViewingScheduleSuccess(false);
+                                }}
+                                className="absolute top-4 right-4 sm:top-6 sm:right-6 h-9 w-9 rounded-full bg-white/95 border border-slate-200/90 shadow-md flex items-center justify-center text-slate-700 hover:bg-slate-900 hover:text-white transition-all z-30 cursor-pointer"
+                                title="Close"
                             >
                                 <X className="h-4 w-4" />
                             </button>
 
-                            {/* Modal Header & Photo */}
-                            <div className="relative aspect-16/9 w-full overflow-hidden rounded-2xl bg-[#F0EBE3] mb-6">
-                                {photo(selectedPropertyModal) ? (
-                                    <img
-                                        src={photo(selectedPropertyModal)!}
-                                        alt={selectedPropertyModal.property_name || 'Sanctuary View'}
-                                        className="h-full w-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-[#E5DDD3]">
-                                        <Building2 className="h-12 w-12 text-[#8C827A]" />
+                            {/* Cityscape Architectural Multi-Photo Interactive Gallery */}
+                            {(() => {
+                                const propertyPhotos = selectedPropertyModal ? [
+                                    photo(selectedPropertyModal) || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&auto=format&fit=crop&q=80',
+                                    'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&auto=format&fit=crop&q=80',
+                                    'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=900&auto=format&fit=crop&q=80',
+                                    'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=900&auto=format&fit=crop&q=80',
+                                    'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=900&auto=format&fit=crop&q=80',
+                                ] : [];
+                                const currentHero = propertyPhotos[activePhotoIndex] || propertyPhotos[0];
+
+                                return (
+                                    <div className="space-y-2.5 mb-5">
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5 sm:gap-3 rounded-2xl overflow-hidden">
+                                            {/* Primary Hero Photo with active switcher */}
+                                            <div className="relative md:col-span-3 aspect-16/9 overflow-hidden rounded-2xl bg-[#F0EBE3] shadow-inner">
+                                                <img
+                                                    key={currentHero}
+                                                    src={currentHero}
+                                                    alt={selectedPropertyModal.property_name || 'Sanctuary View'}
+                                                    className="h-full w-full object-cover transition-all duration-500 hover:scale-102"
+                                                />
+                                                <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-2">
+                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-black/65 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md">
+                                                        <MapPin className="h-3.5 w-3.5 text-[#F5D485]" />
+                                                        <span>
+                                                            {[selectedPropertyModal.ward, selectedPropertyModal.district].filter(Boolean).join(', ') || 'Dar es Salaam'}
+                                                        </span>
+                                                    </span>
+                                                    <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-950/75 px-2.5 py-1 text-[11px] font-bold text-emerald-300 backdrop-blur-md">
+                                                        <CheckCircle2 className="h-3 w-3" />
+                                                        Direct Host Listing
+                                                    </span>
+                                                </div>
+
+                                                <div className="absolute top-3 left-3">
+                                                    <span className="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-md">
+                                                        Photo {activePhotoIndex + 1} of {propertyPhotos.length}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Side Companion Thumbnails */}
+                                            <div className="hidden md:grid grid-rows-4 gap-2 h-full">
+                                                {propertyPhotos.slice(1, 5).map((imgUrl, thumbIdx) => {
+                                                    const realIndex = thumbIdx + 1;
+                                                    const isSelected = activePhotoIndex === realIndex;
+                                                    return (
+                                                        <div
+                                                            key={realIndex}
+                                                            onClick={() => setActivePhotoIndex(realIndex)}
+                                                            className={`relative h-full overflow-hidden rounded-xl bg-slate-100 cursor-pointer transition-all ${
+                                                                isSelected
+                                                                    ? 'ring-2 ring-slate-900 opacity-100 scale-98'
+                                                                    : 'opacity-75 hover:opacity-100'
+                                                            }`}
+                                                        >
+                                                            <img
+                                                                src={imgUrl}
+                                                                alt={`Thumbnail ${realIndex}`}
+                                                                className="h-full w-full object-cover"
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Mobile Thumbnail Selector Strip */}
+                                        <div className="flex md:hidden gap-2 overflow-x-auto pb-1 no-scrollbar">
+                                            {propertyPhotos.map((imgUrl, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => setActivePhotoIndex(idx)}
+                                                    className={`relative h-14 w-20 shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                                                        activePhotoIndex === idx
+                                                            ? 'border-slate-900 scale-102'
+                                                            : 'border-transparent opacity-70'
+                                                    }`}
+                                                >
+                                                    <img src={imgUrl} alt={`Thumb ${idx}`} className="h-full w-full object-cover" />
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                )}
-                                <div className="absolute bottom-4 left-4">
-                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md">
-                                        <MapPin className="h-3.5 w-3.5 text-[#F5D485]" />
-                                        <span>
-                                            {[selectedPropertyModal.ward, selectedPropertyModal.district].filter(Boolean).join(', ') || 'Dar es Salaam'}
-                                        </span>
+                                );
+                            })()}
+
+                            {/* Headline & Verification Badges */}
+                            <div className="pb-4 border-b border-slate-100">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-[11px] uppercase tracking-wider font-bold text-[#C2704E] bg-[#FDF4EF] px-2.5 py-0.5 rounded-full">
+                                        {selectedPropertyModal.property_type || 'Boutique Residence'}
                                     </span>
+                                    {selectedPropertyModal.verified_at && (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F766E] bg-[#D9F7F1] px-2.5 py-0.5 rounded-full">
+                                            <BadgeCheck className="h-3 w-3" />
+                                            Verified Landlord Title
+                                        </span>
+                                    )}
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full">
+                                        <Zap className="h-3 w-3" />
+                                        STS Submeter Autonomy
+                                    </span>
+                                </div>
+
+                                <h2 className="font-serif text-2xl sm:text-3xl font-bold text-slate-900 mt-2">
+                                    {selectedPropertyModal.property_name || 'Coastal Sanctuary'}
+                                </h2>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Confirmed available {ago(selectedPropertyModal.availability_confirmed_at)} • Direct verified host listing • Zero broker fees
+                                </p>
+                            </div>
+
+                            {/* Cityscape Retreat Subnavigation Tabs Bar */}
+                            <div className="my-4 border-b border-slate-100 pb-1">
+                                <div className="flex space-x-1 sm:space-x-2 overflow-x-auto no-scrollbar">
+                                    {[
+                                        { id: 'overview', label: 'Overview', icon: Info },
+                                        { id: 'rooms', label: 'Suites & Rooms', icon: BedDouble },
+                                        { id: 'amenities', label: 'Amenities', icon: Sparkles },
+                                        { id: 'location', label: 'Explore Location & Map', icon: MapPin },
+                                        { id: 'policies', label: 'House Policies', icon: ShieldCheck },
+                                    ].map((tab) => {
+                                        const Icon = tab.icon;
+                                        const isActive = activeDetailTab === tab.id;
+                                        return (
+                                            <button
+                                                key={tab.id}
+                                                onClick={() => setActiveDetailTab(tab.id as any)}
+                                                className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer ${
+                                                    isActive
+                                                        ? 'bg-slate-900 text-white shadow-xs'
+                                                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                <Icon className={`h-3.5 w-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                                                <span>{tab.label}</span>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
-                            {/* Property Details */}
-                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-[#F0EBE3]">
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[11px] uppercase tracking-wider font-bold text-[#C2704E]">
-                                            {selectedPropertyModal.property_type || 'Boutique Residence'}
-                                        </span>
-                                        {selectedPropertyModal.verified_at && (
-                                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F766E] bg-[#D9F7F1] px-2 py-0.5 rounded-full">
-                                                <BadgeCheck className="h-3 w-3" />
-                                                Verified Title
+                            {/* Two-Column Editorial Details Grid */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+                                {/* Left Content: Dynamic Tab Views */}
+                                <div className="lg:col-span-2 space-y-6">
+                                    {/* TAB 1: OVERVIEW */}
+                                    {activeDetailTab === 'overview' && (
+                                        <div className="space-y-6">
+                                            {/* Architectural Specs Ribbon */}
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                                                <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#EBE7E1]">
+                                                    <BedDouble className="h-5 w-5 text-slate-900 mx-auto mb-1" />
+                                                    <span className="block text-xs font-bold text-slate-900">
+                                                        {selectedPropertyModal.bedrooms || '1'} Bedrooms
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-500">Master en-suite</span>
+                                                </div>
+                                                <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#EBE7E1]">
+                                                    <Bath className="h-5 w-5 text-slate-900 mx-auto mb-1" />
+                                                    <span className="block text-xs font-bold text-slate-900">
+                                                        {selectedPropertyModal.bathrooms || '1'} Bathrooms
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-500">Modern fittings</span>
+                                                </div>
+                                                <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#EBE7E1]">
+                                                    <Zap className="h-5 w-5 text-[#0F766E] mx-auto mb-1" />
+                                                    <span className="block text-xs font-bold text-slate-900">
+                                                        STS Submeter
+                                                    </span>
+                                                    <span className="text-[10px] text-[#0F766E]">Prepaid Autonomy</span>
+                                                </div>
+                                                <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#EBE7E1]">
+                                                    <Wifi className="h-5 w-5 text-[#C2704E] mx-auto mb-1" />
+                                                    <span className="block text-xs font-bold text-slate-900">
+                                                        Fiber Ready
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-500">100Mbps Speed</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Narrative Description */}
+                                            <div className="space-y-2">
+                                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
+                                                    The Sanctuary Experience
+                                                </h3>
+                                                <p className="text-xs leading-relaxed text-slate-600 font-sans">
+                                                    Thoughtfully crafted for peaceful residential living, natural sea breeze, and abundant daylight. 
+                                                    Features high ceilings, custom hardwood accents, serene private balcony, and state-of-the-art STS utility infrastructure ensuring complete autonomy and peace of mind.
+                                                </p>
+                                            </div>
+
+                                            {/* Key Residence Highlights */}
+                                            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 space-y-2.5">
+                                                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                                                    Property Standards & Features
+                                                </h4>
+                                                <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                                                    <div className="flex items-center gap-2">
+                                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                                        <span>145 m² Total Living Area</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                                        <span>High 3.2m Ceilings</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                                        <span>Cross-Ventilation Architecture</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                                        <span>Direct-from-Landlord Guarantee</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* TAB 2: SUITES & ROOMS (Cityscape Accommodations Showcase) */}
+                                    {activeDetailTab === 'rooms' && (
+                                        <div className="space-y-4">
+                                            <div>
+                                                <h3 className="text-sm font-bold text-slate-900">
+                                                    Accommodations & Available Suites
+                                                </h3>
+                                                <p className="text-xs text-slate-500">
+                                                    Each room features its own dedicated STS prepaid electricity meter and private bathroom.
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                {/* Suite 1 */}
+                                                <div className="rounded-2xl border border-slate-200 p-4 bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs hover:border-slate-300 transition-all">
+                                                    <div className="flex items-center gap-3.5">
+                                                        <img
+                                                            src="https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=400&auto=format&fit=crop&q=80"
+                                                            alt="Master Penthouse Suite"
+                                                            className="h-16 w-20 rounded-xl object-cover shrink-0"
+                                                        />
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <h4 className="text-xs font-bold text-slate-900">Master Ocean Penthouse Suite</h4>
+                                                                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                                                    Available
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-[11px] text-slate-500 mt-0.5">
+                                                                King Bed • En-suite Italian Bath • Private Balcony • STS Meter
+                                                            </p>
+                                                            <span className="text-xs font-extrabold text-slate-900 mt-1 block">
+                                                                TZS 850,000 / month
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <a
+                                                        href={`https://wa.me/255712345678?text=Hello%2C%20I%20am%20interested%20in%20the%20Master%20Ocean%20Penthouse%20Suite%20at%20${encodeURIComponent(selectedPropertyModal.property_name || 'this property')}.`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#25D366] px-3.5 py-2 text-xs font-bold text-white shadow-2xs hover:bg-[#20BE5C] transition-all cursor-pointer"
+                                                    >
+                                                        <MessageCircle className="h-3.5 w-3.5" />
+                                                        <span>Inquire Suite</span>
+                                                    </a>
+                                                </div>
+
+                                                {/* Suite 2 */}
+                                                <div className="rounded-2xl border border-slate-200 p-4 bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs hover:border-slate-300 transition-all">
+                                                    <div className="flex items-center gap-3.5">
+                                                        <img
+                                                            src="https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=400&auto=format&fit=crop&q=80"
+                                                            alt="Deluxe Executive Suite"
+                                                            className="h-16 w-20 rounded-xl object-cover shrink-0"
+                                                        />
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <h4 className="text-xs font-bold text-slate-900">Deluxe Executive Suite</h4>
+                                                                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                                                    Available
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-[11px] text-slate-500 mt-0.5">
+                                                                Queen Bed • Modern Shower • Dedicated Study Desk • STS Meter
+                                                            </p>
+                                                            <span className="text-xs font-extrabold text-slate-900 mt-1 block">
+                                                                TZS 650,000 / month
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <a
+                                                        href={`https://wa.me/255712345678?text=Hello%2C%20I%20am%20interested%20in%20the%20Deluxe%20Executive%20Suite%20at%20${encodeURIComponent(selectedPropertyModal.property_name || 'this property')}.`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#25D366] px-3.5 py-2 text-xs font-bold text-white shadow-2xs hover:bg-[#20BE5C] transition-all cursor-pointer"
+                                                    >
+                                                        <MessageCircle className="h-3.5 w-3.5" />
+                                                        <span>Inquire Suite</span>
+                                                    </a>
+                                                </div>
+
+                                                {/* Suite 3 */}
+                                                <div className="rounded-2xl border border-slate-200 p-4 bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs hover:border-slate-300 transition-all">
+                                                    <div className="flex items-center gap-3.5">
+                                                        <img
+                                                            src="https://images.unsplash.com/photo-1554995207-c18c203602cb?w=400&auto=format&fit=crop&q=80"
+                                                            alt="Garden Studio Suite"
+                                                            className="h-16 w-20 rounded-xl object-cover shrink-0"
+                                                        />
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <h4 className="text-xs font-bold text-slate-900">Garden Studio Suite</h4>
+                                                                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                                                                    Quiet Zone
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-[11px] text-slate-500 mt-0.5">
+                                                                Double Bed • Private Bath • Garden Access • STS Submeter
+                                                            </p>
+                                                            <span className="text-xs font-extrabold text-slate-900 mt-1 block">
+                                                                TZS 500,000 / month
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <a
+                                                        href={`https://wa.me/255712345678?text=Hello%2C%20I%20am%20interested%20in%20the%20Garden%20Studio%20Suite%20at%20${encodeURIComponent(selectedPropertyModal.property_name || 'this property')}.`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#25D366] px-3.5 py-2 text-xs font-bold text-white shadow-2xs hover:bg-[#20BE5C] transition-all cursor-pointer"
+                                                    >
+                                                        <MessageCircle className="h-3.5 w-3.5" />
+                                                        <span>Inquire Suite</span>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* TAB 3: AMENITIES & INFRASTRUCTURE */}
+                                    {activeDetailTab === 'amenities' && (
+                                        <div className="space-y-4">
+                                            <div>
+                                                <h3 className="text-sm font-bold text-slate-900">
+                                                    Curated Amenities & Utility Standards
+                                                </h3>
+                                                <p className="text-xs text-slate-500">
+                                                    Engineered for zero billing disputes and uninterrupted comfort.
+                                                </p>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-1">
+                                                    <div className="flex items-center gap-2 text-emerald-700 font-bold">
+                                                        <Zap className="h-4 w-4" />
+                                                        <span>STS LUKU Prepaid Keypad</span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        Independent certified electricity submeter in every unit. Buy tokens via mobile money.
+                                                    </p>
+                                                </div>
+
+                                                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-1">
+                                                    <div className="flex items-center gap-2 text-blue-700 font-bold">
+                                                        <Droplets className="h-4 w-4" />
+                                                        <span>Dedicated Water Reserve</span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        5,000L high-capacity storage tank with independent submetering telemetry.
+                                                    </p>
+                                                </div>
+
+                                                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-1">
+                                                    <div className="flex items-center gap-2 text-[#C2704E] font-bold">
+                                                        <Wifi className="h-4 w-4" />
+                                                        <span>100Mbps Fiber Wi-Fi Ready</span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        Dedicated high-speed fiber connection suited for remote work and streaming.
+                                                    </p>
+                                                </div>
+
+                                                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-1">
+                                                    <div className="flex items-center gap-2 text-slate-800 font-bold">
+                                                        <Lock className="h-4 w-4" />
+                                                        <span>24/7 Gated Security & CCTV</span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        Perimeter electric fence, professional security personnel, and 24/7 recording.
+                                                    </p>
+                                                </div>
+
+                                                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-1">
+                                                    <div className="flex items-center gap-2 text-slate-800 font-bold">
+                                                        <Car className="h-4 w-4" />
+                                                        <span>Allocated Covered Parking</span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        Secure gated off-street parking bay for each resident and guest parking.
+                                                    </p>
+                                                </div>
+
+                                                <div className="rounded-2xl border border-slate-200 bg-white p-3.5 space-y-1">
+                                                    <div className="flex items-center gap-2 text-emerald-800 font-bold">
+                                                        <ShieldCheck className="h-4 w-4" />
+                                                        <span>Zero Middleman Markup</span>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        Direct lease from verified title-deed host without inflated dalali/broker fees.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* TAB 4: EXPLORE LOCATION & NEIGHBORHOOD MAP (Cityscape Landmark Feature) */}
+                                    {activeDetailTab === 'location' && (
+                                        <div className="space-y-5">
+                                            <div>
+                                                <div className="flex items-center justify-between">
+                                                    <h3 className="text-sm font-bold text-slate-900">
+                                                        Explore Location & Neighborhood Guide
+                                                    </h3>
+                                                    <a
+                                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                                            [selectedPropertyModal.ward, selectedPropertyModal.district, 'Dar es Salaam, Tanzania'].filter(Boolean).join(', ')
+                                                        )}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition-all shadow-xs"
+                                                    >
+                                                        <span>Open Google Maps</span>
+                                                        <ExternalLink className="h-3 w-3" />
+                                                    </a>
+                                                </div>
+                                                <p className="text-xs text-slate-500 mt-1">
+                                                    Situated in {[selectedPropertyModal.ward, selectedPropertyModal.district].filter(Boolean).join(', ') || 'Dar es Salaam, Tanzania'} — prestigious security enclave, paved roads, and direct access to essential services.
+                                                </p>
+                                            </div>
+
+                                            {/* Cityscape Interactive Google Maps Embed */}
+                                            <div className="relative w-full h-72 sm:h-80 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
+                                                <iframe
+                                                    title="Interactive Google Map"
+                                                    className="w-full h-full border-0"
+                                                    src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                                                        [selectedPropertyModal.ward, selectedPropertyModal.district, 'Dar es Salaam, Tanzania'].filter(Boolean).join(', ')
+                                                    )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                                                    loading="lazy"
+                                                    allowFullScreen
+                                                />
+                                                <div className="absolute top-3 left-3 pointer-events-none">
+                                                    <span className="rounded-lg bg-black/80 px-3 py-1 text-[11px] font-bold text-white backdrop-blur-md flex items-center gap-1.5 shadow-md">
+                                                        <Navigation className="h-3.5 w-3.5 text-emerald-400" />
+                                                        <span>Walkable Enclave • {[selectedPropertyModal.ward, selectedPropertyModal.district].filter(Boolean).join(', ') || 'Dar es Salaam'}</span>
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Neighborhood Distance & Transit Matrix */}
+                                            <div className="space-y-2">
+                                                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                                                    Proximity to Key Landmarks & Services
+                                                </h4>
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                                                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Beach & Slipway</span>
+                                                        <p className="font-bold text-slate-900 mt-0.5">~4 mins drive</p>
+                                                        <span className="text-[10px] text-slate-500">1.2 km away</span>
+                                                    </div>
+                                                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Shoppers Plaza</span>
+                                                        <p className="font-bold text-slate-900 mt-0.5">~3 mins drive</p>
+                                                        <span className="text-[10px] text-slate-500">800 m away</span>
+                                                    </div>
+                                                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400 block">International Hospital</span>
+                                                        <p className="font-bold text-slate-900 mt-0.5">~6 mins drive</p>
+                                                        <span className="text-[10px] text-slate-500">2.1 km away</span>
+                                                    </div>
+                                                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Fine Dining & Cafes</span>
+                                                        <p className="font-bold text-slate-900 mt-0.5">~5 mins walk</p>
+                                                        <span className="text-[10px] text-slate-500">1.5 km away</span>
+                                                    </div>
+                                                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400 block">City Centre (CBD)</span>
+                                                        <p className="font-bold text-slate-900 mt-0.5">~12 mins drive</p>
+                                                        <span className="text-[10px] text-slate-500">6.5 km away</span>
+                                                    </div>
+                                                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400 block">JNIA Airport</span>
+                                                        <p className="font-bold text-slate-900 mt-0.5">~28 mins drive</p>
+                                                        <span className="text-[10px] text-slate-500">18 km away</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* TAB 5: POLICIES & RULES */}
+                                    {activeDetailTab === 'policies' && (
+                                        <div className="space-y-4">
+                                            <div>
+                                                <h3 className="text-sm font-bold text-slate-900">
+                                                    Tenancy Terms & House Guidelines
+                                                </h3>
+                                                <p className="text-xs text-slate-500">
+                                                    Transparent guidelines governed by official digital tenancy agreements.
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-3 text-xs">
+                                                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-1">
+                                                    <h4 className="font-bold text-slate-900">Move-in & Onboarding</h4>
+                                                    <p className="text-slate-600 leading-relaxed">
+                                                        Digital agreement signed directly between resident and verified landlord. Keys and meter keypad tokens provided immediately upon formal signing.
+                                                    </p>
+                                                </div>
+
+                                                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-1">
+                                                    <h4 className="font-bold text-slate-900">Security Deposit Policy</h4>
+                                                    <p className="text-slate-600 leading-relaxed">
+                                                        1 month security deposit held securely. 100% refundable at the end of the tenancy term subject to customary inspection.
+                                                    </p>
+                                                </div>
+
+                                                <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-1">
+                                                    <h4 className="font-bold text-slate-900">STS Utility Guarantee</h4>
+                                                    <p className="text-slate-600 leading-relaxed">
+                                                        Zero utility disputes. Residents recharge their own independent electricity and water tokens directly via M-Pesa, Airtel, or Tigo Pesa.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Right Sticky Column: Pricing & Direct Booking Console */}
+                                <div className="space-y-4">
+                                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                                        <div>
+                                            <span className="text-[10px] uppercase font-bold text-slate-400">
+                                                Direct Monthly Rate
                                             </span>
-                                        )}
+                                            <div className="font-serif text-2xl sm:text-3xl font-bold text-slate-900 mt-0.5">
+                                                {rent(selectedPropertyModal.monthly_rent)}
+                                            </div>
+                                            <span className="text-xs text-slate-500">
+                                                {rentUSD(selectedPropertyModal.monthly_rent)} / month
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-2 py-3 border-y border-slate-100 text-xs">
+                                            <div className="flex items-center justify-between text-slate-600">
+                                                <span>Security Deposit</span>
+                                                <span className="font-semibold text-slate-900">1 Month (Refundable)</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-slate-600">
+                                                <span>Brokerage / Dalali Fee</span>
+                                                <span className="font-bold text-emerald-600">TZS 0 (Direct Host)</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-slate-600">
+                                                <span>Electricity & Water</span>
+                                                <span className="font-semibold text-slate-900">STS Prepaid Keypad</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="space-y-3 pt-1">
+                                            {/* Viewing Slot Picker */}
+                                            <div className="space-y-1.5">
+                                                <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                                                    Select In-Person Viewing Slot
+                                                </span>
+                                                <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                                                    {['Tomorrow 10:00 AM', 'Tomorrow 03:00 PM', 'Saturday 11:00 AM', 'Sunday 04:00 PM'].map((slot) => (
+                                                        <button
+                                                            key={slot}
+                                                            type="button"
+                                                            onClick={() => setViewingDate(slot)}
+                                                            className={`px-2.5 py-1.5 rounded-lg border text-center font-medium transition-all cursor-pointer ${
+                                                                viewingDate === slot
+                                                                    ? 'border-slate-900 bg-slate-900 text-white shadow-2xs'
+                                                                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                                            }`}
+                                                        >
+                                                            {slot}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <a
+                                                href={`https://wa.me/255712345678?text=Hello%2C%20I%20am%20interested%20in%20${encodeURIComponent(
+                                                    selectedPropertyModal.property_name || 'this sanctuary'
+                                                )}%20(${encodeURIComponent(
+                                                    [selectedPropertyModal.ward, selectedPropertyModal.district].filter(Boolean).join(', ')
+                                                )})%20listed%20on%20Panga%20Pangisha%20and%20would%20like%20to%20schedule%20a%20viewing%20for%20${encodeURIComponent(viewingDate)}.`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-xs font-bold text-white shadow-sm hover:bg-[#20BE5C] transition-all cursor-pointer"
+                                            >
+                                                <MessageCircle className="h-4 w-4" />
+                                                <span>Inquire on WhatsApp</span>
+                                            </a>
+
+                                            {/* Interactive Viewing Scheduler Button */}
+                                            <button
+                                                onClick={() => {
+                                                    setViewingScheduleSuccess(true);
+                                                    setTimeout(() => setViewingScheduleSuccess(false), 6000);
+                                                }}
+                                                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-900 px-4 py-2.5 text-xs font-bold text-slate-900 hover:bg-slate-50 transition-all cursor-pointer"
+                                            >
+                                                <CalendarCheck className="h-4 w-4" />
+                                                <span>Confirm Viewing ({viewingDate})</span>
+                                            </button>
+
+                                            {viewingScheduleSuccess && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: -4 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-medium text-center"
+                                                >
+                                                    ✓ Viewing request for <strong>{viewingDate}</strong> sent to host! The host will confirm via WhatsApp or SMS.
+                                                </motion.div>
+                                            )}
+
+                                            <Link
+                                                href="/signup"
+                                                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs uppercase font-bold text-white hover:bg-slate-800 transition-all cursor-pointer"
+                                            >
+                                                <span>Book / Apply for Tenancy</span>
+                                                <ArrowRight className="h-3.5 w-3.5" />
+                                            </Link>
+
+                                            <button
+                                                onClick={() => {
+                                                    if (navigator.share) {
+                                                        navigator.share({
+                                                            title: selectedPropertyModal.property_name || 'Panga Pangisha Property',
+                                                            url: window.location.href,
+                                                        }).catch(() => {});
+                                                    } else {
+                                                        navigator.clipboard.writeText(window.location.href);
+                                                        alert('Listing link copied to clipboard!');
+                                                    }
+                                                }}
+                                                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+                                            >
+                                                <Share2 className="h-3.5 w-3.5" />
+                                                <span>Share Listing</span>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[#12161A] mt-1">
-                                        {selectedPropertyModal.property_name || 'Coastal Sanctuary'}
-                                    </h3>
-                                    <p className="text-xs text-[#706861] mt-1">
-                                        Confirmed available {ago(selectedPropertyModal.availability_confirmed_at)} • Direct Host listing
-                                    </p>
-                                </div>
 
-                                <div className="sm:text-right">
-                                    <span className="block text-[10px] uppercase font-bold text-[#8C827A]">
-                                        Direct Monthly Rate
-                                    </span>
-                                    <div className="font-serif text-2xl font-bold text-[#12161A]">
-                                        {rent(selectedPropertyModal.monthly_rent)}
+                                    {/* Direct Host Card */}
+                                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50 p-4 flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                                            {selectedPropertyModal.property_name?.charAt(0) || 'H'}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-bold text-slate-900 truncate">
+                                                {selectedPropertyModal.advertiser_role === 'representative'
+                                                    ? 'Authorized Representative'
+                                                    : 'Direct Verified Owner'}
+                                            </p>
+                                            <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
+                                                <Check className="h-3 w-3" />
+                                                Verified Landlord • Replies in ~30m
+                                            </p>
+                                        </div>
                                     </div>
-                                    <span className="text-xs text-[#8C827A]">
-                                        {rentUSD(selectedPropertyModal.monthly_rent)} / month
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Specs & Features */}
-                            <div className="py-6 border-b border-[#F0EBE3] grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#EBE7E1]">
-                                    <BedDouble className="h-5 w-5 text-[#12161A] mx-auto mb-1" />
-                                    <span className="block text-xs font-bold text-[#12161A]">
-                                        {selectedPropertyModal.bedrooms || '1'} Bedrooms
-                                    </span>
-                                    <span className="text-[10px] text-[#8C827A]">Master en-suite</span>
-                                </div>
-                                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#EBE7E1]">
-                                    <Bath className="h-5 w-5 text-[#12161A] mx-auto mb-1" />
-                                    <span className="block text-xs font-bold text-[#12161A]">
-                                        {selectedPropertyModal.bathrooms || '1'} Bathrooms
-                                    </span>
-                                    <span className="text-[10px] text-[#8C827A]">Modern fittings</span>
-                                </div>
-                                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#EBE7E1]">
-                                    <Zap className="h-5 w-5 text-[#0F766E] mx-auto mb-1" />
-                                    <span className="block text-xs font-bold text-[#12161A]">
-                                        STS Submeter
-                                    </span>
-                                    <span className="text-[10px] text-[#0F766E]">Prepaid Autonomy</span>
-                                </div>
-                                <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#EBE7E1]">
-                                    <Wifi className="h-5 w-5 text-[#C2704E] mx-auto mb-1" />
-                                    <span className="block text-xs font-bold text-[#12161A]">
-                                        Fiber Ready
-                                    </span>
-                                    <span className="text-[10px] text-[#8C827A]">High Speed</span>
-                                </div>
-                            </div>
-
-                            {/* Host Direct Contact & Action Bar */}
-                            <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 rounded-full bg-[#12161A] text-white flex items-center justify-center font-bold text-sm">
-                                        {selectedPropertyModal.property_name?.charAt(0) || 'H'}
-                                    </div>
-                                    <div>
-                                        <span className="block text-xs font-bold text-[#12161A]">
-                                            {selectedPropertyModal.advertiser_role === 'representative'
-                                                ? 'Property Representative'
-                                                : 'Direct Verified Owner'}
-                                        </span>
-                                        <span className="text-[11px] text-[#0F766E] font-medium flex items-center gap-1">
-                                            <Check className="h-3 w-3" />
-                                            Zero Broker Commission
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-3 w-full sm:w-auto">
-                                    <a
-                                        href={`https://wa.me/255712345678?text=Hello%2C%20I%20am%20interested%20in%20${encodeURIComponent(
-                                            selectedPropertyModal.property_name || 'this property'
-                                        )}%20listed%20on%20Panga%20Pangisha.`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#20BE5C] transition-all"
-                                    >
-                                        <MessageCircle className="h-4 w-4" />
-                                        <span>Inquire on WhatsApp</span>
-                                    </a>
-
-                                    <Link
-                                        href="/signup"
-                                        className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-full bg-[#12161A] px-5 py-2.5 text-xs uppercase font-bold text-white hover:bg-[#2E3742] transition-all"
-                                    >
-                                        <span>Book / Apply</span>
-                                        <ArrowRight className="h-3.5 w-3.5" />
-                                    </Link>
                                 </div>
                             </div>
                         </motion.div>

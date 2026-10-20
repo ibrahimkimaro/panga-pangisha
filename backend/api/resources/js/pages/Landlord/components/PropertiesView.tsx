@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Building2, Plus, Search, Filter, LayoutGrid, List,
     MapPin, Bed, Bath, ArrowUpRight, CheckCircle2, ChevronRight,
-    Users, Wallet, Eye, MoreHorizontal, FileText, Check, X, Sparkles
+    Users, Wallet, Eye, MoreHorizontal, FileText, Check, X, Sparkles,
+    Zap, Navigation, ExternalLink
 } from 'lucide-react';
 
 interface Property {
@@ -36,6 +37,7 @@ export default function PropertiesView({
     const [filterCategory, setFilterCategory] = useState<'all' | 'house' | 'apartment' | 'vacant'>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedPropertyDetails, setSelectedPropertyDetails] = useState<Property | null>(null);
+    const [propertyModalTab, setPropertyModalTab] = useState<'overview' | 'units' | 'location'>('overview');
 
     const filtered = properties.filter((p) => {
         const matchesCategory =
@@ -350,55 +352,195 @@ export default function PropertiesView({
                 </div>
             )}
 
-            {/* Quick Details Drawer / Modal */}
+            {/* Cityscape Architectural Property Details Modal (No Header) */}
             <AnimatePresence>
                 {selectedPropertyDetails && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto">
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
+                            initial={{ opacity: 0, scale: 0.96 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+                            exit={{ opacity: 0, scale: 0.96 }}
+                            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white shadow-2xl p-6 sm:p-7"
                         >
-                            <div className="relative aspect-16/9 w-full overflow-hidden bg-slate-900">
-                                <img
-                                    src={selectedPropertyDetails.cover_image}
-                                    alt={selectedPropertyDetails.name}
-                                    className="h-full w-full object-cover"
-                                />
-                                <button
-                                    onClick={() => setSelectedPropertyDetails(null)}
-                                    className="absolute right-4 top-4 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 backdrop-blur-md"
-                                >
-                                    <X className="h-4 w-4" />
-                                </button>
-                                <div className="absolute bottom-4 left-4">
-                                    <span className="rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-white backdrop-blur-md">
-                                        {selectedPropertyDetails.type} • {selectedPropertyDetails.status}
-                                    </span>
+                            {/* Floating Minimal Close Button */}
+                            <button
+                                onClick={() => setSelectedPropertyDetails(null)}
+                                className="absolute right-4 top-4 sm:right-6 sm:top-6 z-20 h-9 w-9 rounded-full bg-white/90 border border-slate-200 shadow-xs flex items-center justify-center text-slate-700 hover:bg-slate-900 hover:text-white transition-all cursor-pointer"
+                                title="Close"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+
+                            {/* Cityscape Multi-Photo Architectural Showcase */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 rounded-2xl overflow-hidden mb-5">
+                                <div className="relative md:col-span-2 aspect-16/10 overflow-hidden rounded-xl bg-slate-100">
+                                    <img
+                                        src={selectedPropertyDetails.cover_image}
+                                        alt={selectedPropertyDetails.name}
+                                        className="h-full w-full object-cover"
+                                    />
+                                    <div className="absolute bottom-3 left-3">
+                                        <span className="rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white backdrop-blur-md">
+                                            {selectedPropertyDetails.type} • {selectedPropertyDetails.status}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="hidden md:flex flex-col gap-2">
+                                    <div className="relative h-full aspect-16/9 overflow-hidden rounded-xl bg-slate-100">
+                                        <img
+                                            src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&auto=format&fit=crop&q=80"
+                                            alt="Interior Living"
+                                            className="h-full w-full object-cover"
+                                        />
+                                    </div>
+                                    <div className="relative h-full aspect-16/9 overflow-hidden rounded-xl bg-slate-100">
+                                        <img
+                                            src="https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=600&auto=format&fit=crop&q=80"
+                                            alt="Master Suite"
+                                            className="h-full w-full object-cover"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="p-6 space-y-4">
-                                <div>
-                                    <h3 className="text-xl font-bold text-slate-900">{selectedPropertyDetails.name}</h3>
-                                    <p className="text-xs text-slate-500 mt-0.5">{selectedPropertyDetails.location}</p>
+                            <div className="space-y-4">
+                                <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-100">
+                                    <div>
+                                        <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
+                                            {selectedPropertyDetails.type}
+                                        </span>
+                                        <h3 className="text-xl font-bold text-slate-900">{selectedPropertyDetails.name}</h3>
+                                        <p className="text-xs text-slate-500 mt-0.5">{selectedPropertyDetails.location}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[10px] font-bold uppercase text-slate-400">Monthly Rent</span>
+                                        <p className="text-lg font-bold text-slate-900">{formatTZS(selectedPropertyDetails.monthly_rent)}</p>
+                                    </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-3 rounded-2xl bg-slate-50 p-4 text-center">
-                                    <div>
-                                        <span className="text-[11px] font-semibold text-slate-400">Total Units</span>
-                                        <p className="text-base font-bold text-slate-900 mt-0.5">{selectedPropertyDetails.total_units}</p>
-                                    </div>
-                                    <div>
-                                        <span className="text-[11px] font-semibold text-slate-400">Occupied</span>
-                                        <p className="text-base font-bold text-emerald-600 mt-0.5">{selectedPropertyDetails.occupied_units}</p>
-                                    </div>
-                                    <div>
-                                        <span className="text-[11px] font-semibold text-slate-400">Monthly Rent</span>
-                                        <p className="text-base font-bold text-slate-900 mt-0.5">{formatTZS(selectedPropertyDetails.monthly_rent)}</p>
-                                    </div>
+                                {/* Cityscape Subnav Tabs */}
+                                <div className="flex gap-2 border-b border-slate-100 pb-2">
+                                    {[
+                                        { id: 'overview', label: 'Overview' },
+                                        { id: 'units', label: `Units & Meters (${selectedPropertyDetails.total_units})` },
+                                        { id: 'location', label: 'Location & Map' },
+                                    ].map((tab) => {
+                                        const isActive = propertyModalTab === tab.id;
+                                        return (
+                                            <button
+                                                key={tab.id}
+                                                type="button"
+                                                onClick={() => setPropertyModalTab(tab.id as any)}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                                    isActive
+                                                        ? 'bg-slate-900 text-white'
+                                                        : 'text-slate-600 hover:bg-slate-100'
+                                                }`}
+                                            >
+                                                {tab.label}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
+
+                                {/* TAB 1: OVERVIEW */}
+                                {propertyModalTab === 'overview' && (
+                                    <div className="space-y-3">
+                                        <div className="grid grid-cols-3 gap-3 rounded-2xl bg-slate-50 p-4 text-center border border-slate-100">
+                                            <div>
+                                                <span className="text-[11px] font-semibold text-slate-400">Total Units</span>
+                                                <p className="text-base font-bold text-slate-900 mt-0.5">{selectedPropertyDetails.total_units}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-[11px] font-semibold text-slate-400">Occupied</span>
+                                                <p className="text-base font-bold text-emerald-600 mt-0.5">{selectedPropertyDetails.occupied_units}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-[11px] font-semibold text-slate-400">STS Submeters</span>
+                                                <p className="text-base font-bold text-blue-600 mt-0.5">Active</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-600 space-y-1">
+                                            <span className="font-bold text-slate-900 block">Property Specifications</span>
+                                            <p>{selectedPropertyDetails.specs || 'Modern residential property with certified STS LUKU submeters and high-speed internet.'}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* TAB 2: UNITS & STS METERS */}
+                                {propertyModalTab === 'units' && (
+                                    <div className="space-y-2 max-h-56 overflow-y-auto">
+                                        {Array.from({ length: selectedPropertyDetails.total_units }).map((_, i) => {
+                                            const isOccupied = i < selectedPropertyDetails.occupied_units;
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white shadow-2xs"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                                                            isOccupied ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                                                        }`}>
+                                                            U{i + 1}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs font-bold text-slate-900">Unit {i + 1} Suite</p>
+                                                            <p className="text-[10px] text-slate-400">
+                                                                STS Meter #{241000 + selectedPropertyDetails.id * 100 + i} • {isOccupied ? 'Tenant Active' : 'Vacant'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                                                        isOccupied ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                                                    }`}>
+                                                        {isOccupied ? 'Occupied' : 'Vacant'}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* TAB 3: LOCATION & MAP */}
+                                {propertyModalTab === 'location' && (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-xs text-slate-600">
+                                                Location: <strong className="text-slate-900">{selectedPropertyDetails.location}</strong>
+                                            </p>
+                                            <a
+                                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                                    `${selectedPropertyDetails.location}, Tanzania`
+                                                )}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800"
+                                            >
+                                                <span>Open in Maps</span>
+                                                <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                        </div>
+
+                                        <div className="relative w-full h-56 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-xs">
+                                            <iframe
+                                                title="Landlord Property Map"
+                                                className="w-full h-full border-0"
+                                                src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                                                    `${selectedPropertyDetails.location}, Tanzania`
+                                                )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                                                loading="lazy"
+                                                allowFullScreen
+                                            />
+                                            <div className="absolute top-2 left-2 pointer-events-none">
+                                                <span className="rounded-lg bg-black/75 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-md flex items-center gap-1">
+                                                    <Navigation className="h-3 w-3 text-emerald-400" />
+                                                    <span>{selectedPropertyDetails.location}</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="flex items-center gap-3 pt-2">
                                     <button
@@ -406,13 +548,13 @@ export default function PropertiesView({
                                             setSelectedPropertyDetails(null);
                                             onNavigateAgreements();
                                         }}
-                                        className="flex-1 rounded-xl bg-slate-900 py-3 text-xs font-bold text-white hover:bg-slate-800 transition-all"
+                                        className="flex-1 rounded-xl bg-slate-900 py-3 text-xs font-bold text-white hover:bg-slate-800 transition-all cursor-pointer shadow-sm"
                                     >
                                         Draft Tenancy Agreement
                                     </button>
                                     <button
                                         onClick={() => setSelectedPropertyDetails(null)}
-                                        className="rounded-xl border border-slate-200 px-5 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all"
+                                        className="rounded-xl border border-slate-200 px-5 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
                                     >
                                         Close
                                     </button>

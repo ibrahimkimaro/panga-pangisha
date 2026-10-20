@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { Eye, EyeOff, Loader2, ArrowLeft, KeyRound, Building2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
 
 interface UniversalLoginProps {
     initialRole?: 'landlord' | 'tenant' | 'renter' | 'admin';
@@ -67,44 +67,57 @@ export default function UniversalLogin({ initialRole = 'landlord' }: UniversalLo
     };
 
     return (
-        <div className="min-h-screen w-full bg-[#FAF8F5] text-[#12161A] font-sans flex antialiased">
+        <div className="min-h-screen w-full relative flex flex-col justify-between p-4 sm:p-6 md:p-8 font-sans antialiased overflow-hidden">
             <Head title="Sign In • Panga Pangisha" />
 
-            {/* Left Column: Minimal Form */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-12 lg:p-16 xl:p-20">
-                {/* Top Bar */}
-                <div className="flex items-center justify-between">
-                    <Link
-                        href="/"
-                        className="inline-flex items-center gap-2 text-xs uppercase tracking-wider font-bold text-stone-500 hover:text-[#12161A] transition-colors"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        <span>Back</span>
-                    </Link>
+            {/* Full-Bleed Architectural Background Image */}
+            <div className="absolute inset-0 z-0">
+                <img
+                    src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1920&auto=format&fit=crop&q=85"
+                    alt="Luxury Minimalist Architecture"
+                    className="h-full w-full object-cover object-center scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/60 backdrop-blur-[2px]" />
+            </div>
 
-                    <Link href="/" className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#12161A] text-white font-serif text-sm font-bold">
-                            P
-                        </div>
-                        <span className="font-serif text-sm font-bold tracking-tight text-[#12161A]">
-                            PANGA PANGISHA
+            {/* Top Bar Overlay */}
+            <header className="relative z-10 w-full flex items-center justify-between text-white">
+                <Link
+                    href="/"
+                    className="inline-flex items-center gap-2 rounded-full bg-black/40 hover:bg-black/60 px-4 py-2 text-xs uppercase tracking-wider font-bold backdrop-blur-md border border-white/15 transition-all text-stone-200 hover:text-white"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Back</span>
+                </Link>
+
+                <Link href="/" className="flex items-center gap-2.5">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#12161A] font-serif text-base font-bold shadow-sm">
+                        P
+                    </div>
+                    <span className="font-serif text-base font-bold tracking-tight text-white drop-shadow-sm">
+                        PANGA PANGISHA
+                    </span>
+                </Link>
+            </header>
+
+            {/* Centered Minimalist Form Card */}
+            <main className="relative z-10 w-full max-w-md mx-auto my-auto py-8">
+                <div className="rounded-3xl bg-[#FAF8F5]/95 backdrop-blur-xl p-8 sm:p-10 shadow-2xl border border-white/30 text-[#12161A]">
+                    {/* Header */}
+                    <div className="mb-6 text-center">
+                        <span className="text-[10px] uppercase tracking-widest font-bold text-[#8C827A] block mb-1">
+                            Bespoke Residences
                         </span>
-                    </Link>
-                </div>
-
-                {/* Form Body */}
-                <div className="w-full max-w-sm mx-auto my-auto py-10">
-                    <div className="mb-8">
-                        <h1 className="font-serif text-3xl sm:text-4xl font-normal text-[#12161A] tracking-tight">
+                        <h1 className="font-serif text-3xl font-bold tracking-tight text-[#12161A]">
                             Welcome back
                         </h1>
-                        <p className="mt-2 text-xs sm:text-sm text-stone-500">
-                            Enter your credentials to access your account.
+                        <p className="mt-1 text-xs text-stone-500">
+                            Enter your credentials to continue.
                         </p>
                     </div>
 
-                    {/* Role Toggle */}
-                    <div className="mb-6 flex rounded-full bg-[#F0EBE3] p-1 text-xs">
+                    {/* Role Selector Pill */}
+                    <div className="mb-6 flex rounded-full bg-[#EAE5DD] p-1 text-xs">
                         <button
                             type="button"
                             onClick={() => setSelectedPortal('landlord')}
@@ -131,11 +144,12 @@ export default function UniversalLogin({ initialRole = 'landlord' }: UniversalLo
 
                     {/* Error Banner */}
                     {error && (
-                        <div className="mb-6 rounded-2xl bg-red-50 border border-red-200/80 p-3.5 text-xs text-red-700 font-medium">
+                        <div className="mb-5 rounded-2xl bg-red-50 border border-red-200 p-3 text-xs text-red-700 font-medium text-center">
                             {error}
                         </div>
                     )}
 
+                    {/* Form Fields */}
                     <form onSubmit={handleLogin} className="space-y-4">
                         <div>
                             <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500 mb-1.5">
@@ -152,11 +166,9 @@ export default function UniversalLogin({ initialRole = 'landlord' }: UniversalLo
                         </div>
 
                         <div>
-                            <div className="flex items-center justify-between mb-1.5">
-                                <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500">
-                                    Password
-                                </label>
-                            </div>
+                            <label className="block text-[11px] uppercase tracking-wider font-bold text-stone-500 mb-1.5">
+                                Password
+                            </label>
                             <div className="relative">
                                 <input
                                     type={showPassword ? 'text' : 'password'}
@@ -192,8 +204,8 @@ export default function UniversalLogin({ initialRole = 'landlord' }: UniversalLo
                         </button>
                     </form>
 
-                    {/* Bottom Switcher */}
-                    <p className="mt-8 text-center text-xs text-stone-500">
+                    {/* Switcher */}
+                    <p className="mt-6 text-center text-xs text-stone-500">
                         Don't have an account?{' '}
                         <Link
                             href={selectedPortal === 'landlord' ? '/signup?role=landlord' : '/signup'}
@@ -203,30 +215,12 @@ export default function UniversalLogin({ initialRole = 'landlord' }: UniversalLo
                         </Link>
                     </p>
                 </div>
+            </main>
 
-                {/* Footer copyright */}
-                <div className="text-center sm:text-left text-[11px] text-stone-400">
-                    © {new Date().getFullYear()} Panga Pangisha. All rights reserved.
-                </div>
-            </div>
-
-            {/* Right Column: Architectural Photography (Floorspace / Pinterest Luxury Minimalist Real Estate) */}
-            <div className="hidden lg:block lg:w-1/2 relative bg-[#181D22]">
-                <img
-                    src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1400&auto=format&fit=crop&q=85"
-                    alt="Minimalist Architecture"
-                    className="h-full w-full object-cover opacity-85"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#12161A]/80 via-transparent to-black/20" />
-                <div className="absolute bottom-12 left-12 right-12 text-white">
-                    <span className="text-[10px] uppercase tracking-widest font-bold text-[#F5D485] block mb-1">
-                        Panga Pangisha Residences
-                    </span>
-                    <p className="font-serif text-2xl font-light text-stone-100 max-w-md">
-                        Simplicity is the ultimate sophistication in living.
-                    </p>
-                </div>
-            </div>
+            {/* Footer Bottom Caption */}
+            <footer className="relative z-10 w-full text-center text-xs text-white/60">
+                © {new Date().getFullYear()} Panga Pangisha. Verified direct-from-owner living.
+            </footer>
         </div>
     );
 }
