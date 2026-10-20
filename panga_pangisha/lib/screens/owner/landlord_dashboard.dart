@@ -10,6 +10,7 @@ import '../../live.dart';
 import '../../ui.dart';
 import '../chat.dart';
 import '../notifications.dart';
+import '../listing.dart';
 import '../owner.dart';
 import 'properties.dart';
 import 'rentals.dart';
@@ -461,38 +462,13 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
   int _unread = 3;
   Timer? _clock;
 
-  // Instagram feed & opportunity filter state
-  String _selectedCategory = 'all'; // 'all', 'investor', 'house', 'tenant', 'partnership'
+  // Airbnb feed & category filter state
+  String _selectedCategory = 'all'; // 'all', 'my_properties', 'house', 'investor', 'tenant', 'partnership'
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  final Set<String> _likedPostIds = {'inv_1', 'hse_1'};
   final Set<String> _savedPostIds = {};
-  final Set<String> _expandedPostIds = {};
-  String? _animatingHeartPostId;
 
-  late List<_OpportunityItem> _opportunities;
-
-  final Map<String, int> _likeCounts = {
-    'inv_1': 43,
-    'hse_1': 67,
-    'ten_1': 28,
-    'inv_2': 55,
-    'hse_2': 89,
-    'prt_1': 34,
-  };
-
-  final Map<String, List<String>> _postComments = {
-    'inv_1': [
-      'Asha Msuya: Interested! We have an 8-unit frame in Sinza.',
-      'John Mgaya: Does this cover solar installation as well?',
-    ],
-    'hse_1': [
-      'Devota K.: Beautiful property! What is the water source?',
-    ],
-    'ten_1': [
-      'Baraka M.: I have 2 vacant 2-bedroom units in Upanga.',
-    ],
-  };
+  late List<OpportunityItem> _opportunities;
 
   @override
   void initState() {
@@ -551,7 +527,6 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final user = Api.user.value;
@@ -560,6 +535,7 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
     final hello = greeting(now.hour);
 
     final filteredPosts = _getFilteredOpportunities();
+    final filteredHomes = _getFilteredHomes();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -569,47 +545,61 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
         child: CustomScrollView(
           physics: const ClampingScrollPhysics(),
           slivers: [
-            // 1. Sleek Listing/Instagram-Style Top Header
+            // 1. Sleek Airbnb-Style Top Header
             SliverToBoxAdapter(
               child: _buildHeader(fullName, hello, user),
             ),
 
             if (_loading)
-              SliverToBoxAdapter(
+              const SliverToBoxAdapter(
                 child: LinearProgressIndicator(
                   minHeight: 2,
-                  color: const Color(0xFF0284C7),
+                  color: Color(0xFF0284C7),
                   backgroundColor: Colors.transparent,
                 ),
               ),
 
-            // 2. Instagram-style Opportunity Stories Bar
-            SliverToBoxAdapter(
-              child: _buildInstagramStoriesBar(),
-            ),
-
-            // 3. Category Filtering Buttons Bar
+            // 2. Category Filtering Buttons Bar
             SliverToBoxAdapter(
               child: _buildFilterTabsBar(),
             ),
 
-            // 4. Instagram Opportunity Feed Posts
-            if (filteredPosts.isEmpty)
-              SliverToBoxAdapter(
-                child: _buildEmptyFeedState(),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      return _buildInstagramPostCard(filteredPosts[index]);
-                    },
-                    childCount: filteredPosts.length,
+            // 3. Airbnb Opportunity & Property Feed
+            if (_selectedCategory == 'my_properties') ...[
+              if (filteredHomes.isEmpty)
+                SliverToBoxAdapter(
+                  child: _buildEmptyFeedState(),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 120),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        return _buildAirbnbHouseCard(filteredHomes[index]);
+                      },
+                      childCount: filteredHomes.length,
+                    ),
                   ),
                 ),
-              ),
+            ] else ...[
+              if (filteredPosts.isEmpty)
+                SliverToBoxAdapter(
+                  child: _buildEmptyFeedState(),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 120),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        return _buildAirbnbOpportunityCard(filteredPosts[index]);
+                      },
+                      childCount: filteredPosts.length,
+                    ),
+                  ),
+                ),
+            ],
           ],
         ),
       ),
@@ -639,37 +629,30 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
           // Top row: Avatar + Brand title + Action icons (Post, AI, Notifications, Chat)
           Row(
             children: [
-              // Landlord Avatar with story gradient ring
+              // Landlord Avatar (Clean Airbnb Host style)
               GestureDetector(
                 onTap: () => push(context, const ProfileTab()),
                 child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF0284C7), Color(0xFF0D9488), Color(0xFFF59E0B)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: Container(
-                    padding: const EdgeInsets.all(1.5),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/images/placeholder.jpg',
-                        width: 38,
-                        height: 38,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 38,
-                          height: 38,
-                          color: const Color(0xFF0F1E36),
-                          child: const Icon(Icons.person, color: Colors.white, size: 22),
-                        ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/placeholder.jpg',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: const Color(0xFF0F1E36),
+                        child: const Icon(Icons.person, color: Colors.white, size: 22),
                       ),
                     ),
                   ),
@@ -699,15 +682,11 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
                         const Text('👑', style: TextStyle(fontSize: 13)),
                       ],
                     ),
-                    Row(
-                      children: [
-                        Text(
-                          '$hello, $fullName',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: body(11, color: const Color(0xFF64748B), weight: FontWeight.w500),
-                        ),
-                      ],
+                    Text(
+                      '$hello, $fullName',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: body(11.5, color: const Color(0xFF64748B), weight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -790,13 +769,20 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
             ],
           ),
           const SizedBox(height: 12),
-          // Seamless Rounded Search Bar
+          // Seamless Airbnb-style Rounded Search Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(22),
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: TextField(
               controller: _searchController,
@@ -805,8 +791,8 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
               decoration: InputDecoration(
                 border: InputBorder.none,
                 isDense: true,
-                icon: const Icon(Icons.search_rounded, color: Color(0xFF64748B), size: 19),
-                hintText: t('Search listings, investors, houses, deals...', 'Tafuta matangazo, wawekezaji, nyumba...'),
+                icon: const Icon(Icons.search_rounded, color: Color(0xFF0F1E36), size: 20),
+                hintText: t('Where to? Search properties, locations, deals...', 'Tafuta nyumba, maeneo, fursa...'),
                 hintStyle: body(12.5, color: const Color(0xFF94A3B8)),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? GestureDetector(
@@ -826,10 +812,10 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
   }
 
   // =========================================================================
-  // INSTAGRAM-STYLE OPPORTUNITY FEED COMPONENTS
+  // AIRBNB-STYLE OPPORTUNITY & PROPERTY FEED COMPONENTS
   // =========================================================================
 
-  List<_OpportunityItem> _getFilteredOpportunities() {
+  List<OpportunityItem> _getFilteredOpportunities() {
     return _opportunities.where((opp) {
       final matchesCategory = _selectedCategory == 'all' || opp.category == _selectedCategory;
       if (!matchesCategory) return false;
@@ -843,179 +829,48 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
     }).toList();
   }
 
-  /// Instagram-style Story Highlights Carousel
-  Widget _buildInstagramStoriesBar() {
-    final stories = [
-      _OpportunityStory(
-        id: 'new_post',
-        title: t('Post Deal', 'Weka Fursa'),
-        subtitle: t('New', 'Mpya'),
-        avatarImage: '',
-        ringColor: const Color(0xFF0284C7),
-        isNew: true,
-      ),
-      _OpportunityStory(
-        id: 'story_inv1',
-        title: 'Apex Capital',
-        subtitle: 'Investor',
-        avatarImage: 'assets/images/save_piggy.jpg',
-        ringColor: const Color(0xFF8B5CF6),
-        linkedPost: _opportunities.firstWhere((o) => o.id == 'inv_1'),
-      ),
-      _OpportunityStory(
-        id: 'story_hse1',
-        title: 'Mikocheni 6U',
-        subtitle: 'Turnkey',
-        avatarImage: 'assets/images/discover_terrace.jpg',
-        ringColor: const Color(0xFF0284C7),
-        linkedPost: _opportunities.firstWhere((o) => o.id == 'hse_1'),
-      ),
-      _OpportunityStory(
-        id: 'story_ten1',
-        title: 'NGO Expat',
-        subtitle: 'Demand',
-        avatarImage: 'assets/images/welcome_hero.jpg',
-        ringColor: const Color(0xFF10B981),
-        linkedPost: _opportunities.firstWhere((o) => o.id == 'ten_1'),
-      ),
-      _OpportunityStory(
-        id: 'story_inv2',
-        title: 'Zanzibar Syndicate',
-        subtitle: 'JV Capital',
-        avatarImage: 'assets/images/connect_ecosystem.jpg',
-        ringColor: const Color(0xFFF59E0B),
-        linkedPost: _opportunities.firstWhere((o) => o.id == 'inv_2'),
-      ),
-      _OpportunityStory(
-        id: 'story_hse2',
-        title: 'Masaki Villa',
-        subtitle: 'Luxury',
-        avatarImage: 'assets/images/manage_bg.jpg',
-        ringColor: const Color(0xFF0D9488),
-        linkedPost: _opportunities.firstWhere((o) => o.id == 'hse_2'),
-      ),
-    ];
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      height: 106,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: stories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
-        itemBuilder: (context, index) {
-          final story = stories[index];
-          return GestureDetector(
-            onTap: () {
-              HapticFeedback.selectionClick();
-              if (story.isNew) {
-                _showPostOpportunityModal(context);
-              } else if (story.linkedPost != null) {
-                _showStoryViewer(context, story);
-              }
-            },
-            child: SizedBox(
-              width: 72,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 66,
-                    height: 66,
-                    padding: const EdgeInsets.all(2.5),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: story.isNew
-                          ? LinearGradient(
-                              colors: [const Color(0xFF0284C7), const Color(0xFF38BDF8)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : const LinearGradient(
-                              colors: [
-                                Color(0xFFF59E0B),
-                                Color(0xFFEC4899),
-                                Color(0xFF8B5CF6),
-                              ],
-                              begin: Alignment.bottomLeft,
-                              end: Alignment.topRight,
-                            ),
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: ClipOval(
-                        child: story.isNew
-                            ? Container(
-                                color: const Color(0xFFF1F5F9),
-                                child: const Center(
-                                  child: Icon(Icons.add_rounded, color: Color(0xFF0284C7), size: 28),
-                                ),
-                              )
-                            : Image.asset(
-                                story.avatarImage,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  color: const Color(0xFF0F1E36),
-                                  child: const Icon(Icons.person, color: Colors.white, size: 24),
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    story.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: body(11, weight: FontWeight.w600, color: const Color(0xFF1E293B)),
-                  ),
-                  Text(
-                    story.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: body(9.5, color: const Color(0xFF64748B)),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
+  List<House> _getFilteredHomes() {
+    if (_searchQuery.isEmpty) return _homes;
+    final q = _searchQuery;
+    return _homes.where((h) {
+      return h.name.toLowerCase().contains(q) ||
+          h.district.toLowerCase().contains(q) ||
+          h.ward.toLowerCase().contains(q) ||
+          h.type.toLowerCase().contains(q);
+    }).toList();
   }
 
-  /// Modern Filtering Tabs Bar (All, Investors, Houses, Tenant Demands, Joint Ventures)
+  /// Modern Airbnb-Style Filtering Tabs Bar (All Deals, My Properties, Houses, Investors, Tenants, JVs)
   Widget _buildFilterTabsBar() {
     final categories = [
       {
         'id': 'all',
-        'label': t('All Feed', 'Zote'),
-        'icon': Icons.auto_awesome_rounded,
+        'label': t('All Deals', 'Zote'),
+        'icon': Icons.explore_rounded,
         'count': _opportunities.length,
       },
       {
-        'id': 'investor',
-        'label': t('Investors', 'Wawekezaji'),
-        'icon': Icons.monetization_on_rounded,
-        'count': _opportunities.where((o) => o.category == 'investor').length,
+        'id': 'my_properties',
+        'label': t('My Properties', 'Nyumba Zangu'),
+        'icon': Icons.home_work_rounded,
+        'count': _homes.length,
       },
       {
         'id': 'house',
-        'label': t('Houses & Units', 'Nyumba na Miradi'),
+        'label': t('Townhouses & Units', 'Nyumba & Miradi'),
         'icon': Icons.apartment_rounded,
         'count': _opportunities.where((o) => o.category == 'house').length,
       },
       {
+        'id': 'investor',
+        'label': t('Capital & Angels', 'Wawekezaji'),
+        'icon': Icons.monetization_on_rounded,
+        'count': _opportunities.where((o) => o.category == 'investor').length,
+      },
+      {
         'id': 'tenant',
         'label': t('Tenant Demands', 'Wapangaji'),
-        'icon': Icons.people_alt_rounded,
+        'icon': Icons.person_pin_circle_rounded,
         'count': _opportunities.where((o) => o.category == 'tenant').length,
       },
       {
@@ -1027,127 +882,81 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
     ];
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.dynamic_feed_rounded, size: 18, color: Color(0xFF0F1E36)),
-                  const SizedBox(width: 8),
-                  Text(
-                    t('Landlord Opportunities Feed', 'Fursa za Wamiliki wa Nyumba'),
-                    style: display(14.5, weight: FontWeight.w800, color: const Color(0xFF0F1E36)),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0284C7).withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.filter_list_rounded, size: 13, color: Color(0xFF0284C7)),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${_getFilteredOpportunities().length} ${t('Active', 'Zilizopo')}',
-                      style: body(10.5, weight: FontWeight.w700, color: const Color(0xFF0284C7)),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        child: Row(
+          children: categories.map((cat) {
+            final isSelected = _selectedCategory == cat['id'];
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _selectedCategory = cat['id'] as String);
+                },
+                borderRadius: BorderRadius.circular(24),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8.5),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFF0F1E36) : Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFF0F1E36) : const Color(0xFFE2E8F0),
+                      width: 1,
                     ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // Filter Chips Row
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: categories.map((cat) {
-                final isSelected = _selectedCategory == cat['id'];
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: InkWell(
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      setState(() => _selectedCategory = cat['id'] as String);
-                    },
-                    borderRadius: BorderRadius.circular(22),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF0F1E36) : Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(
-                          color: isSelected ? const Color(0xFF0F1E36) : const Color(0xFFE2E8F0),
-                          width: isSelected ? 1.5 : 1,
-                        ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: const Color(0xFF0F1E36).withValues(alpha: 0.22),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ]
-                            : [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.02),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isSelected ? 0.12 : 0.02),
+                        blurRadius: isSelected ? 6 : 3,
+                        offset: const Offset(0, 2),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            cat['icon'] as IconData,
-                            size: 15,
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        cat['icon'] as IconData,
+                        size: 15,
+                        color: isSelected ? Colors.white : const Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        cat['label'] as String,
+                        style: body(
+                          12,
+                          weight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected ? Colors.white : const Color(0xFF334155),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.white.withValues(alpha: 0.20)
+                              : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${cat['count']}',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
                             color: isSelected ? Colors.white : const Color(0xFF64748B),
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            cat['label'] as String,
-                            style: body(
-                              12,
-                              weight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                              color: isSelected ? Colors.white : const Color(0xFF475569),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.white.withValues(alpha: 0.20)
-                                  : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${cat['count']}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected ? Colors.white : const Color(0xFF64748B),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -1167,15 +976,15 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
           Container(
             width: 60,
             height: 60,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF1F5F9),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.search_off_rounded, color: Color(0xFF94A3B8), size: 30),
           ),
           const SizedBox(height: 14),
           Text(
-            t('No opportunities found', 'Hakuna fursa zilizopatikana'),
+            t('No listings or opportunities found', 'Hakuna nyumba au fursa zilizopatikana'),
             style: display(15, weight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
@@ -1202,167 +1011,76 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
     );
   }
 
-  /// Complete Instagram-Style Post Card
-  Widget _buildInstagramPostCard(_OpportunityItem post) {
-    final isLiked = _likedPostIds.contains(post.id);
+  /// Airbnb-Style Opportunity Card (Simple, Reliable, Low-Noise)
+  Widget _buildAirbnbOpportunityCard(OpportunityItem post) {
     final isSaved = _savedPostIds.contains(post.id);
-    final isExpanded = _expandedPostIds.contains(post.id);
-    final likeCount = _likeCounts[post.id] ?? 0;
-    final comments = _postComments[post.id] ?? [];
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. Post Header (Avatar, Author Info, Verified Check, More options)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
-            child: Row(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          push(
+            context,
+            OpportunityDetailsScreen(
+              post: post,
+              onPitch: () => _showPitchModal(context, post),
+              onShare: () => _showShareModal(context, post),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Airbnb-Style Photo with Top-Left Badge & Top-Right Heart
+            Stack(
               children: [
-                // Avatar with Instagram-style gradient ring
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [post.badgeColor, const Color(0xFF0F1E36)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: ClipOval(
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 10.5,
                     child: Container(
-                      width: 40,
-                      height: 40,
-                      color: Colors.white,
+                      color: const Color(0xFFF1F5F9),
                       child: Image.asset(
                         post.imageAsset,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xFF0F1E36),
-                          child: const Icon(Icons.business_rounded, color: Colors.white, size: 20),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              post.authorName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: display(13.5, weight: FontWeight.w800, color: const Color(0xFF0F1E36)),
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF0F1E36), Color(0xFF1E293B)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
                           ),
-                          if (post.isVerified) ...[
-                            const SizedBox(width: 4),
-                            const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF0284C7)),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        '${post.authorRole} • ${post.authorLocation}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: body(11, color: const Color(0xFF64748B), weight: FontWeight.w500),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  post.timeAgo,
-                  style: body(10.5, color: const Color(0xFF94A3B8)),
-                ),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.more_horiz_rounded, color: Color(0xFF64748B), size: 20),
-                  onPressed: () => _showPostOptionsModal(context, post),
-                ),
-              ],
-            ),
-          ),
-
-          // 2. Post Media Container with Double-Tap to Like animation
-          GestureDetector(
-            onDoubleTap: () {
-              HapticFeedback.mediumImpact();
-              setState(() {
-                if (!_likedPostIds.contains(post.id)) {
-                  _likedPostIds.add(post.id);
-                  _likeCounts[post.id] = (_likeCounts[post.id] ?? 0) + 1;
-                }
-                _animatingHeartPostId = post.id;
-              });
-              Future.delayed(const Duration(milliseconds: 750), () {
-                if (mounted && _animatingHeartPostId == post.id) {
-                  setState(() => _animatingHeartPostId = null);
-                }
-              });
-            },
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  height: 240,
-                  width: double.infinity,
-                  child: Image.asset(
-                    post.imageAsset,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF0F1E36), Color(0xFF1E293B)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                          child: const Center(
+                            child: Icon(Icons.apartment_rounded, color: Colors.white, size: 48),
+                          ),
                         ),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.apartment_rounded, color: Colors.white, size: 50),
                       ),
                     ),
                   ),
                 ),
 
-                // Top-Left Category Badge Overlay
+                // Top-Left Floating Badge
                 Positioned(
                   top: 12,
                   left: 12,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         color: Colors.black.withValues(alpha: 0.55),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(post.badgeIcon, color: post.badgeColor, size: 14),
-                            const SizedBox(width: 5),
+                            Icon(post.badgeIcon, color: Colors.white, size: 12.5),
+                            const SizedBox(width: 4.5),
                             Text(
                               post.badgeText,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -1376,283 +1094,350 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
                   ),
                 ),
 
-                // Top-Right Highlight Pill Overlay
+                // Top-Right Floating Heart Button
                 Positioned(
                   top: 12,
                   right: 12,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: post.highlightColor.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          post.highlightPill,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      setState(() {
+                        if (isSaved) {
+                          _savedPostIds.remove(post.id);
+                        } else {
+                          _savedPostIds.add(post.id);
+                          toast(context, t('Saved to your saved deals! 📌', 'Imehifadhiwa! 📌'));
+                        }
+                      });
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.92),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
                           ),
-                        ),
+                        ],
+                      ),
+                      child: Icon(
+                        isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        color: isSaved ? const Color(0xFFFF385C) : const Color(0xFF1E293B),
+                        size: 20,
                       ),
                     ),
                   ),
                 ),
 
-                // Double tap animated heart popup
-                if (_animatingHeartPostId == post.id)
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.2, end: 1.15),
-                    duration: const Duration(milliseconds: 320),
-                    curve: Curves.elasticOut,
-                    builder: (context, scale, child) {
-                      return Transform.scale(
-                        scale: scale,
-                        child: Icon(
-                          Icons.favorite_rounded,
-                          color: Colors.white.withValues(alpha: 0.95),
-                          size: 85,
-                          shadows: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              blurRadius: 20,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-              ],
-            ),
-          ),
-
-          // 3. Instagram Action Bar (Heart, Comment, Share, Bookmark)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
-            child: Row(
-              children: [
-                // Heart Like Button
-                IconButton(
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    setState(() {
-                      if (isLiked) {
-                        _likedPostIds.remove(post.id);
-                        _likeCounts[post.id] = (likeCount - 1).clamp(0, 9999);
-                      } else {
-                        _likedPostIds.add(post.id);
-                        _likeCounts[post.id] = likeCount + 1;
-                      }
-                    });
-                  },
-                  icon: Icon(
-                    isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    color: isLiked ? const Color(0xFFEF4444) : const Color(0xFF1E293B),
-                    size: 25,
-                  ),
-                ),
-                // Comment Button
-                IconButton(
-                  onPressed: () => _showCommentsModal(context, post),
-                  icon: const Icon(
-                    Icons.chat_bubble_outline_rounded,
-                    color: Color(0xFF1E293B),
-                    size: 23,
-                  ),
-                ),
-                // Share Button
-                IconButton(
-                  onPressed: () => _showShareModal(context, post),
-                  icon: const Icon(
-                    Icons.send_rounded,
-                    color: Color(0xFF1E293B),
-                    size: 22,
-                  ),
-                ),
-                const Spacer(),
-                // Bookmark Button
-                IconButton(
-                  onPressed: () {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      if (isSaved) {
-                        _savedPostIds.remove(post.id);
-                        toast(context, t('Removed from saved opportunities', 'Imeondolewa kwenye fursa zilizohifadhiwa'));
-                      } else {
-                        _savedPostIds.add(post.id);
-                        toast(context, t('Saved to your opportunities! 📌', 'Imehifadhiwa kwenye fursa zako! 📌'));
-                      }
-                    });
-                  },
-                  icon: Icon(
-                    isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                    color: isSaved ? const Color(0xFF0284C7) : const Color(0xFF1E293B),
-                    size: 25,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // 4. Liked by & Stats Row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              t(
-                'Liked by Salim Bakari and $likeCount other landlords',
-                'Imependwa na Salim Bakari na wamiliki $likeCount wengine',
-              ),
-              style: body(11.5, weight: FontWeight.w700, color: const Color(0xFF1E293B)),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // 5. Title & Expandable Caption
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  post.title,
-                  style: display(14.5, weight: FontWeight.w800, color: const Color(0xFF0F1E36)),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  post.description,
-                  maxLines: isExpanded ? 20 : 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: body(12.5, color: const Color(0xFF475569), height: 1.45),
-                ),
-                const SizedBox(height: 2),
-                GestureDetector(
-                  onTap: () => setState(() {
-                    if (isExpanded) {
-                      _expandedPostIds.remove(post.id);
-                    } else {
-                      _expandedPostIds.add(post.id);
-                    }
-                  }),
-                  child: Text(
-                    isExpanded ? t('less', 'funga') : t('...more', '...zaidi'),
-                    style: body(11.5, weight: FontWeight.w700, color: const Color(0xFF0284C7)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // 6. Key Metrics Grid (Budget, ROI, Location, Yield)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                children: post.metrics.entries.map((entry) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                // Bottom-Right Highlight Pill
+                Positioned(
+                  bottom: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entry.key.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF94A3B8),
-                            letterSpacing: 0.5,
-                          ),
+                    child: Text(
+                      post.highlightPill,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // 2. Airbnb Typography below Photo (Quiet, Clean, No Noise)
+            Padding(
+              padding: const EdgeInsets.only(top: 10, left: 2, right: 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title + Rating
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          post.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: display(14.5, weight: FontWeight.w700, color: const Color(0xFF0F1E36)),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          entry.value,
-                          style: body(11.5, weight: FontWeight.w800, color: const Color(0xFF1E293B)),
+                      ),
+                      const SizedBox(width: 8),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star_rounded, size: 16, color: Color(0xFF0F1E36)),
+                          const SizedBox(width: 3),
+                          Text(
+                            '4.95',
+                            style: body(12.5, weight: FontWeight.w700, color: const Color(0xFF0F1E36)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+
+                  // Location & Author
+                  Text(
+                    '${post.authorLocation} · ${post.authorName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: body(12.5, color: const Color(0xFF64748B), weight: FontWeight.w400),
+                  ),
+                  const SizedBox(height: 2),
+
+                  // Description line
+                  Text(
+                    post.description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: body(12.5, color: const Color(0xFF94A3B8), weight: FontWeight.w400),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Price
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: post.metrics['Monthly Rent'] ?? post.metrics['Capital'] ?? 'TZS 650,000',
+                          style: display(14.5, weight: FontWeight.w800, color: const Color(0xFF0F1E36)),
+                        ),
+                        TextSpan(
+                          text: post.category == 'investor'
+                              ? ' ${t('budget', 'bajeti')}'
+                              : ' ${t('/ month', '/ mwezi')}',
+                          style: body(12.5, color: const Color(0xFF475569), weight: FontWeight.w400),
                         ),
                       ],
                     ),
-                  );
-                }).toList(),
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
 
-          // 7. Hashtags Row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Wrap(
-              spacing: 6,
-              children: post.tags.map((tag) {
-                return Text(
-                  tag,
-                  style: body(11, color: const Color(0xFF0284C7), weight: FontWeight.w600),
-                );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: 14),
+  /// Airbnb-Style House Card for Landlord's Properties
+  Widget _buildAirbnbHouseCard(House house) {
+    return ValueListenableBuilder<Set<int>>(
+      valueListenable: saved,
+      builder: (context, savedSet, _) {
+        final isFav = savedSet.contains(house.id);
+        final coverUrl = house.photos.isNotEmpty ? house.photos.first : '';
 
-          // 8. Primary CTA Action Button
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            child: SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  HapticFeedback.mediumImpact();
-                  _showPitchModal(context, post);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F1E36),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 24),
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              push(context, ListingScreen(house, heroTag: 'landlord_house_${house.id}'));
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Photo
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 10.5,
+                        child: Container(
+                          color: const Color(0xFFF1F5F9),
+                          child: coverUrl.isNotEmpty
+                              ? Image.network(
+                                  coverUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: const Color(0xFF0F1E36),
+                                    child: const Center(
+                                      child: Icon(Icons.home_work_rounded, color: Colors.white, size: 48),
+                                    ),
+                                  ),
+                                )
+                              : Image.asset(
+                                  'assets/images/discover_terrace.jpg',
+                                  fit: BoxFit.cover,
+                                ),
+                        ),
+                      ),
+                    ),
+
+                    // Top-Left Badge
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            color: Colors.black.withValues(alpha: 0.55),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.verified_rounded, color: Color(0xFF38BDF8), size: 12.5),
+                                const SizedBox(width: 4.5),
+                                Text(
+                                  house.status == 'available'
+                                      ? t('Available', 'Ipo Wazi')
+                                      : house.status.toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Top-Right Heart Button
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          toggleSaved(house.id);
+                        },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.92),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.12),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            color: isFav ? const Color(0xFFFF385C) : const Color(0xFF1E293B),
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Bottom-Right Units Count
+                    if (house.units.isNotEmpty)
+                      Positioned(
+                        bottom: 12,
+                        right: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${house.units.length} ${t('Units', 'Vyumba')}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+
+                // Details below photo
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, left: 2, right: 2),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              house.name.isNotEmpty ? house.name : 'Listing #${house.id}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: display(14.5, weight: FontWeight.w700, color: const Color(0xFF0F1E36)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.star_rounded, size: 16, color: Color(0xFF0F1E36)),
+                              const SizedBox(width: 3),
+                              Text(
+                                house.verifiedAt != null ? '4.98' : '4.85',
+                                style: body(12.5, weight: FontWeight.w700, color: const Color(0xFF0F1E36)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${house.district}, ${house.ward} · ${house.type.isNotEmpty ? house.type : t('Residential', 'Makazi')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: body(12.5, color: const Color(0xFF64748B), weight: FontWeight.w400),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${house.bedrooms} ${t('bed', 'vyumba')} · ${house.bathrooms} ${t('bath', 'bafu')}${house.amenities.isNotEmpty ? ' · ${house.amenities.take(2).join(', ')}' : ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: body(12.5, color: const Color(0xFF94A3B8), weight: FontWeight.w400),
+                      ),
+                      const SizedBox(height: 4),
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: tzs(house.rent),
+                              style: display(14.5, weight: FontWeight.w800, color: const Color(0xFF0F1E36)),
+                            ),
+                            TextSpan(
+                              text: ' ${t('/ month', '/ mwezi')}',
+                              style: body(12.5, color: const Color(0xFF475569), weight: FontWeight.w400),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                icon: Icon(post.ctaIcon, size: 17),
-                label: Text(
-                  post.ctaLabel,
-                  style: body(12.5, weight: FontWeight.w700, color: Colors.white),
-                ),
-              ),
+              ],
             ),
           ),
-
-          // 9. Comments Preview & Shortcut
-          if (comments.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-              child: GestureDetector(
-                onTap: () => _showCommentsModal(context, post),
-                child: Text(
-                  t('View all ${comments.length} comments & inquiries',
-                      'Tazama maoni na maswali yote ${comments.length}'),
-                  style: body(11, color: const Color(0xFF94A3B8), weight: FontWeight.w600),
-                ),
-              ),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1661,7 +1446,7 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
   // =========================================================================
 
   /// Connect & Pitch Proposal Modal
-  void _showPitchModal(BuildContext context, _OpportunityItem post) {
+  void _showPitchModal(BuildContext context, OpportunityItem post) {
     String? selectedProperty = _homes.isNotEmpty ? _homes.first.name : 'House 1 - Mikocheni';
     final noteController = TextEditingController();
 
@@ -1844,245 +1629,6 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
     );
   }
 
-  /// Comments & Questions Modal
-  void _showCommentsModal(BuildContext context, _OpportunityItem post) {
-    final commentController = TextEditingController();
-    final commentsList = List<String>.from(_postComments[post.id] ?? []);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (modalCtx, setModalState) {
-          return Container(
-            height: MediaQuery.of(modalCtx).size.height * 0.65,
-            padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + MediaQuery.of(modalCtx).viewInsets.bottom),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFCBD5E1),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  t('Inquiries & Discussion', 'Maswali & Majadiliano'),
-                  style: display(15, weight: FontWeight.w800),
-                ),
-                Text(
-                  post.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: body(11.5, color: const Color(0xFF64748B)),
-                ),
-                const Divider(height: 24),
-                Expanded(
-                  child: commentsList.isEmpty
-                      ? Center(
-                          child: Text(
-                            t('No inquiries yet. Be the first to ask!', 'Hakuna maswali bado. Kuwa wa kwanza kuuliza!'),
-                            style: body(12, color: const Color(0xFF94A3B8)),
-                          ),
-                        )
-                      : ListView.separated(
-                          itemCount: commentsList.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
-                          itemBuilder: (context, i) {
-                            final c = commentsList[i];
-                            return Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(c, style: body(12, color: const Color(0xFF1E293B))),
-                            );
-                          },
-                        ),
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: commentController,
-                        style: body(12.5),
-                        decoration: InputDecoration(
-                          hintText: t('Add a question or remark...', 'Andika swali au maoni...'),
-                          hintStyle: body(11.5, color: const Color(0xFF94A3B8)),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
-                      style: IconButton.styleFrom(backgroundColor: const Color(0xFF0F1E36)),
-                      onPressed: () {
-                        final text = commentController.text.trim();
-                        if (text.isNotEmpty) {
-                          setModalState(() {
-                            commentsList.add('You: $text');
-                            _postComments[post.id] = commentsList;
-                          });
-                          setState(() {});
-                          commentController.clear();
-                        }
-                      },
-                      icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 18),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  /// Story Viewer Modal
-  void _showStoryViewer(BuildContext context, _OpportunityStory story) {
-    final post = story.linkedPost;
-    if (post == null) return;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
-          child: Container(
-            height: 520,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F1E36),
-              image: DecorationImage(
-                image: AssetImage(post.imageAsset),
-                fit: BoxFit.cover,
-                colorFilter: ColorFilter.mode(
-                  Colors.black.withValues(alpha: 0.55),
-                  BlendMode.darken,
-                ),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Story progress bar
-                  Container(
-                    height: 3,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: Container(
-                      width: 150,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundImage: AssetImage(post.imageAsset),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              post.authorName,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                            Text(
-                              post.badgeText,
-                              style: TextStyle(color: post.badgeColor, fontSize: 11, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Colors.white),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: post.highlightColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      post.highlightPill,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    post.title,
-                    style: display(18, weight: FontWeight.w800, color: Colors.white),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    post.description,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: body(12.5, color: Colors.white.withValues(alpha: 0.9)),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _showPitchModal(context, post);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF0F1E36),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      icon: Icon(post.ctaIcon, size: 18, color: const Color(0xFF0F1E36)),
-                      label: Text(
-                        post.ctaLabel,
-                        style: display(13, weight: FontWeight.w800, color: const Color(0xFF0F1E36)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   /// Post Opportunity Modal
   void _showPostOpportunityModal(BuildContext context) {
     final titleController = TextEditingController();
@@ -2189,7 +1735,7 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
                       ),
                       onPressed: () {
                         if (titleController.text.trim().isEmpty) return;
-                        final newPost = _OpportunityItem(
+                        final newPost = OpportunityItem(
                           id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
                           category: selectedCat,
                           authorName: widget.userName ?? 'Ibrahim Kimaro',
@@ -2240,7 +1786,7 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
   }
 
   /// Share Modal
-  void _showShareModal(BuildContext context, _OpportunityItem post) {
+  void _showShareModal(BuildContext context, OpportunityItem post) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -2283,58 +1829,13 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
     );
   }
 
-  /// Post Options Modal (Three dots)
-  void _showPostOptionsModal(BuildContext context, _OpportunityItem post) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.bookmark_outline_rounded),
-              title: Text(t('Save / Bookmark Opportunity', 'Hifadhi Fursa')),
-              onTap: () {
-                Navigator.pop(ctx);
-                setState(() => _savedPostIds.add(post.id));
-                toast(context, t('Saved! 📌', 'Imehifadhiwa! 📌'));
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share_outlined),
-              title: Text(t('Share Post', 'Gawa Chapisho')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showShareModal(context, post);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.flag_outlined, color: Colors.red),
-              title: Text(t('Report Opportunity', 'Ripoti Fursa'), style: const TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(ctx);
-                toast(context, t('Thank you for your report.', 'Asante kwa kutoa taarifa.'));
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // =========================================================================
   // INITIAL OPPORTUNITY DATA
   // =========================================================================
 
-  List<_OpportunityItem> _getInitialOpportunities() {
+  List<OpportunityItem> _getInitialOpportunities() {
     return [
-      const _OpportunityItem(
+      const OpportunityItem(
         id: 'inv_1',
         category: 'investor',
         authorName: 'Dr. Salim Bakari (Apex Capital)',
@@ -2362,7 +1863,7 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
         ctaLabel: 'Pitch Your Property to Dr. Salim',
         ctaIcon: Icons.handshake_rounded,
       ),
-      const _OpportunityItem(
+      const OpportunityItem(
         id: 'hse_1',
         category: 'house',
         authorName: 'Upanga Heights Realty',
@@ -2390,7 +1891,7 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
         ctaLabel: 'Request Full Property Schedule',
         ctaIcon: Icons.assignment_outlined,
       ),
-      const _OpportunityItem(
+      const OpportunityItem(
         id: 'ten_1',
         category: 'tenant',
         authorName: 'AfriRelocate Corporate Housing',
@@ -2418,7 +1919,7 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
         ctaLabel: 'Submit Your Vacant Units',
         ctaIcon: Icons.send_rounded,
       ),
-      const _OpportunityItem(
+      const OpportunityItem(
         id: 'inv_2',
         category: 'investor',
         authorName: 'Zanzibar & Coast Angel Syndicate',
@@ -2446,7 +1947,7 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
         ctaLabel: 'Check Building Eligibility',
         ctaIcon: Icons.domain_add_rounded,
       ),
-      const _OpportunityItem(
+      const OpportunityItem(
         id: 'hse_2',
         category: 'house',
         authorName: 'Peninsula Living Estates',
@@ -2474,7 +1975,7 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
         ctaLabel: 'View Virtual Tour & Details',
         ctaIcon: Icons.explore_outlined,
       ),
-      const _OpportunityItem(
+      const OpportunityItem(
         id: 'prt_1',
         category: 'partnership',
         authorName: 'Veyora Smart Building Systems',
@@ -2506,7 +2007,7 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
   }
 }
 
-class _OpportunityItem {
+class OpportunityItem {
   final String id;
   final String category; // 'investor', 'house', 'tenant', 'partnership'
   final String authorName;
@@ -2528,7 +2029,7 @@ class _OpportunityItem {
   final String ctaLabel;
   final IconData ctaIcon;
 
-  const _OpportunityItem({
+  const OpportunityItem({
     required this.id,
     required this.category,
     required this.authorName,
@@ -2552,22 +2053,460 @@ class _OpportunityItem {
   });
 }
 
-class _OpportunityStory {
-  final String id;
-  final String title;
-  final String subtitle;
-  final String avatarImage;
-  final Color ringColor;
-  final bool isNew;
-  final _OpportunityItem? linkedPost;
+class OpportunityDetailsScreen extends StatefulWidget {
+  final OpportunityItem post;
+  final VoidCallback onPitch;
+  final VoidCallback? onShare;
 
-  const _OpportunityStory({
-    required this.id,
-    required this.title,
-    required this.subtitle,
-    required this.avatarImage,
-    required this.ringColor,
-    this.isNew = false,
-    this.linkedPost,
+  const OpportunityDetailsScreen({
+    super.key,
+    required this.post,
+    required this.onPitch,
+    this.onShare,
   });
+
+  @override
+  State<OpportunityDetailsScreen> createState() => _OpportunityDetailsScreenState();
 }
+
+class _OpportunityDetailsScreenState extends State<OpportunityDetailsScreen> {
+  bool _isSaved = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final post = widget.post;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              // Hero Photo Header
+              SliverAppBar(
+                expandedHeight: 320,
+                pinned: true,
+                elevation: 0,
+                backgroundColor: const Color(0xFF0F1E36),
+                automaticallyImplyLeading: false,
+                leading: Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Center(
+                    child: ClipOval(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          child: IconButton(
+                            icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F1E36), size: 20),
+                            onPressed: () => Navigator.pop(context),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                actions: [
+                  Center(
+                    child: ClipOval(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          child: IconButton(
+                            icon: const Icon(Icons.share_outlined, color: Color(0xFF0F1E36), size: 19),
+                            onPressed: () {
+                              if (widget.onShare != null) {
+                                widget.onShare!();
+                              } else {
+                                toast(context, t('Link copied to clipboard! 📋', 'Kiungo kimenakiliwa! 📋'));
+                              }
+                            },
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Center(
+                    child: ClipOval(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          child: IconButton(
+                            icon: Icon(
+                              _isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                              color: _isSaved ? const Color(0xFFFF385C) : const Color(0xFF0F1E36),
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              setState(() => _isSaved = !_isSaved);
+                              toast(
+                                context,
+                                _isSaved
+                                    ? t('Saved to your favorites! 📌', 'Imehifadhiwa! 📌')
+                                    : t('Removed from favorites', 'Imeondolewa'),
+                              );
+                            },
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.asset(
+                        post.imageAsset,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: const Color(0xFF0F1E36),
+                          child: const Center(
+                            child: Icon(Icons.apartment_rounded, color: Colors.white, size: 64),
+                          ),
+                        ),
+                      ),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.35),
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.5),
+                            ],
+                            stops: const [0.0, 0.5, 1.0],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 20,
+                        bottom: 20,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(post.badgeIcon, size: 14, color: post.badgeColor),
+                              const SizedBox(width: 6),
+                              Text(
+                                post.badgeText,
+                                style: TextStyle(
+                                  color: post.badgeColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Content Sliver
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title
+                      Text(
+                        post.title,
+                        style: display(22, weight: FontWeight.w800, color: const Color(0xFF0F1E36)),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Location, Rating, Time
+                      Row(
+                        children: [
+                          const Icon(Icons.star_rounded, size: 17, color: Color(0xFF0F1E36)),
+                          const SizedBox(width: 3),
+                          Text(
+                            '4.95',
+                            style: body(13, weight: FontWeight.w700, color: const Color(0xFF0F1E36)),
+                          ),
+                          const SizedBox(width: 8),
+                          Text('·', style: body(13, color: const Color(0xFF94A3B8))),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${post.authorLocation} · ${post.timeAgo}',
+                              style: body(13, color: const Color(0xFF64748B), weight: FontWeight.w500),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                      ),
+
+                      // Host / Author profile banner
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 26,
+                            backgroundImage: AssetImage(post.authorAvatar),
+                            backgroundColor: const Color(0xFFF1F5F9),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      t('Posted by ', 'Imewekwa na '),
+                                      style: body(12, color: const Color(0xFF64748B)),
+                                    ),
+                                    Flexible(
+                                      child: Text(
+                                        post.authorName,
+                                        style: display(14.5, weight: FontWeight.w700, color: const Color(0xFF0F1E36)),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (post.isVerified) ...[
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.verified_rounded, size: 15, color: Color(0xFF0284C7)),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  post.authorRole,
+                                  style: body(12, color: const Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                      ),
+
+                      // Highlights Section
+                      Text(
+                        t('Deal Highlights', 'Vivutio vya Fursa'),
+                        style: display(16, weight: FontWeight.w800, color: const Color(0xFF0F1E36)),
+                      ),
+                      const SizedBox(height: 14),
+                      _buildDetailHighlightRow(
+                        icon: post.badgeIcon,
+                        title: post.badgeText,
+                        subtitle: t('Category verified on Panga Pangisha Landlord Hub', 'Aina imethibitishwa kwenye mtandao'),
+                      ),
+                      const SizedBox(height: 14),
+                      _buildDetailHighlightRow(
+                        icon: Icons.monetization_on_outlined,
+                        title: post.highlightPill,
+                        subtitle: t('Estimated capital / budget expectation', 'Makadirio ya mtaji au kodi inayotarajiwa'),
+                      ),
+                      const SizedBox(height: 14),
+                      _buildDetailHighlightRow(
+                        icon: Icons.shield_outlined,
+                        title: t('Direct Verified Party', 'Mhusika Aliyethibitishwa'),
+                        subtitle: t('No middleman broker fees, direct communication', 'Hakuna madalali, mawasiliano ya moja kwa moja'),
+                      ),
+
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                      ),
+
+                      // Overview & Full Description
+                      Text(
+                        t('About this Opportunity', 'Kuhusu Fursa Hii'),
+                        style: display(16, weight: FontWeight.w800, color: const Color(0xFF0F1E36)),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        post.description,
+                        style: body(14, color: const Color(0xFF334155), height: 1.6),
+                      ),
+
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                      ),
+
+                      // Key Specifications / Metrics Grid
+                      Text(
+                        t('Key Specifications', 'Sifa Kuu za Fursa'),
+                        style: display(16, weight: FontWeight.w800, color: const Color(0xFF0F1E36)),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: post.metrics.entries.map((entry) {
+                          return Container(
+                            width: (MediaQuery.of(context).size.width - 52) / 2,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  entry.key,
+                                  style: body(11, color: const Color(0xFF64748B), weight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  entry.value,
+                                  style: display(13.5, weight: FontWeight.w800, color: const Color(0xFF0F1E36)),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+
+                      const SizedBox(height: 100), // Space for sticky bottom bar
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Sticky Airbnb Bottom Bar
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 14 + MediaQuery.of(context).padding.bottom),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: const Border(
+                  top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          post.metrics['Monthly Rent'] ?? post.metrics['Capital'] ?? post.highlightPill,
+                          style: display(15.5, weight: FontWeight.w800, color: const Color(0xFF0F1E36)),
+                        ),
+                        Text(
+                          post.category == 'investor'
+                              ? t('Target capital ticket', 'Kiwango cha mtaji')
+                              : t('Per month · Direct agreement', 'Kwa mwezi · Mkataba wa moja kwa moja'),
+                          style: body(11.5, color: const Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      widget.onPitch();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F1E36),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                    icon: Icon(post.ctaIcon, size: 18, color: Colors.white),
+                    label: Text(
+                      t('Connect & Pitch', 'Wasilisha / Ungana'),
+                      style: display(13, weight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailHighlightRow({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 20, color: const Color(0xFF0F1E36)),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: display(13.5, weight: FontWeight.w700, color: const Color(0xFF0F1E36)),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: body(12, color: const Color(0xFF64748B)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
