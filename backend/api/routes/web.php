@@ -15,6 +15,19 @@ Route::get('/', fn () => Inertia::render('Home', [
     'downloadUrl' => config('services.app_download_url'),
 ]));
 
+// Property / Room Details Full Page View (Cityscape Retreat Architectural Page)
+Route::get('property/{id}', function ($id) {
+    $home = House::with(['units', 'owner'])->findOrFail($id);
+    $similarHomes = House::live()->where('id', '!=', $id)->latest()->limit(3)->get([
+        'id', 'property_name', 'property_type', 'district', 'ward', 'bedrooms', 'bathrooms', 'monthly_rent',
+        'cover_image', 'advertiser_role', 'verified_at', 'availability_confirmed_at',
+    ]);
+    return Inertia::render('Property/Show', [
+        'home' => $home,
+        'similarHomes' => $similarHomes,
+    ]);
+})->name('property.show');
+
 // Universal Authentication routes (for all users: renters, landlords, managers, investors)
 Route::get('login', fn () => Inertia::render('Auth/Login'))->name('login');
 Route::post('login', [\App\Http\Controllers\Landlord\DashboardController::class, 'webLogin'])->name('web.login');
