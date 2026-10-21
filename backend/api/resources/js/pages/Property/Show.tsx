@@ -127,7 +127,7 @@ export default function PropertyShowPage({
 
             {/* 2. MAIN HEADER NAVIGATION */}
             <header className="sticky top-0 z-40 w-full bg-[#FBF9F5]/90 backdrop-blur-md border-b border-[#EBE7E1] transition-all">
-                <div className="w-full max-w-7xl mx-auto px-4 sm:px-8 py-3.5 flex items-center justify-between">
+                <div className="w-full max-w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-24 py-3.5 flex items-center justify-between">
                     <div className="flex items-center gap-6">
                         <Link href="/" className="flex items-center gap-2 group">
                             <Logo size="sm" />
@@ -166,7 +166,7 @@ export default function PropertyShowPage({
             </header>
 
             {/* 3. BREADCRUMBS & BACK LINK */}
-            <div className="w-full max-w-7xl mx-auto px-4 sm:px-8 pt-6 pb-4">
+            <div className="w-full max-w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-24 pt-6 pb-4">
                 <div className="flex items-center justify-between">
                     <Link
                         href="/"
@@ -207,7 +207,7 @@ export default function PropertyShowPage({
             </div>
 
             {/* 4. CITYSCAPE RETREAT FULL-PAGE ARCHITECTURAL PHOTO MOSAIC */}
-            <section className="w-full max-w-7xl mx-auto px-4 sm:px-8 pb-8">
+            <section className="w-full max-w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-24 pb-8">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4 rounded-3xl overflow-hidden">
                     {/* Primary Hero Large Photo with interactive switcher */}
                     <div className="relative md:col-span-3 aspect-16/10 overflow-hidden rounded-3xl bg-[#EBE7E1] shadow-md group">
@@ -286,10 +286,10 @@ export default function PropertyShowPage({
             </section>
 
             {/* 5. MAIN EDITORIAL CONTENT & STICKY BOOKING CONSOLE */}
-            <main className="w-full max-w-7xl mx-auto px-4 sm:px-8 pb-24">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-start">
+            <main className="w-full max-w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-24 pb-24">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 xl:gap-12 items-start">
                     {/* LEFT COLUMN: TITLE, SPECS, CITYSCAPE TABS & CONTENT */}
-                    <div className="lg:col-span-2 space-y-8">
+                    <div className="lg:col-span-7 xl:col-span-8 space-y-8">
                         {/* Title & Headline Bar */}
                         <div className="space-y-3 pb-6 border-b border-[#EBE7E1]">
                             <div className="flex flex-wrap items-center gap-2">
@@ -780,7 +780,7 @@ export default function PropertyShowPage({
                     </div>
 
                     {/* RIGHT COLUMN: STICKY CITYSCAPE DIRECT BOOKING & VIEWING CONSOLE */}
-                    <div className="sticky top-24 space-y-5">
+                    <div className="lg:col-span-5 xl:col-span-4 sticky top-24 space-y-5">
                         <div className="rounded-3xl border border-[#EBE7E1] bg-white p-6 sm:p-7 shadow-lg space-y-5">
                             {/* Monthly Rate Headline */}
                             <div>
@@ -961,7 +961,7 @@ export default function PropertyShowPage({
 
             {/* 7. FULL-PAGE FOOTER */}
             <footer className="w-full bg-[#12161A] text-white py-14 border-t border-black/10">
-                <div className="w-full max-w-7xl mx-auto px-4 sm:px-8">
+                <div className="w-full max-w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-24">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-8 border-b border-white/10">
                         <div className="flex items-center gap-3">
                             <Logo size="sm" />
