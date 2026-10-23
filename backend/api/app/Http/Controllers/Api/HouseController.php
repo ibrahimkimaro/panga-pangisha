@@ -123,9 +123,24 @@ class HouseController extends Controller
         abort_unless($house->owner_id === $r->user()->id, 403);
         abort_if($house->status === 'suspended', 403, 'This listing was suspended by Panga. Contact support.');
         $d = $r->validate([
-            'property_name' => 'sometimes|string|max:255', 'description' => 'sometimes|nullable|string',
-            'monthly_rent' => 'sometimes|numeric|min:0', 'status' => 'sometimes|in:available,rented,reserved,maintenance',
-            'amenities' => 'sometimes|array', 'confirm_available' => 'sometimes|boolean',
+            'property_name' => 'sometimes|string|max:255',
+            'property_type' => 'sometimes|nullable|string',
+            'property_category' => 'sometimes|nullable|string',
+            'furnishing_status' => 'sometimes|nullable|string',
+            'description' => 'sometimes|nullable|string',
+            'region' => 'sometimes|nullable|string',
+            'district' => 'sometimes|nullable|string',
+            'ward' => 'sometimes|nullable|string',
+            'street' => 'sometimes|nullable|string',
+            'house_number' => 'sometimes|nullable|string',
+            'landmark' => 'sometimes|nullable|string',
+            'bedrooms' => 'sometimes|nullable|integer|min:0',
+            'bathrooms' => 'sometimes|nullable|integer|min:0',
+            'square_feet' => 'sometimes|nullable|integer',
+            'monthly_rent' => 'sometimes|numeric|min:0',
+            'status' => 'sometimes|in:available,rented,reserved,maintenance',
+            'amenities' => 'sometimes|array',
+            'confirm_available' => 'sometimes|boolean',
             'napa_number' => 'sometimes|nullable|string|max:50',
         ]);
         if ($r->boolean('confirm_available')) $d['availability_confirmed_at'] = now();

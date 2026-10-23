@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 /**
  * Resilient, database-aware Knowledge Engine for Veyora Assistant.
  * Provides instant direct conversational handling for greetings, platform guidance,
- * and high-fidelity fallback responses whenever remote AI providers experience latency.
+ * and high-fidelity responses grounded in curated domain knowledge.
  */
 class VeyoraKnowledgeEngine
 {
@@ -36,236 +36,142 @@ class VeyoraKnowledgeEngine
             return true;
         }
 
-        // Exact short 2-word greetings
-        $exactShortGreetings = ['hi there', 'hello there', 'habari veyora', 'hello veyora', 'hi veyora', 'mambo veyora', 'niaje veyora'];
-        if (in_array($normalized, $exactShortGreetings)) {
-            return true;
-        }
+        $exactShortGreetings = [
+            'hi there', 'hello there', 'habari veyora', 'hello veyora',
+            'hi veyora', 'mambo veyora', 'niaje veyora', 'good morning',
+            'good afternoon', 'good evening',
+        ];
 
-        return false;
+        return in_array($normalized, $exactShortGreetings);
     }
 
     /**
      * Generates an immediate, friendly, personalized greeting without overwhelming lists.
      */
-    public static function directGreeting(User $user, string $text): string
+    public static function directGreeting(?User $user, string $text): string
     {
-        $firstName = explode(' ', trim($user->fullname ?? 'Rafiki'))[0];
+        $firstName = $user ? explode(' ', trim($user->fullname ?? 'Rafiki'))[0] : null;
         $isSw = self::detectSwahili($text);
 
-        if ($isSw) {
-            return "Habari {$firstName}! 😊 Karibu sana. Unaendeleaje leo?";
+        if ($firstName) {
+            return $isSw
+                ? "Habari {$firstName}! 😊 Karibu sana. Unaendeleaje leo?"
+                : "Hello {$firstName}! 😊 Great to connect with you. How are you doing today?";
         }
 
-        return "Hello {$firstName}! 😊 Great to connect with you. How are you doing today?";
+        return $isSw
+            ? "Habari na karibu Panga Pangisha! 😊 Ninawezaje kukusaidia katika kutafuta chumba au nyumba leo?"
+            : "Hello and welcome to Panga Pangisha! 😊 How can I help you with housing today?";
     }
 
     /**
-     * Resolves general platform domain knowledge inquiries safely without keyword hijacking.
+     * Resolves general platform domain knowledge inquiries safely using VeyoraKnowledgeRetriever.
      */
-    public static function answerWithKnowledge(User $user, string $query, array $context = [], array $recentHistory = []): string
+    public static function answerWithKnowledge(?User $user, string $query, array $context = [], array $recentHistory = []): string
     {
         $isSw = self::detectSwahili($query);
-        $firstName = explode(' ', trim($user->fullname ?? 'Rafiki'))[0];
+        $role = $user?->role ?? 'guest';
+        $lowQuery = mb_strtolower(trim($query));
 
-        if ($isSw) {
-            return "Samahani {$firstName}, siwezi kupata taarifa hizo kwa sasa. Tafadhali jaribu tena baada ya muda mfupi au uliza swali lako kwa njia nyingine.";
-        }
-
-        return "I'm temporarily unable to retrieve that information right now. Please try again shortly or rephrase your request.";
-    }
-
-    private static function handleRentalUnitsInquiry(User $user, bool $isSw): string
-    {
-        if ($user->role !== 'landlord' && $user->role !== 'admin') {
-            return $isSw
-                ? "Ni wamiliki wa nyumba (landlords) pekee wanaoweza kutazama orodha ya vyumba vyao vya kupangisha. Kama wewe ni mpangaji, unaweza kutafuta vyumba wazi kwenye ukurasa wa Gundua."
-                : "Only landlords can view their rental units portfolio. If you are a renter, you can search available units in the Explore tab.";
-        }
-
-        $houseIds = House::where('owner_id', $user->id)->pluck('id');
-        $units = \App\Models\Unit::whereIn('house_id', $houseIds)
-            ->with('house:id,property_name,district,ward')
-            ->latest('id')
-            ->get();
-
-        if ($units->isEmpty()) {
-            return $isSw
-                ? "Bado haujasajili chumba au unit yoyote chini ya nyumba zako. Je, ungependa nikuelekeze jinsi ya kuongeza chumba?"
-                : "You currently don't have any rental units registered under your properties. Would you like guidance on adding a unit?";
-        }
-
-        $lines = [];
-        foreach ($units as $u) {
-            $rent = number_format($u->monthly_rent);
-            $propName = $u->house?->property_name ?? 'Property';
-            $status = $u->status ?: ($u->is_available ? 'available' : 'occupied');
-            $statusLabel = $status === 'available' ? ($isSw ? 'Wazi' : 'Available') : ($isSw ? 'Kimepangishwa' : 'Occupied');
-            $lines[] = "• **{$propName} — Unit {$u->unit_number}**: TZS {$rent}/mwezi ({$statusLabel})";
-        }
-        $unitsText = implode("\n", $lines);
-
-        if ($isSw) {
-            return "Hii hapa orodha ya vyumba vyako vya kupangisha ({$units->count()} jumla):\n\n{$unitsText}";
-        }
-
-        return "Here are your registered rental units ({$units->count()} total):\n\n{$unitsText}";
-    }
-
-
-    private static function handlePropertySearch(User $user, string $query, bool $isSw): string
-    {
-        $houses = House::where('status', 'available')
-            ->where('is_active', true)
-            ->withCount('units')
-            ->orderBy('id', 'desc')
-            ->limit(3)
-            ->get();
-
-        if ($houses->isEmpty()) {
-            return $isSw
-                ? "Kwa sasa hakuna nyumba zilizopo wazi zinazolingana na vigezo hivyo. Unaweza kuangalia kwenye ukurasa wa 'Gundua' kuona zote zilizopo."
-                : "No matching vacant properties are currently listed. Please check the 'Explore' tab to browse recent additions.";
-        }
-
-        $list = [];
-        foreach ($houses as $h) {
-            $price = number_format($h->monthly_rent);
-            $loc = trim("{$h->district}, {$h->ward}");
-            $list[] = "• **{$h->property_name}** ({$loc})\n  Kodi: TSh {$price}/mwezi | Vyumba: {$h->units_count} unit(s)";
-        }
-
-        $items = implode("\n\n", $list);
-
-        if ($isSw) {
-            return "Hapa kuna baadhi ya nyumba zilizothibitishwa zinazopatikana kwenye Veyora:\n\n{$items}\n\n"
-                . "Unaweza kubofya nyumba yoyote kwenye ukurasa wa 'Gundua' kuona picha za kila chumba, vifaa, au kuweka ombi la kutembelea (Viewing Request).";
-        }
-
-        return "Here are verified properties currently available on Veyora:\n\n{$items}\n\n"
-            . "You can open any listing in the 'Explore' tab to inspect detailed room photos, amenities, or book a viewing request.";
-    }
-
-    private static function handleTenancyInquiry(User $user, bool $isSw): string
-    {
-        $tenancies = Tenancy::where('tenant_id', $user->id)
-            ->with('house')
-            ->latest('id')
-            ->get();
-
-        if ($tenancies->isEmpty()) {
-            return $isSw
-                ? "Huna mkataba wowote wa upangaji unaoendelea kwa sasa. Ukipata nyumba na mwenye nyumba kuthibitisha ombi lako, mkataba utaonekana hapa."
-                : "You do not currently have an active tenancy agreement on file. Once a landlord confirms your lease, it will be displayed here.";
-        }
-
-        $t = $tenancies->first();
-        $houseName = $t->house?->property_name ?? 'Property #' . $t->house_id;
-        $rent = number_format($t->monthly_rent);
-        $status = ucfirst($t->status);
-
-        if ($isSw) {
-            return "Taarifa za mkataba wako wa upangaji:\n\n"
-                . "• **Nyumba**: {$houseName}\n"
-                . "• **Kodi ya Mwezi**: TSh {$rent}\n"
-                . "• **Kuanza**: {$t->starts_on}\n"
-                . "• **Kumalizika**: " . ($t->ends_on ?? 'Haijawekwa') . "\n"
-                . "• **Hali ya Mkataba**: {$status}\n\n"
-                . "Kumbuka kulipa kodi kabla ya tarehe ya mwisho ili kuepuka usumbufu.";
-        }
-
-        return "Your active tenancy agreement details:\n\n"
-            . "• **Property**: {$houseName}\n"
-            . "• **Monthly Rent**: TSh {$rent}\n"
-            . "• **Start Date**: {$t->starts_on}\n"
-            . "• **End Date**: " . ($t->ends_on ?? 'Open-ended') . "\n"
-            . "• **Status**: {$status}\n\n"
-            . "Ensure rent payments are recorded on time to keep your tenant ledger in good standing.";
-    }
-
-    private static function handlePaymentInquiry(User $user, bool $isSw): string
-    {
-        $payments = RentPayment::whereHas('tenancy', fn ($q) => $q->where('tenant_id', $user->id))
-            ->latest('paid_on')
-            ->limit(5)
-            ->get();
-
-        if ($payments->isEmpty()) {
-            return $isSw
-                ? "Hakuna rekodi za malipo ya kodi zilizosajiliwa kwenye akaunti yako. Malipo yako yakithibitishwa na mwenye nyumba yataonekana hapa."
-                : "No rent payment records were found for your account. Confirmed payments will be recorded here.";
-        }
-
-        $lines = [];
-        foreach ($payments as $p) {
-            $amount = number_format($p->amount);
-            $lines[] = "• **TSh {$amount}** — Tarehe: {$p->paid_on} (Njia: {$p->method})";
-        }
-        $hist = implode("\n", $lines);
-
-        if ($isSw) {
-            return "Hizi hapa rekodi za malipo yako ya hivi karibuni:\n\n{$hist}\n\n"
-                . "Kila malipo yanayorekodiwa yanajumuisha risiti rasmi ya kielektroniki kwenye Veyora.";
-        }
-
-        return "Here is your recent rent payment history:\n\n{$hist}\n\n"
-            . "All recorded transactions are officially logged in your Veyora ledger.";
-    }
-
-    private static function handleMaintenanceInquiry(User $user, bool $isSw): string
-    {
-        $tickets = MaintenanceRequest::whereHas('tenancy', fn ($q) => $q->where('tenant_id', $user->id))
-            ->latest('id')
-            ->limit(3)
-            ->get();
-
-        if ($tickets->isNotEmpty()) {
-            $list = [];
-            foreach ($tickets as $t) {
-                $list[] = "• **{$t->title}** — Hali: {$t->status} (" . ($t->details ? Str::limit($t->details, 50) : '') . ")";
+        // 1. Check for specific private-record requests by unauthorized roles
+        if ($role === 'guest' || $role === 'renter') {
+            if (str_contains($lowQuery, 'my unit') || str_contains($lowQuery, 'my propert') || str_contains($lowQuery, 'vyumba vyangu') || str_contains($lowQuery, 'nyumba zangu') || str_contains($lowQuery, 'who owes') || str_contains($lowQuery, 'madeni ya kodi')) {
+                if ($role === 'guest') {
+                    return $isSw
+                        ? "Wewe uko kama mgeni (guest) kwa sasa. Ili kusimamia vyumba vyako au kutazama kodi inayodaiwa, tafadhali ingia (log in) kwenye akaunti yako ya Mwenye Nyumba (Landlord)."
+                        : "You are currently visiting as a guest. To view your rental units or manage rent ledgers, please sign in with your Landlord account.";
+                }
+                return $isSw
+                    ? "Wewe umesajiliwa kama mpangaji (renter). Ni wamiliki wa nyumba (landlords) pekee wanaoweza kutazama orodha ya vyumba vinavyopangishwa na kodi inayodaiwa. Unaweza kutafuta vyumba wazi kwenye ukurasa wa Gundua au kutazama mkataba wako."
+                    : "You are signed in as a tenant. Only property owners (landlords) can manage rental units and view tenant arrears. You can explore available rooms in the Explore tab or view your active lease.";
             }
-            $existing = implode("\n", $list);
-            return $isSw
-                ? "Tiketi zako za marekebisho za hivi karibuni:\n\n{$existing}\n\n"
-                    . "Kufungua tiketi mpya, nenda kwenye ukurasa wa nyumba yako au niambie maelezo ya tatizo (k.m. 'Bomba la maji bafuni linavuja')."
-                : "Your recent maintenance tickets:\n\n{$existing}\n\n"
-                    . "To submit a new ticket, describe the issue (e.g. 'Water pipe leaking in bathroom').";
         }
 
+        // 2. Retrieve authoritative domain knowledge from indexed documents
+        $results = VeyoraKnowledgeRetriever::retrieve($query, 3, $role);
+
+        if (! empty($results)) {
+            $top = $results[0];
+            $content = $top['content'] ?? '';
+            $status = $top['status'] ?? 'implemented';
+
+            // Check if user is asking about a planned or roadmap feature
+            if ($status === 'planned' || str_contains($lowQuery, 'lock') || str_contains($lowQuery, 'hotel pms') || str_contains($lowQuery, 'loan') || str_contains($lowQuery, 'mkopo')) {
+                return $isSw
+                    ? "Kipengele hiki kiko kwenye mpango wa maendeleo wa baadaye (roadmap). Kwa sasa mfumo unasaidia utafutaji wa nyumba na vyumba vilivyothibitishwa, mita binafsi za STS LUKU, mikataba ya kisheria ya kidijitali yenye saini pande zote, na kumbukumbu sahihi za ankara na malipo."
+                    : "This feature is planned for a future platform release. Currently, Panga Pangisha supports verified property & room discovery, private STS LUKU submeters, digital rental agreements with dual electronic signatures, and transparent rent ledgers.";
+            }
+
+            // Synthesize concise, accurate knowledge answer
+            return self::formatKnowledgeResponse($top, $isSw, $query);
+        }
+
+        // Fallback guidance if no specific chunk scored above threshold
         if ($isSw) {
-            return "Ili kufungua ombi la marekebisho ya nyumba (maji, umeme, ukarabati):\n\n"
-                . "1. Andika jina la tatizo (k.m. 'Bomba la maji linavuja')\n"
-                . "2. Eleza chumba au eneo lenye tatizo\n"
-                . "3. Mwenye nyumba atapokea taarifa mara moja na kuteua fundi wa kulirekebisha.";
+            return "Panga Pangisha ni mfumo wa kisasa wa kidijitali nchini Tanzania unaokuunganisha moja kwa moja na wamiliki wa nyumba bila dalali (0% Dalali). Kila chumba kina mita yake ya LUKU, mikataba ya kidijitali, na ankara sahihi. Je, ungependa nikuelekeze jinsi ya kupata chumba au kusajili nyumba?";
         }
 
-        return "To submit a maintenance request:\n\n"
-            . "1. State the issue clearly (e.g. 'Electrical circuit breaker tripping')\n"
-            . "2. Specify the affected room or fixture\n"
-            . "3. Your landlord will be notified immediately to assign a service provider.";
+        return "Panga Pangisha is Tanzania's premier digital rental platform connecting tenants and landlords directly with 0% broker fees. Every room has its own private STS LUKU submeter, digital leases with dual e-signatures, and verified NAPA addressing. Would you like guidance on finding a room or listing a property?";
     }
 
-    private static function handleRegistrationGuidance(bool $isSw): string
+    /**
+     * Formats a retrieved knowledge section into a natural, user-friendly response.
+     */
+    protected static function formatKnowledgeResponse(array $entry, bool $isSw, string $query): string
     {
-        if ($isSw) {
-            return "Mwongozo wa Hatua 5 wa Kusajili Nyumba na Vyumba (Mwenye Nyumba):\n\n"
-                . "1. **Hatua ya 1: Taarifa za Msingi** — Jina la nyumba, aina (Apartment, Nyumba nzima, n.k.), na kama unapangisha nyumba nzima au vyumba binafsi.\n"
-                . "2. **Hatua ya 2: Eneo & Anwani ya NAPA** — Mkoa, Wilaya, Kata, Mtaa, na Msimbo wa Makazi (NAPA Code).\n"
-                . "3. **Hatua ya 3: Vyumba & Kodi** — Weka kila chumba/unit (Master Bedroom, Standard Room), kodi ya mwezi (TSh), na miezi ya kuanzia.\n"
-                . "4. **Hatua ya 4: Huduma** — Weka alama kwa huduma zilizopo: Maji (DAWASA), Umeme (LUKU), Paving, Uzio, Parking, na Ulinzi.\n"
-                . "5. **Hatua ya 5: Picha & Uthibitisho** — Pakia picha safi za mazingira ya nje na ndani ya kila chumba kwa ajili ya uhakiki.\n\n"
-                . "Kuanza, fungua 'Mwenye Nyumba' kisha gusa kitufe cha '+ Sajili Nyumba'.";
+        $domain = $entry['domain'] ?? '';
+        $lowQuery = mb_strtolower($query);
+
+        // A. Dalali / Broker fees questions
+        if (str_contains($lowQuery, 'dalali') || str_contains($lowQuery, 'broker') || str_contains($lowQuery, 'commission')) {
+            return $isSw
+                ? "Kwenye Panga Pangisha **hakuna ada ya dalali (0% Dalali)**! Mfumo unakuunganisha moja kwa moja na wamiliki halisi wa nyumba waliothibitishwa kupitia mfumo wa NIDA. Hakuna gharama za kuona nyumba (viewing fees), hakuna makato ya mwezi mmoja wa dalali, na unaweza kutuma ujumbe au ratiba ya kuona chumba moja kwa moja kupitia jukwaa letu."
+                : "At Panga Pangisha, there are strictly **0% broker fees (Zero Dalali)**! You connect and interact directly with verified property owners authenticated through NIDA. There are no viewing charges, no hidden middleman markups, and no one-month broker commission fees.";
         }
 
-        return "5-Step Landlord Property & Unit Registration Guide:\n\n"
-            . "1. **Step 1: Basic Information** — Property name, property type (House, Apartment, Studio), and rental model (Entire House vs Individual Units).\n"
-            . "2. **Step 2: Location & NAPA Code** — Region, District, Ward, Street, and physical addressing code.\n"
-            . "3. **Step 3: Units & Pricing** — Define each rentable unit (Master Room, Standard Room), set monthly rent in TZS, and advance deposit terms.\n"
-            . "4. **Step 4: Amenities** — Specify water, electricity meter (LUKU), parking, security, fencing, and furnishings.\n"
-            . "5. **Step 5: Photos & Verification** — Upload exterior and room-by-room photos for admin verification.\n\n"
-            . "To start, open your Landlord Dashboard and tap '+ Register Property'.";
+        // B. STS LUKU submeters
+        if (str_contains($lowQuery, 'luku') || str_contains($lowQuery, 'sts') || str_contains($lowQuery, 'umeme') || str_contains($lowQuery, 'meter') || str_contains($lowQuery, 'mita')) {
+            return $isSw
+                ? "Kila chumba au kitengo kwenye Panga Pangisha kina **mita yake binafsi ya STS LUKU iliyoidhinishwa** yenye keypad ndani ya chumba chako. Hii inamaanisha unanunua tokeni za umeme mwenyewe kupitia mitandao yote ya simu (M-Pesa, TigoPesa, AirtelMoney, HaloPesa) na kuingiza namba za umeme ndani ya chumba chako, hivyo kuondoa kabisa migogoro ya kuchangia bili za umeme na majirani."
+                : "Every individual room or rental unit on Panga Pangisha is equipped with its own certified **private STS LUKU prepaid submeter** with an in-room keypad. You purchase electricity tokens directly via your preferred mobile money provider (M-Pesa, TigoPesa, AirtelMoney, HaloPesa) and enter them directly inside your private room, eliminating utility billing disputes entirely.";
+        }
+
+        // C. Target Room workflow
+        if (str_contains($lowQuery, 'target room') || str_contains($lowQuery, 'chumba') || str_contains($lowQuery, 'compound')) {
+            return $isSw
+                ? "Mfumo wetu unatumia utaratibu wa **Chumba Maalum (Target Room)**: mpangaji anayetafuta chumba kimoja (kama Master Bedroom au Single Room) anaweza kukodi chumba hicho mahususi chenye kodi yake maalum na mita yake ya LUKU binafsi, huku akifurahia huduma zote za compound moja kwa moja kama vile ulinzi wa geti, hifadhi ya maji safi ya DAWASA, na nafasi ya maegesho ya gari."
+                : "Our platform supports the dedicated **Target Room** workflow: renters seeking an individual room (such as a Master Bedroom or Single Unit) can rent that exact target room with its own dedicated rent and private STS LUKU submeter, while having full verified access to compound amenities including security perimeter, backup DAWASA water storage, and parking.";
+        }
+
+        // D. Digital Rental Agreements & Signing
+        if (str_contains($lowQuery, 'mkataba') || str_contains($lowQuery, 'agreement') || str_contains($lowQuery, 'saini') || str_contains($lowQuery, 'sign')) {
+            return $isSw
+                ? "Mikataba ya upangaji kwenye Panga Pangisha ni ya kidijitali na inazingatia kikamilifu sheria za ardhi na makazi za Tanzania. Sheria yetu kuu ni **Saini ya Pande Zote Mbili (Dual Electronic Signatures)**: mkataba hauwezi kuanza kutumika (active) hadi mpangaji na mwenye nyumba wote wawili waweke saini zao rasmi za kidijitali. Unaweza kusoma vifungu, kukagua orodha ya vitu (move-in inventory), na kuuchapa (PDF/Print) wakati wowote."
+                : "Rental agreements on Panga Pangisha are digital legal leases tailored to Tanzanian tenancy standards. Our foundational rule is **Mandatory Dual E-Signatures**: an agreement only becomes active once both the tenant and the landlord have placed their electronic signatures. You can review terms, verify move-in inventory checklists, and print or download official PDF agreements anytime.";
+        }
+
+        // E. Invoices & Payments
+        if (str_contains($lowQuery, 'ankara') || str_contains($lowQuery, 'invoice') || str_contains($lowQuery, 'malipo') || str_contains($lowQuery, 'payment') || str_contains($lowQuery, 'lipa')) {
+            return $isSw
+                ? "Ankara zote za kodi zinazalishwa kwa mfumo rasmi wenye namba maalum ya kumbukumbu, kipindi cha pango, na salio sahihi. Malipo yanakubaliwa kupitia mitandao yote mikuu (M-Pesa, TigoPesa, AirtelMoney, HaloPesa) na Benki (kama NMB/CRDB Lipa Namba). Kila malipo yanayothibitishwa yanatolewa risiti rasmi ya kielektroniki papo hapo na kurekodiwa kwenye leja."
+                : "All rent invoices are tracked with official unique invoice numbers, billing periods, due dates, and verified ledger balances. Payments are supported through mobile money (M-Pesa, TigoPesa, AirtelMoney, HaloPesa) and bank channels (NMB & CRDB Lipa Namba), instantly generating verified digital receipts upon payment.";
+        }
+
+        // F. Hotel & Accommodation Stays
+        if (str_contains($lowQuery, 'hotel') || str_contains($lowQuery, 'hoteli') || str_contains($lowQuery, 'lodge') || str_contains($lowQuery, 'resort')) {
+            return $isSw
+                ? "Unaweza kugundua vyumba vya hoteli za kipekee, lodge, na fleti za mapumziko moja kwa moja kwenye ukurasa wetu wa **Gundua (Explore)**. Unaweza kuona picha halisi, huduma zilizopo, na bei kwa usiku, kisha kuwasiliana na mwenyeji moja kwa moja. Tafadhali kumbuka kuwa mfumo wa kiotomatiki wa booking ya hoteli (Hotel PMS Booking Engine) uko kwenye mpango wa maboresho ya baadaye (Roadmap)."
+                : "You can discover boutique hotel rooms, lodge stays, and serviced apartments in our **Explore** feed. You can inspect verified high-resolution photos, nightly prices, and amenities, and contact accommodation hosts directly. Note that an operational hotel PMS automated room checkout engine is currently planned on our upcoming product roadmap.";
+        }
+
+        // Return clean formatted content without arbitrary character truncation
+        $cleanContent = trim(preg_replace('/^##\s+.*\n/', '', $entry['content']));
+        return $cleanContent;
     }
 
+    /**
+     * Determines whether text is predominantly Kiswahili or English.
+     */
     public static function detectSwahili(string $text): bool
     {
         $swahiliWords = [
@@ -273,6 +179,8 @@ class VeyoraKnowledgeEngine
             'vyumba', 'panga', 'mkataba', 'mpangaji', 'mwenye', 'shikamoo', 'tafuta',
             'pesa', 'malipo', 'maji', 'umeme', 'wapi', 'ngapi', 'ndiyo', 'hapana',
             'tafadhali', 'sawa', 'asante', 'leo', 'kesho', 'nini', 'nani', 'yangu',
+            'zangu', 'wangu', 'mwenyeji', 'fundi', 'kazi', 'kufanya', 'hapa', 'gani',
+            'naomba', 'msaada', 'saini', 'ankara', 'luku', 'dawasa',
         ];
 
         $lower = mb_strtolower($text);

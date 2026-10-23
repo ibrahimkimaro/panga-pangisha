@@ -1115,6 +1115,210 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     }
   }
 
+  Future<void> _editPropertySheet() async {
+    final nameCtrl = TextEditingController(text: h.name);
+    final typeCtrl = TextEditingController(text: h.type);
+    final regionCtrl = TextEditingController(text: h.region);
+    final districtCtrl = TextEditingController(text: h.district);
+    final wardCtrl = TextEditingController(text: h.ward);
+    final streetCtrl = TextEditingController(text: h.street);
+    final rentCtrl = TextEditingController(text: h.rent.round().toString());
+    final bedsCtrl = TextEditingController(text: h.bedrooms.toString());
+    final bathsCtrl = TextEditingController(text: h.bathrooms.toString());
+    final descCtrl = TextEditingController(text: h.description);
+
+    await sheet(
+      context,
+      StatefulBuilder(
+        builder: (ctx, setModalState) {
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      t('Edit Property & Location', 'Hariri Nyumba na Eneo'),
+                      style: display(18, weight: FontWeight.w800),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(t('Property Name', 'Jina la Nyumba'), style: body(12, color: C.muted)),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: nameCtrl,
+                  style: body(14.5),
+                  decoration: InputDecoration(
+                    hintText: t('e.g. Mikocheni Garden Compound', 'mf. Mikocheni Garden Compound'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t('Property Type', 'Aina ya Nyumba'), style: body(12, color: C.muted)),
+                          const SizedBox(height: 4),
+                          TextField(
+                            controller: typeCtrl,
+                            style: body(14),
+                            decoration: InputDecoration(hintText: t('e.g. House, Villa', 'mf. Nyumba')),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t('Monthly Rent (TZS)', 'Kodi kwa Mwezi'), style: body(12, color: C.muted)),
+                          const SizedBox(height: 4),
+                          TextField(
+                            controller: rentCtrl,
+                            keyboardType: TextInputType.number,
+                            style: body(14),
+                            decoration: const InputDecoration(prefixText: 'TSh '),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(t('Location (Mkoa & Wilaya)', 'Eneo (Mkoa na Wilaya)'), style: body(12, color: C.muted)),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: regionCtrl,
+                        style: body(14),
+                        decoration: InputDecoration(hintText: t('Region e.g. Dar es Salaam', 'Mkoa')),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: districtCtrl,
+                        style: body(14),
+                        decoration: InputDecoration(hintText: t('District e.g. Kinondoni', 'Wilaya')),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(t('Ward & Street (Kata na Mtaa)', 'Kata na Mtaa'), style: body(12, color: C.muted)),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: wardCtrl,
+                        style: body(14),
+                        decoration: InputDecoration(hintText: t('Ward e.g. Mikocheni', 'Kata')),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: streetCtrl,
+                        style: body(14),
+                        decoration: InputDecoration(hintText: t('Street e.g. Chwaka Rd', 'Mtaa')),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t('Bedrooms', 'Vyumba vya Kulala'), style: body(12, color: C.muted)),
+                          const SizedBox(height: 4),
+                          TextField(
+                            controller: bedsCtrl,
+                            keyboardType: TextInputType.number,
+                            style: body(14),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t('Bathrooms', 'Bafu'), style: body(12, color: C.muted)),
+                          const SizedBox(height: 4),
+                          TextField(
+                            controller: bathsCtrl,
+                            keyboardType: TextInputType.number,
+                            style: body(14),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(t('Description & Compound Amenities', 'Maelezo na Huduma'), style: body(12, color: C.muted)),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: descCtrl,
+                  maxLines: 3,
+                  style: body(13.5),
+                  decoration: InputDecoration(
+                    hintText: t('Describe compound security, water supply, STS meters, etc.', 'Eleza ulinzi, maji, mita za luku n.k.'),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Button(
+                        t('Save Changes', 'Hifadhi Mabadiliko'),
+                        onTap: () async {
+                          final rent = double.tryParse(rentCtrl.text) ?? h.rent;
+                          final beds = int.tryParse(bedsCtrl.text) ?? h.bedrooms;
+                          final baths = int.tryParse(bathsCtrl.text) ?? h.bathrooms;
+                          Navigator.pop(ctx);
+                          await _change({
+                            'property_name': nameCtrl.text.trim(),
+                            'property_type': typeCtrl.text.trim(),
+                            'region': regionCtrl.text.trim(),
+                            'district': districtCtrl.text.trim(),
+                            'ward': wardCtrl.text.trim(),
+                            'street': streetCtrl.text.trim(),
+                            'monthly_rent': rent,
+                            'bedrooms': beds,
+                            'bathrooms': baths,
+                            'description': descCtrl.text.trim(),
+                          }, t('Property details and location updated.', 'Taarifa za nyumba na eneo zimesasishwa.'));
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   void _manage() {
     final open = h.status == 'available', locked = h.status == 'suspended';
     Widget row(IconData icon, String title, String hint, VoidCallback onTap, {Color? color}) => ListTile(
@@ -1164,6 +1368,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                   : _change({'status': 'available', 'confirm_available': true}, t('Your property is back in search.', 'Nyumba yako imerudi kwenye utafutaji.')),
             ),
           if (!locked) row(Icons.payments_outlined, t('Change the rent', 'Badili kodi'), tzs(h.rent), _changeRent),
+          if (!locked)
+            row(
+              Icons.edit_location_alt_outlined,
+              t('Edit property & location', 'Hariri nyumba na eneo'),
+              t('Change title, region, district, ward, rent & specs', 'Badili jina, mkoa, wilaya, kata, kodi na vipengele'),
+              _editPropertySheet,
+            ),
           row(Icons.delete_outline_rounded, t('Delete property', 'Futa nyumba'), t('Removes it for good', 'Inaiondoa kabisa'), _delete, color: C.hibiscus),
         ],
       ),
@@ -1347,6 +1558,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                   const Spacer(),
                   if (h.lat != null && h.lng != null)
                     RoundIcon(Icons.map_outlined, label: t('See it on the map', 'Ione kwenye ramani'), onTap: () => push(context, PropertiesMapScreen([h]))),
+                  const SizedBox(width: 8),
+                  RoundIcon(Icons.edit_location_alt_outlined, label: t('Edit property & location', 'Hariri nyumba na eneo'), onTap: _editPropertySheet),
                   const SizedBox(width: 8),
                   RoundIcon(Icons.tune_rounded, label: t('Manage property', 'Simamia nyumba'), onTap: _manage),
                 ],

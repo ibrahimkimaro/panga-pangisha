@@ -1566,6 +1566,7 @@ class _RentPaymentsScreenState extends State<RentPaymentsScreen> {
     return _Page(
       title: t('Rent payments', 'Malipo ya kodi'),
       sub: DateFormat('MMMM y', lang.value).format(DateTime.now()),
+      actions: const [LangSwitch()],
       button: Button(t('Record payment', 'Rekodi malipo'), icon: Icons.add_rounded, onTap: _record),
       child: Column(
         children: [

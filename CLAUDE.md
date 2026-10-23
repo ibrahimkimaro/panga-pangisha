@@ -17,7 +17,7 @@ guide (identity checks, rentals, chat, notifications, appearance); read the rele
 
 ## Commands
 ```bash
-# Backend (Postgres + Laravel on :8100 + Phoenix on :4100 + Vite dev server on :5173)
+# Backend (Postgres + Laravel on :8100 + Phoenix on :4100 + Vite dev server on :5172)
 cd backend && docker compose up -d --build
 docker compose exec api php artisan db:seed --force            # demo data, all passwords demo1234:
 #   owner@demo.test, agent@demo.test, tenant@demo.test, newowner@demo.test (landlord awaiting identity approval)

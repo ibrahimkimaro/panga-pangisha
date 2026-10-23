@@ -15,10 +15,10 @@ export default defineConfig({
     ],
     resolve: { alias: { '@': '/resources/js' } },
     server: {
-        host: '0.0.0.0', // reachable from outside the dev container
-        port: 5173,
+        host: '0.0.0.0', // reachable from outside the dev container and local network
+        port: 5172,
         strictPort: true,
-        hmr: { host: 'localhost' }, // what the browser connects back to
+        cors: true,
         watch: { ignored: ['**/storage/**', '**/vendor/**'] },
     },
 });

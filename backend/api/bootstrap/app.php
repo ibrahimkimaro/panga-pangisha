@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(at: '*');
         // The website (landing page + admin panel) is the `web` group; the mobile API is `api`.
         $middleware->web(append: [\App\Http\Middleware\HandleInertiaRequests::class]);
         $middleware->validateCsrfTokens(except: ['login', 'logout', 'landlord/*', 'tenant/*', 'api/*', 'mcp/*']);

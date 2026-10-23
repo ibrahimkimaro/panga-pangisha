@@ -82,21 +82,27 @@ class VeyoraOrchestrator
      *     tools_invoked: array<string>
      * }
      */
-    public function handle(User $user, string $message, ?string $conversationId = null, array $context = []): array
+    public function handle(?User $user, string $message, ?string $conversationId = null, array $context = []): array
     {
         $start = microtime(true);
         $messageText = trim($message);
 
-        // 1. Authorize user session for Laravel and MCP tool execution
-        auth()->setUser($user);
+        // 1. Authorize user session for Laravel and MCP tool execution if authenticated
+        if ($user) {
+            auth()->setUser($user);
+        } else {
+            auth()->forgetUser();
+        }
 
-        // 2. Prepare VeyoraAssistant with authenticated user, screen context, and thread
-        $assistant = (new VeyoraAssistant)->withContext($user, $context);
+        // 2. Prepare VeyoraAssistant with user, screen context, thread, and query
+        $assistant = (new VeyoraAssistant)->withContext($user, $context, $messageText);
         if ($conversationId !== null) {
             $assistant->continue($conversationId, $user);
             $convId = $conversationId;
         } else {
-            $assistant->forUser($user);
+            if ($user) {
+                $assistant->forUser($user);
+            }
             $convId = null;
         }
 
@@ -202,7 +208,7 @@ class VeyoraOrchestrator
      *
      * @return array{route: string, confidence: float, metadata: array}
      */
-    public function classifyIntent(User $user, string $text, array $context = [], array $recentHistory = []): array
+    public function classifyIntent(?User $user, string $text, array $context = [], array $recentHistory = []): array
     {
         $normalized = mb_strtolower(trim($text));
         $clean = preg_replace('/[?!.,;:]/', '', $normalized);
@@ -284,10 +290,10 @@ class VeyoraOrchestrator
     /**
      * Handle Direct Greeting (0 MCP calls, 0 DB calls).
      */
-    protected function handleDirectGreeting(User $user, string $text, array $recentHistory = []): string
+    protected function handleDirectGreeting(?User $user, string $text, array $recentHistory = []): string
     {
         $isSw = VeyoraKnowledgeEngine::detectSwahili($text);
-        $firstName = explode(' ', trim($user->fullname ?? ''))[0];
+        $firstName = $user ? explode(' ', trim($user->fullname ?? ''))[0] : null;
 
         // If this conversation already has prior messages, avoid repeating the initial introductory monologue
         if (! empty($recentHistory)) {
@@ -301,18 +307,18 @@ class VeyoraOrchestrator
         }
 
         if ($isSw) {
-            $nameGreeting = $firstName ? "Habari {$firstName}! 😊" : "Habari! 😊";
-            return "{$nameGreeting} Karibu sana! Unaendeleaje leo? Niko hapa kwa ajili yako—iwe unataka tuzungumzie nyumba, mkataba, au ushauri wowote. Nikusaidie nini leo?";
+            $nameGreeting = $firstName ? "Habari {$firstName}! 😊" : "Habari na karibu Panga Pangisha! 😊";
+            return "{$nameGreeting} Karibu sana! Unaendeleaje leo? Niko hapa kwa ajili yako—iwe unataka tuzungumzie vyumba, nyumba, mikataba, au ushauri wowote. Nikusaidie nini leo?";
         }
 
-        $nameGreeting = $firstName ? "Hey {$firstName}! 😊" : "Hey! 😊";
+        $nameGreeting = $firstName ? "Hey {$firstName}! 😊" : "Hello and welcome to Panga Pangisha! 😊";
         return "{$nameGreeting} Good to connect with you. How's your day going? What's on your mind today?";
     }
 
     /**
      * Handle Direct Casual / Pleasantries (0 MCP calls, 0 DB calls).
      */
-    protected function handleDirectCasual(User $user, string $text): string
+    protected function handleDirectCasual(?User $user, string $text): string
     {
         $isSw = VeyoraKnowledgeEngine::detectSwahili($text);
         $clean = mb_strtolower(trim($text));
@@ -338,14 +344,14 @@ class VeyoraOrchestrator
      * Handle User Identity queries ("Do you know who I am?").
      * Uses authorized session context honestly without claiming details not available.
      */
-    protected function handleUserIdentity(User $user, string $text): string
+    protected function handleUserIdentity(?User $user, string $text): string
     {
         $isSw = VeyoraKnowledgeEngine::detectSwahili($text);
-        $fullName = trim($user->fullname ?? '');
+        $fullName = $user ? trim($user->fullname ?? '') : '';
 
-        if ($fullName === '' || ! $user->exists) {
+        if (! $user || $fullName === '' || ! $user->exists) {
             return $isSw
-                ? "Kwa sasa unatumia mfumo kama mgeni, hivyo sina taarifa za akaunti yako. Ukijisajili au kuingia kwenye akaunti yako, nitaweza kukusaidia kulingana na wasifu wako!"
+                ? "Kwa sasa unatumia mfumo kama mgeni (guest), hivyo sina taarifa za akaunti yako. Ukijisajili au kuingia kwenye akaunti yako, nitaweza kukusaidia kulingana na wasifu wako!"
                 : "You're currently chatting as a guest, so I don't have your account details on file. Feel free to log in so I can assist you with your specific properties and tenancies!";
         }
 
@@ -362,7 +368,7 @@ class VeyoraOrchestrator
     /**
      * Handle Ambiguous requests needing clarification.
      */
-    protected function handleClarification(User $user, string $text, array $metadata = [], array $recentHistory = []): string
+    protected function handleClarification(?User $user, string $text, array $metadata = [], array $recentHistory = []): string
     {
         $isSw = VeyoraKnowledgeEngine::detectSwahili($text);
         $type = $metadata['clarification_type'] ?? 'mutation';
@@ -391,7 +397,7 @@ class VeyoraOrchestrator
     /**
      * Handle prompt-injection attempts.
      */
-    protected function handleInjectionDefense(User $user, string $text): string
+    protected function handleInjectionDefense(?User $user, string $text): string
     {
         $isSw = VeyoraKnowledgeEngine::detectSwahili($text);
 
@@ -405,9 +411,15 @@ class VeyoraOrchestrator
     /**
      * Handle User Memory retrieval (strictly isolated to authenticated user).
      */
-    protected function handleUserMemory(User $user, string $text, string $convId): string
+    protected function handleUserMemory(?User $user, string $text, string $convId): string
     {
         $isSw = VeyoraKnowledgeEngine::detectSwahili($text);
+        if (! $user) {
+            return $isSw
+                ? "Wewe uko kama mgeni (guest) kwa sasa, hivyo hakuna kumbukumbu za awali za akaunti zilizohifadhiwa."
+                : "You are currently visiting as a guest, so there are no saved account memories from past sessions.";
+        }
+
         $memory = VeyoraMemoryManager::recallRelevantMemory($user, $text, $convId);
 
         if (! $memory['found']) {
@@ -426,7 +438,7 @@ class VeyoraOrchestrator
     /**
      * Handle Curated Knowledge retrieval (direct answers from knowledge, 0 MCP tool calls).
      */
-    protected function handleCuratedKnowledge(User $user, string $text, array $context, array &$usage): string
+    protected function handleCuratedKnowledge(?User $user, string $text, array $context, array &$usage): string
     {
         $results = VeyoraKnowledgeRetriever::retrieve($text, limit: 2);
 
@@ -454,19 +466,19 @@ class VeyoraOrchestrator
      *
      * @return array{response: string, tools_invoked: array<string>, usage: array{input_tokens: int, output_tokens: int}, route: string}
      */
-    protected function handleLlmWithTools(User $user, string $text, string $convId, array $context, array $recentHistory = []): array
+    protected function handleLlmWithTools(?User $user, string $text, string $convId, array $context, array $recentHistory = []): array
     {
         $normalized = mb_strtolower(trim($text));
         $isUnitsRequest = preg_match('/(all (my )?rental units|all (my )?units|show (me )?(all )?(my )?units|vyumba vyangu vyote|orodha ya vyumba)/i', $normalized);
 
-        $assistant = (new VeyoraAssistant)->withContext($user, $context);
+        $assistant = (new VeyoraAssistant)->withContext($user, $context, $text);
         $assistant->continue($convId, $user);
 
         try {
             $response = $this->gateway->ask($user, 'veyora_assistant', $assistant, $text);
 
             return [
-                'response' => $response->text,
+                'response' => (string) ($response->text ?? ''),
                 'tools_invoked' => $assistant->invokedTools ?? ($isUnitsRequest ? ['list_rental_units'] : []),
                 'usage' => [
                     'input_tokens' => $response->usage?->inputTokens ?? 0,
@@ -475,28 +487,7 @@ class VeyoraOrchestrator
                 'route' => self::ROUTE_LIVE_DATA_TOOL,
             ];
         } catch (Throwable $e) {
-            // If the user requested their rental units and gateway is unavailable, execute authorized tool directly
-            if ($isUnitsRequest && ($user->role === 'landlord' || $user->role === 'admin')) {
-                auth()->setUser($user);
-                $tool = new \App\Mcp\Tools\Property\ListRentalUnitsTool();
-                $mcpReq = new \Laravel\Mcp\Request();
-                $res = $tool->handle($mcpReq);
-                $data = json_decode((string) $res->content(), true);
-
-                $unitCount = $data['count'] ?? 0;
-                $reply = $unitCount > 0
-                    ? "Here are your {$unitCount} registered rental unit(s) across your properties:"
-                    : "You currently don't have any rental units registered under your properties. Would you like to add one?";
-
-                return [
-                    'response' => $reply,
-                    'tools_invoked' => ['list_rental_units'],
-                    'usage' => ['input_tokens' => 0, 'output_tokens' => 0],
-                    'route' => self::ROUTE_LIVE_DATA_TOOL,
-                ];
-            }
-
-            // Resilient Fallback: Never crash on timeout or provider quota block
+            // Give room to model domain knowledge rather than rigid MCP direct answers
             $fallback = VeyoraKnowledgeEngine::answerWithKnowledge($user, $text, $context, $recentHistory);
 
             return [
@@ -511,27 +502,33 @@ class VeyoraOrchestrator
     /**
      * Handle graceful, honest fallback when AI provider or network is unavailable.
      */
-    protected function handleGracefulFallback(User $user, string $text, Throwable $e): string
+    protected function handleGracefulFallback(?User $user, string $text, Throwable $e): string
     {
         $isSw = VeyoraKnowledgeEngine::detectSwahili($text);
-        $firstName = explode(' ', trim($user->fullname ?? 'Rafiki'))[0];
+        $firstName = $user ? explode(' ', trim($user->fullname ?? 'Rafiki'))[0] : null;
 
-        if ($isSw) {
-            return "Samahani {$firstName}, siwezi kuunganishwa na mfumo wa AI kwa sasa ili kuchakata ujumbe wako. Tafadhali jaribu tena baada ya muda mfupi au wasiliana na huduma kwa wateja kwa msaada.";
+        if ($firstName) {
+            if ($isSw) {
+                return "Samahani {$firstName}, siwezi kuunganishwa na mfumo wa AI kwa sasa ili kuchakata ujumbe wako. Tafadhali jaribu tena baada ya muda mfupi au wasiliana na huduma kwa wateja kwa msaada.";
+            }
+
+            return "I'm temporarily unable to connect to the AI model to process your request right now. Please try again shortly, or reach out to customer support if you need immediate assistance.";
         }
 
-        return "I'm temporarily unable to connect to the AI model to process your request right now. Please try again shortly, or reach out to customer support if you need immediate assistance.";
+        return $isSw
+            ? "Samahani, siwezi kuunganishwa na mfumo wa AI kwa sasa. Tafadhali jaribu tena baada ya muda mfupi au wasiliana nasi kwa WhatsApp."
+            : "I'm temporarily unable to connect to the AI model right now. Please try again shortly, or connect with our support team on WhatsApp.";
     }
 
     /**
      * Record fallback message pair when AI model failed before writing conversation turn.
      */
-    protected function recordFallbackTurn(string $convId, User $user, string $userText, string $fallbackReply): void
+    protected function recordFallbackTurn(string $convId, ?User $user, string $userText, string $fallbackReply): void
     {
         try {
             $now = now();
-            $partType = Conversation::participantType($user);
-            $partId = $user->id;
+            $partType = $user ? Conversation::participantType($user) : null;
+            $partId = $user?->id;
 
             Conversation::firstOrCreate(
                 ['id' => $convId],
@@ -587,7 +584,7 @@ class VeyoraOrchestrator
      * Never re-invokes tools based on keyword regexes.
      */
     protected function resolvePresentationFromExecution(
-        User $user,
+        ?User $user,
         string $text,
         string $replyText,
         array $toolsInvoked,
@@ -1009,7 +1006,7 @@ class VeyoraOrchestrator
      * Legacy proxy for backward compatibility.
      */
     protected function resolvePresentation(
-        User $user,
+        ?User $user,
         string $text,
         string $route,
         array $toolsInvoked,
@@ -1022,7 +1019,7 @@ class VeyoraOrchestrator
     /**
      * Legacy proxy for backward compatibility.
      */
-    protected function recordMessagePair(string $convId, User $user, string $userText, string $assistantReply): void
+    protected function recordMessagePair(string $convId, ?User $user, string $userText, string $assistantReply): void
     {
         $this->recordFallbackTurn($convId, $user, $userText, $assistantReply);
     }

@@ -10,7 +10,7 @@ services:
     image: node:22-alpine
     working_dir: /app
     command: sh -c "npm install --no-audit --no-fund && npm run dev"
-    ports: ["5173:5173"]
+    ports: ["5172:5172"]
     volumes:
       - ./api:/app
       - node_modules:/app/node_modules # the container's own install, separate from the one on your machine

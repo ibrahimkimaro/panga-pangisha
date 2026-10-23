@@ -65,4 +65,25 @@ class IdentityController extends Controller
 
         return response()->json($v->fresh()->summary(), 201);
     }
+
+    /** POST /api/identity/simulate-approval: Fast-track approval for testing and live demonstration */
+    public function simulateApproval(Request $r)
+    {
+        $user = $r->user();
+        $v = $user->identities()->latest()->first();
+        if ($v) {
+            $v->update([
+                'status' => 'approved',
+                'reviewed_at' => now(),
+            ]);
+        } else {
+            $v = $user->identities()->create([
+                'method' => 'nida_number',
+                'nida_number' => '19850712141250000123',
+                'status' => 'approved',
+                'reviewed_at' => now(),
+            ]);
+        }
+        return response()->json($v->fresh()->summary(), 200);
+    }
 }

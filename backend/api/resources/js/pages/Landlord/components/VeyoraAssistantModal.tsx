@@ -18,7 +18,7 @@ export default function VeyoraAssistantModal({
     const [messages, setMessages] = useState<Array<{ sender: 'ai' | 'user'; text: string; time: string }>>([
         {
             sender: 'ai',
-            text: `Habari ${landlordName}! 👋 I am Veyora, your dedicated real estate AI assistant. I can help analyze your rent collections, draft custom tenancy agreement clauses, check Tanzanian residential tenancy regulations, or generate property marketplace copy. How can I assist you?`,
+            text: `Habari ${landlordName}! I am Veyora, your dedicated real estate AI assistant. I can help analyze your rent collections, draft custom tenancy agreement clauses, check Tanzanian residential tenancy regulations, or generate property marketplace copy. How can I assist you?`,
             time: 'Just now',
         },
     ]);

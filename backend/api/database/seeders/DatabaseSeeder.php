@@ -59,6 +59,10 @@ class DatabaseSeeder extends Seeder
                 'Three bedrooms over two floors in a gated row of eight houses.'],
             [$neema, 'Garden cottage, Kinondoni Makumbusho', 'House', 'Kinondoni', 'Makumbusho', 'Kajenge Road', -6.7799, 39.2412, 2, 1, 600000, 3, ['Water', 'Parking', 'Fence', 'Garden'], 1, [10, 7], 15, 6,
                 'Detached two-bedroom cottage behind the main house, with its own gate and meter.'],
+            [$neema, 'Executive residence near harbor, Kurasini', 'House', 'Temeke', 'Kurasini', 'Kilwa Road', -6.8480, 39.2820, 4, 3, 1800000, 3, ['Water', 'Parking', 'Security', 'Fence', 'Generator', 'AC'], 4, [9, 10], 10, 1,
+                'Four-bedroom gated home near the harbor and port area in Kurasini, Temeke. Standby power, private STS submeters, and space for four cars.'],
+            [$juma, 'Modern two-bedroom flat, Chang\'ombe', 'Apartment', 'Temeke', 'Chang\'ombe', 'Mandela Road', -6.8410, 39.2630, 2, 2, 650000, 3, ['Water', 'Parking', 'Security', 'Tiles', 'LUKU'], 6, [7, 8], 14, 2,
+                'Bright apartment in Chang\'ombe, Temeke district. Autonomous electricity and water meters, close to National Stadium and Mandela Road.'],
         ];
 
         foreach ($rows as $i => [$owner, $name, $type, $district, $ward, $street, $lat, $lng, $beds, $baths, $rent, $dep, $amen, $cover, $gallery, $verified, $confirmed, $desc]) {

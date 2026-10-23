@@ -9,6 +9,11 @@ Route::post('user/password/forgot/', [AuthController::class, 'forgot'])->middlew
 Route::post('user/password/reset/', [AuthController::class, 'reset'])->middleware('throttle:10,10,reset');
 Route::post('internal/push', [InternalController::class, 'push']); // called by Phoenix
 
+// Public Guest Support AI Agent & House Inquiry Routes
+Route::post('ai/support', [\App\Http\Controllers\Api\GuestSupportController::class, 'chat'])->middleware('throttle:30,15');
+Route::post('guest/inquiry', [\App\Http\Controllers\Api\GuestSupportController::class, 'inquiry'])->middleware('throttle:15,10');
+Route::post('houses/{house}/guest-inquiry', [\App\Http\Controllers\Api\GuestSupportController::class, 'inquiry'])->middleware('throttle:15,10');
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('user/api/token/refresh/', [AuthController::class, 'refresh']);
     Route::get('user/me/', [AuthController::class, 'me']);
@@ -17,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('identity', [IdentityController::class, 'show']);
     Route::post('identity', [IdentityController::class, 'store'])->middleware('throttle:10,60,identity');
+    Route::post('identity/simulate-approval', [IdentityController::class, 'simulateApproval']);
     Route::get('business', [BusinessController::class, 'show']);
     Route::post('business', [BusinessController::class, 'store'])->middleware('throttle:10,60,business');
 

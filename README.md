@@ -39,7 +39,7 @@ They live inside the Laravel backend, so there is one engine and one set of mode
   palette in `resources/css/app.css` (same colours and fonts as the app).
 - Server side: `routes/web.php`, `app/Http/Controllers/Admin/`, `app/Http/Middleware/EnsureAdmin.php`.
 - Saving a file shows up at once: `docker compose up -d` also loads `docker-compose.override.yml`, which runs the
-  backend from your working copy and starts a Vite dev server (port 5173) that hot-reloads pages and CSS.
+  backend from your working copy and starts a Vite dev server (port 5172) that hot-reloads pages and CSS.
   Check types with `cd backend/api && npm run typecheck`.
 - After `composer require` or a new migration, restart with `docker compose up -d --force-recreate api`.
 - Production-style run of the baked image, without the dev server: `docker compose -f docker-compose.yml up -d --build`.

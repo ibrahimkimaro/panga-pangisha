@@ -17,6 +17,7 @@ import 'rentals.dart';
 import 'utilities_coming_soon.dart';
 import '../profile.dart';
 import '../veyora_assistant.dart';
+import 'favorites_screen.dart';
 
 /// Screen 10: Landlord Dashboard
 class LandlordDashboardScreen extends StatefulWidget {
@@ -766,6 +767,32 @@ class LandlordDashboardHomeViewState extends State<LandlordDashboardHomeView> wi
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              // Favorite Button (Heart) - Opens Favorites Details Screen
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  push(context, const FavoritesScreen());
+                },
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.favorite_rounded,
+                      color: Color(0xFFEF4444),
+                      size: 19,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const LangSwitch(dark: false),
             ],
           ),
           const SizedBox(height: 12),

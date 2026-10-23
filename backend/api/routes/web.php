@@ -5,10 +5,10 @@ use App\Models\House;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// Public landing page. Location is ward-level only, as in the app.
+// Public landing page with rich destination filtering
 Route::get('/', fn () => Inertia::render('Home', [
-    'homes' => House::live()->orderByRaw('verified_at is null')->latest()->limit(6)->get([
-        'id', 'property_name', 'property_type', 'district', 'ward', 'bedrooms', 'bathrooms', 'monthly_rent',
+    'homes' => House::live()->orderByRaw('verified_at is null')->latest()->limit(50)->get([
+        'id', 'property_name', 'property_type', 'region', 'district', 'ward', 'bedrooms', 'bathrooms', 'monthly_rent',
         'cover_image', 'advertiser_role', 'verified_at', 'availability_confirmed_at',
     ]),
     'stats' => ['homes' => House::live()->count(), 'districts' => House::live()->distinct()->count('district')],

@@ -8,7 +8,7 @@ COPY resources ./resources
 RUN npm run build
 
 # Stage 2: the one Laravel app: mobile API under /api, website under / and /admin.
-FROM php:8.4-cli
+FROM php:8.4.27-cli
 RUN apt-get update && apt-get install -y --no-install-recommends git unzip libpq-dev libzip-dev libpng-dev libjpeg-dev \
  && docker-php-ext-configure gd --with-jpeg && docker-php-ext-install pdo_pgsql zip gd pcntl \
  && rm -rf /var/lib/apt/lists/*

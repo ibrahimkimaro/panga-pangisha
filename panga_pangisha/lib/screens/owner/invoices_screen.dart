@@ -340,6 +340,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
       appBar: AppBar(
         title: Text(t('Rental Invoices', 'Ankara za Kodi')),
         actions: [
+          const LangSwitch(),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: t('Refresh', 'Sasisha'),
@@ -800,6 +801,7 @@ Asante kwa ushirikiano wako.
       appBar: AppBar(
         title: Text(t('Invoice Details', 'Maelezo ya Ankara')),
         actions: [
+          const LangSwitch(),
           IconButton(
             icon: const Icon(Icons.print_outlined),
             tooltip: t('Print / Download PDF', 'Pakua PDF'),
@@ -1252,6 +1254,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       backgroundColor: C.chokaa,
       appBar: AppBar(
         title: Text(t('Create Rental Invoice', 'Tengeneza Ankara ya Kodi')),
+        actions: const [LangSwitch()],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
@@ -1514,6 +1517,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
       backgroundColor: C.chokaa,
       appBar: AppBar(
         title: Text(t('Record Payment', 'Rekodi Malipo')),
+        actions: const [LangSwitch()],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

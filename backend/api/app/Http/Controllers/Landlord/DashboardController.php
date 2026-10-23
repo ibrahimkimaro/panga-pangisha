@@ -96,7 +96,14 @@ class DashboardController extends Controller
             return [
                 'id' => $h->id,
                 'name' => $h->property_name ?: "House " . ($idx + 1),
-                'location' => implode(', ', array_filter([$h->ward, $h->district, 'Dar es Salaam'])) ?: 'Kinondoni, Dar es Salaam',
+                'location' => implode(', ', array_filter([$h->ward, $h->district, $h->region ?: 'Dar es Salaam'])) ?: 'Kinondoni, Dar es Salaam',
+                'region' => $h->region ?: 'Dar es Salaam',
+                'district' => $h->district ?: 'Kinondoni',
+                'ward' => $h->ward ?: 'Mikocheni',
+                'street' => $h->street ?: 'Chwaka Road',
+                'bedrooms' => $h->bedrooms ?: $unitsCount,
+                'bathrooms' => $h->bathrooms ?: 2,
+                'description' => $h->description ?: '',
                 'type' => $h->property_type ?: 'House',
                 'total_units' => $unitsCount,
                 'occupied_units' => $occupiedCount,
@@ -105,7 +112,18 @@ class DashboardController extends Controller
                 'status_color' => $vacantCount === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700',
                 'monthly_rent' => (float) $h->monthly_rent ?: 450000,
                 'cover_image' => $h->cover_image ? (str_starts_with($h->cover_image, 'http') || str_starts_with($h->cover_image, '/storage/') ? $h->cover_image : "/storage/{$h->cover_image}") : ($defaultImages[$idx % 4]),
-                'specs' => "{$unitsCount} Rooms • 1 Unit",
+                'specs' => "{$unitsCount} Rooms • " . ($h->bathrooms ?: 2) . " Baths • STS Submeters",
+                'units' => $h->units->map(function ($u, $uIdx) use ($idx) {
+                    return [
+                        'id' => $u->id,
+                        'unit_number' => $u->unit_number ?: "Room " . ($uIdx + 1),
+                        'unit_type' => $u->unit_type ?: ($uIdx === 0 ? 'Master Suite' : 'Standard Room'),
+                        'monthly_rent' => (float) ($u->monthly_rent ?: (350000 + ($uIdx * 50000))),
+                        'status' => $u->status ?: ($uIdx === 1 ? 'vacant' : 'occupied'),
+                        'description' => $u->description ?: 'Private bedroom with STS LUKU submeter & ceiling fan.',
+                        'payment_terms' => $u->payment_terms ?: '4 months advance',
+                    ];
+                })->values(),
             ];
         })->values();
 
@@ -239,6 +257,64 @@ class DashboardController extends Controller
             ],
         ];
 
+        // 9. Guest Inquiries & Viewing Requests for Landlord's Houses
+        $inquiriesData = \App\Models\ViewingRequest::whereIn('house_id', $houses->pluck('id'))
+            ->with(['house', 'user'])
+            ->latest()
+            ->limit(15)
+            ->get()
+            ->map(function ($v) {
+                return [
+                    'id' => $v->id,
+                    'guest_name' => $v->user?->fullname ?: 'Guest Visitor',
+                    'guest_phone' => $v->user?->phone ?: '+255712000000',
+                    'house_name' => $v->house?->property_name ?: 'Compound Unit',
+                    'house_id' => $v->house_id,
+                    'preferred_at' => $v->preferred_at?->format('M d, Y - h:i A') ?: 'Tomorrow 10:00 AM',
+                    'note' => $v->note ?: 'Visitor interested in viewing available rooms.',
+                    'status' => $v->status ?: 'pending',
+                    'created_at' => $v->created_at?->diffForHumans() ?: 'Just now',
+                ];
+            })->values();
+
+        if ($inquiriesData->isEmpty()) {
+            $inquiriesData = collect([
+                [
+                    'id' => 101,
+                    'guest_name' => 'Amina Bakari',
+                    'guest_phone' => '+255714892100',
+                    'house_name' => $houses->first()?->property_name ?: 'Mikocheni Garden Estate',
+                    'house_id' => $houses->first()?->id ?: 1,
+                    'preferred_at' => 'Tomorrow 11:00 AM',
+                    'note' => 'Inquired about Master En-Suite Room with private STS LUKU meter. Wants to move in 1st of next month.',
+                    'status' => 'pending',
+                    'created_at' => '15 mins ago',
+                ],
+                [
+                    'id' => 102,
+                    'guest_name' => 'Dr. Kelvin Mallya',
+                    'guest_phone' => '+255755123456',
+                    'house_name' => $houses->skip(1)->first()?->property_name ?: 'Oysterbay Coastal Villa',
+                    'house_id' => $houses->skip(1)->first()?->id ?: 2,
+                    'preferred_at' => 'Saturday 02:30 PM',
+                    'note' => 'Looking for secure compound parking and high-speed fiber internet for 6 months lease.',
+                    'status' => 'accepted',
+                    'created_at' => '2 hours ago',
+                ],
+                [
+                    'id' => 103,
+                    'guest_name' => 'Farida Rashid',
+                    'guest_phone' => '+255788998877',
+                    'house_name' => $houses->first()?->property_name ?: 'Mikocheni Garden Estate',
+                    'house_id' => $houses->first()?->id ?: 1,
+                    'preferred_at' => 'Sunday 10:00 AM',
+                    'note' => 'Asked if DAWASA water is 24/7 and confirmed 0% dalali fee.',
+                    'status' => 'pending',
+                    'created_at' => '5 hours ago',
+                ],
+            ]);
+        }
+
         return Inertia::render('Landlord/Dashboard', [
             'user' => [
                 'id' => $user?->id ?? 18,
@@ -271,6 +347,7 @@ class DashboardController extends Controller
             'tenants' => $tenantsData,
             'alerts' => $alertsData,
             'activity' => $activityData,
+            'inquiries' => $inquiriesData,
             'utilities' => [
                 'electricity' => [
                     'total' => '12,480',

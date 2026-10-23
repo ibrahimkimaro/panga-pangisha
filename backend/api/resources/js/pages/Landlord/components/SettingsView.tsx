@@ -92,7 +92,7 @@ export default function SettingsView({ user, onUserUpdated }: SettingsViewProps)
             });
             const data = await res.json();
             if (res.ok) {
-                showMessage('success', 'Profile information updated successfully! ✨');
+                showMessage('success', 'Profile information updated successfully!');
                 onUserUpdated({ ...user, ...profileForm });
             } else {
                 showMessage('error', data.message || 'Failed to update profile.');
@@ -136,7 +136,7 @@ export default function SettingsView({ user, onUserUpdated }: SettingsViewProps)
             });
             const data = await res.json();
             if (data.avatar) {
-                showMessage('success', 'Profile photo updated! 📸');
+                showMessage('success', 'Profile photo updated successfully.');
                 onUserUpdated({ ...user, avatar: data.avatar });
             }
         } catch {
@@ -204,7 +204,7 @@ export default function SettingsView({ user, onUserUpdated }: SettingsViewProps)
             });
             const data = await res.json();
             if (res.ok) {
-                showMessage('success', 'Security password updated successfully! 🔒');
+                showMessage('success', 'Security password updated successfully.');
                 setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
             } else {
                 showMessage('error', data.message || 'Incorrect current password.');
@@ -234,7 +234,7 @@ export default function SettingsView({ user, onUserUpdated }: SettingsViewProps)
                 credentials: 'include',
                 body: JSON.stringify(payoutForm),
             });
-            showMessage('success', 'Disbursement payout accounts updated! 💳');
+            showMessage('success', 'Disbursement payout accounts updated successfully.');
         } catch {
             showMessage('error', 'Failed to save payout settings.');
         } finally {

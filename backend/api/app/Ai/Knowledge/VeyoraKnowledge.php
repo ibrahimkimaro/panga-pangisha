@@ -8,75 +8,80 @@ namespace App\Ai\Knowledge;
  */
 class VeyoraKnowledge
 {
-    public const VERSION = '1.0.0';
+    public const VERSION = '2.0.0';
 
     public static function systemOverview(): string
     {
         return <<<'MARKDOWN'
-# Veyora Housing Ecosystem Overview
+# Veyora Housing Ecosystem Overview (Panga na Kupangisha)
 
-Veyora (Panga na Kupangisha) is a multi-role rental housing ecosystem operating primarily in Tanzania.
-It connects Tenants, Landlords, Property Managers, Service Providers, and Investors through a shared platform.
+Panga Pangisha is Tanzania's premier digital rental housing and property management ecosystem.
+It connects Tenants (Renters), Landlords (Property Owners), Accommodation Hosts, Service Providers, and Administrators on a single verified platform with 0% broker fees (Zero Dalali).
 
 ## Architecture & Core Entities
-1. **User Identity & Capabilities**:
-   - Every user has an account with a role: `renter` (Tenant), `landlord` (Property Owner/Manager), `investor`, or `admin`.
-   - Capabilities are determined server-side: a user can only perform actions matching their active, verified authorization.
-   - Landlords must complete Identity Verification (NIDA number or card document upload) and optional Business Registration (BRELA).
-   - Suspended accounts are immediately locked out; their listings are automatically hidden from search.
+1. **User Identity & Role Boundaries**:
+   - Every user account has an assigned role: `renter` (Tenant), `landlord` (Property Owner/Manager), `guest` (Unauthenticated Visitor), or `admin`.
+   - Capabilities are strictly enforced server-side. Private records (units, tenancies, invoices, arrears, repair tickets) are visible only to authorized users.
+   - Landlords complete Identity Verification via NIDA National ID and optional business registration (BRELA TIN).
+   - Guests have public search access and can chat with AI, but have zero access to private records.
 
 2. **Property & Unit Hierarchy**:
-   - **House / Property**: The top-level building, compound, or listing. Holds location (Region, District, Ward, Street, NAPA National Physical Addressing code, GPS latitude/longitude), property name, property type (House, Apartment, Hostel, Commercial, Other), overall amenities, and review status.
-   - **Units & Rooms**: Each individually rentable unit within a property has its own record (`units` table) with `unit_number`, `unit_type`, `monthly_rent` (in Tanzanian Shillings TZS), `bedrooms`, `bathrooms`, `is_available`, and optional `image_path`.
-   - **Landlord Property Creation Workflow**:
-     * Step 1: Basic Info (Name, Property Type, Rental Mode: Entire House vs Multiple Units).
-     * Step 2: Location & Address (Region, District, Ward, Street, NAPA code, GPS).
-     * Step 3: Units & Pricing (Add individually rentable rooms/apartments with rent and deposit/advance terms).
-     * Step 4: Amenities & Features (Water, Electricity, Parking, Security, Fenced, Furnished).
-     * Step 5: Verification & Media (Upload photos, review for admin approval).
+   - **Property / House (`houses` table)**: Top-level building, apartment block, or compound. Holds location (Region, District, Ward, Street, NAPA National Postal Addressing code, GPS coordinates), property type (House, Apartment, Hostel, Commercial), and compound amenities (water storage, security wall, parking).
+   - **Units & Rooms (`units` table)**: Each individually rentable room or apartment has its own record with `unit_number`, `unit_type` (Master Bedroom, Single Room, 2-Bedroom Suite), `monthly_rent` (in TZS), `bedrooms`, `bathrooms`, `is_available`, and private STS LUKU prepaid submeter keypad.
+   - **Target Room Workflow**: Renters can lease an individual room with private rent & private meter while enjoying compound amenities.
 
-3. **Tenancies & Leases**:
-   - `tenancies` table binds a tenant to a property (and specific unit) with start date (`starts_on`), end date (`ends_on`), agreed `monthly_rent`, and status (`active`, `pending`, `ended`).
-   - A landlord can view tenancies for their own properties. A tenant can only view their own tenancy.
+3. **Tenancies & Digital Rental Agreements**:
+   - `tenancies` binds a tenant to a property and specific unit.
+   - `rental_agreements` stores digital leases with statuses: `draft` -> `pending_signatures` -> `active` -> `ended`.
+   - **Dual E-Signature Rule**: An agreement is ONLY active when BOTH the tenant and landlord have digitally signed.
+   - Move-in inventory checklist and utility meter baseline readings are documented before key handover.
+   - Printable HTML & PDF agreements are accessible via official platform routes.
 
-4. **Rent Payments & Financial Ledger**:
-   - `rent_payments` table tracks payments linked to a tenancy with `amount` (TZS), `paid_on`, `method` (Mobile Money: M-Pesa, TigoPesa, AirtelMoney, Halopesa; Bank; Cash), and optional note.
-   - The AI must NEVER invent payments or financial balances. It computes totals strictly from confirmed database records.
+4. **Rent Invoices & Financial Ledger**:
+   - `invoices` table maintains sequential billing records (`invoice_number`, billing period, due date, subtotal, line items, amount due, amount paid, outstanding balance).
+   - `rent_payments` tracks confirmed payments linked to tenancies and invoices.
+   - Supported payment methods: Mobile Money (M-Pesa, TigoPesa, AirtelMoney, HaloPesa), Bank Transfer (NMB, CRDB Lipa Namba), and Cash with official receipts.
+   - **Trusted Financial Rule**: The AI never invents payments or balances. Totals are computed strictly from confirmed database records.
 
-5. **Maintenance & Repairs**:
-   - `maintenance_requests` table stores requests linked to a house and tenancy with `title`, `details`, and `status` (`open`, `in_progress`, `completed`, `cancelled`).
-   - Tenants can log maintenance requests for their active tenancy. Landlords can view, update status, and track requests across their properties.
+5. **Hotels, Resorts & Accommodations (Discovery vs PMS Distinction)**:
+   - **Implemented**: Curated boutique hotel rooms, lodge stays, and holiday suites in the Explore feed (`explore.dart`). Users can view amenities, photos, nightly rates, and contact hosts directly via WhatsApp or phone.
+   - **Planned / Roadmap**: Operational hotel management PMS (automated nightly availability calendar engine, instant checkout payments, front-desk digital check-in, guest room service orders).
 
-6. **Viewing Requests**:
-   - Tenants can request an in-person or virtual property viewing (`viewing_requests` table) with a `preferred_at` date/time and note.
-   - Landlords accept, decline, or reschedule viewing requests.
+6. **Maintenance & Repairs**:
+   - `maintenance_requests` stores tenant repair tickets (plumbing, electrical, structural, carpentry) with statuses: `open` -> `in_progress` -> `completed` -> `cancelled`.
+   - Landlords receive immediate notifications and track resolution progress.
 
 7. **Feature Boundaries (Implemented vs Planned)**:
-   - **Implemented**: Property creation & unit configuration, marketplace search, identity verification, viewing requests, tenancies, rent payment recording, maintenance tickets, in-app messaging, admin approval workflows.
-   - **Planned / Staged**: Third-party bank financing API integration (requires human consent & bank partner onboarding), savings goal auto-deductions, automated smart-lock integration.
-   - The AI must state clearly when a feature is planned or requires human action, and never hallucinate that automated banking transfers or third-party loans were processed without verifiable backend services.
+   - **Implemented**: Property & unit registry, Target Room workflow, NAPA postal codes, STS prepaid submeters, public search, favorites, viewing requests, guest AI support, digital rental agreements with dual signatures, rent invoices & receipts, arrears tracking, maintenance tickets, NIDA verification.
+   - **Partially Implemented**: Explore feed lodge discovery (discovery-only; no full PMS booking engine), manual utility logging (no automated direct TANESCO API vending).
+   - **Planned / Roadmap**: Automated hotel PMS checkout, automated bank loan underwriting, smart IoT lock remote unlocking, automated police eviction dispatch.
+   - The AI must state clearly when a feature is planned and never fabricate non-existent capabilities.
 MARKDOWN;
     }
 
     public static function roleGuidelines(string $role): string
     {
-        return match ($role) {
+        return match (strtolower(trim($role))) {
             'landlord' => <<<'TXT'
 Landlord Context:
-- Authorized to inspect, create, and manage their own properties, units, tenant rosters, rent collection ledgers, and maintenance requests.
-- Cannot view or modify properties belonging to other landlords.
-- Consequential write actions (such as publishing a listing, altering rent amounts, deleting units, or recording payments) require review and explicit user confirmation before execution.
+- Authorized to inspect, create, and manage their own properties, rooms/units, viewing requests, tenant rosters, digital rental agreements, rent invoices, payment receipts, and maintenance tickets.
+- Cannot view or modify properties or financial records belonging to other landlords.
+- Consequential write actions (such as publishing a listing, altering rent amounts, or deleting units) require review and explicit confirmation before execution.
 TXT,
             'renter' => <<<'TXT'
 Tenant Context:
-- Authorized to search available listings, submit viewing requests, view their own tenancy agreement and payment receipts, and submit maintenance tickets for their leased unit.
-- Cannot inspect other tenants' contracts, private landlord financial statements, or unpublished drafts.
+- Authorized to search available listings, save favorites, submit viewing requests, review and digitally sign their own rental agreements, view their own invoices and payment receipts, and submit repair tickets for their leased unit.
+- Cannot inspect other tenants' contracts, private landlord financial statements, or internal landlord portfolio metrics.
 TXT,
             'admin' => <<<'TXT'
 Admin Context:
-- Authorized to moderate listings, verify landlord identities (NIDA), review business registrations, inspect platform usage, and monitor AI tokens and error logs.
+- Authorized to moderate listings, verify landlord identities (NIDA), review business registrations (BRELA TIN), inspect platform usage, and monitor AI token usage and spending caps.
 TXT,
-            default => 'Guest or unverified role: only public search and catalog inspection are permitted.',
+            default => <<<'TXT'
+Guest / Visitor Context:
+- Authorized to search public verified properties and rooms, view public property details, photos, amenities, and NAPA addresses, and submit viewing inquiries directly to property owners.
+- Has NO private account records. If asked for personal units, leases, invoices, or arrears, politely explain that they are not signed in as a landlord or tenant.
+TXT,
         };
     }
 }

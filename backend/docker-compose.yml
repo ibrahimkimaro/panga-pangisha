@@ -21,7 +21,7 @@ services:
     ports: ["8100:8000"]
     environment:
       APP_KEY: ${APP_KEY:-base64:CfM7/ybcYuoqOf7cgrSCELJYnrClzqnhU1cH/jCSEWU=}
-      APP_URL: http://10.0.2.2:8100
+      APP_URL: ${APP_URL:-http://localhost:8100}
       DB_CONNECTION: pgsql
       DB_HOST: db
       DB_PORT: 5432
@@ -29,7 +29,7 @@ services:
       DB_USERNAME: panga
       DB_PASSWORD: panga_pass
       CHAT_SECRET_KEY: ${CHAT_SECRET_KEY:-dev-only-change-me}
-      CHAT_WS_URL: ${CHAT_WS_URL:-ws://10.0.2.2:4100/socket}
+      CHAT_WS_URL: ${CHAT_WS_URL:-ws://localhost:4100/socket}
       CHAT_INTERNAL_URL: http://chat:4000
       APP_NAME: Panga na Kupangisha
       LOG_CHANNEL: stderr # `docker compose logs api` shows dev SMS codes and logged emails

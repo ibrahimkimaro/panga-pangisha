@@ -117,6 +117,7 @@ class _RentalAgreementsScreenState extends State<RentalAgreementsScreen> {
       appBar: AppBar(
         title: Text(t('Rental Agreements', 'Mikataba ya Upangaji')),
         actions: [
+          const LangSwitch(),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: t('Refresh', 'Sasisha'),
@@ -353,7 +354,7 @@ class _AgreementCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text('$prop · $unit', style: display(17, weight: FontWeight.w700)),
             const SizedBox(height: 4),
-            Text('Mpangaji: $tenant', style: body(14, color: C.muted)),
+            Text(t('Tenant: $tenant', 'Mpangaji: $tenant'), style: body(14, color: C.muted)),
             const SizedBox(height: 12),
             const Divider(),
             const SizedBox(height: 8),
@@ -392,7 +393,7 @@ class _AgreementCard extends StatelessWidget {
                         textAlign: TextAlign.end,
                       ),
                       Text(
-                        '${agreement['starts_on']} hadi ${agreement['ends_on']}',
+                        '${agreement['starts_on']} ${t('to', 'hadi')} ${agreement['ends_on']}',
                         style: body(12, weight: FontWeight.w600),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -610,6 +611,7 @@ class _AgreementDetailsScreenState extends State<AgreementDetailsScreen> {
       appBar: AppBar(
         title: Text(ag['property_name'] ?? t('Agreement Details', 'Taarifa za Mkataba')),
         actions: [
+          const LangSwitch(),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf_rounded),
             tooltip: t('Download PDF Agreement', 'Pakua Mkataba wa PDF'),
@@ -1312,7 +1314,7 @@ class _DraftAgreementScreenState extends State<DraftAgreementScreen> {
         'security_deposit': num.tryParse(_depositCtrl.text) ?? 450000,
         'starts_on': DateFormat('yyyy-MM-dd').format(_startsOn),
         'duration_months': _durationMonths,
-        'language': 'sw',
+        'language': lang.value,
         'special_conditions': _specialConditions,
         'landlord_signature': _landlordSignature,
         'tenant_signature': _tenantSignature,
@@ -1353,6 +1355,7 @@ class _DraftAgreementScreenState extends State<DraftAgreementScreen> {
       appBar: AppBar(
         title: Text(t('Draft Rental Agreement', 'Andaa Mkataba wa Upangaji')),
         actions: [
+          const LangSwitch(),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf_rounded),
             tooltip: t('Download PDF', 'Pakua PDF'),
