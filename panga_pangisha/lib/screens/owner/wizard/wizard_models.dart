@@ -182,6 +182,10 @@ class WizardUnit {
 class PropertyDraft {
   PropertyDraft();
 
+  // Parent Compound
+  int? compoundId;
+  String? compoundName;
+
   // Screen 1: Property Type & Mode
   WizardPropertyType propertyType = WizardPropertyType.standaloneHouse;
   RentalMode rentalMode = RentalMode.entire;
@@ -225,6 +229,8 @@ class PropertyDraft {
   DateTime availableFrom = DateTime.now();
 
   Map<String, dynamic> toJson() => {
+    'compoundId': compoundId,
+    'compoundName': compoundName,
     'propertyType': propertyType.name,
     'rentalMode': rentalMode.code,
     'propertyName': propertyName,
@@ -258,6 +264,8 @@ class PropertyDraft {
 
   factory PropertyDraft.fromJson(Map<String, dynamic> j) {
     final d = PropertyDraft();
+    d.compoundId = j['compoundId'] is int ? j['compoundId'] : (j['compoundId'] != null ? int.tryParse('${j['compoundId']}') : null);
+    d.compoundName = j['compoundName'];
     d.propertyType = WizardPropertyType.fromName(j['propertyType']);
     d.rentalMode = RentalMode.fromCode(j['rentalMode']);
     d.propertyName = j['propertyName'] ?? '';

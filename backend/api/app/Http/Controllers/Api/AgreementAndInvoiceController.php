@@ -26,13 +26,21 @@ class AgreementAndInvoiceController extends Controller
     ) {}
 
     /**
-     * Resolve effective user (authenticated web user, token user, or fallback to Ibrahim Kimaro for demo/testing).
+     * Resolve effective user (authenticated web user, token user, or fallback).
      */
     protected function resolveUser(Request $request): User
     {
-        return $request->user() 
-            ?? Auth::user()
-            ?? User::where('id', 18)->first() 
+        if ($user = ($request->user() ?? Auth::user())) {
+            return $user;
+        }
+
+        if ($request->is('tenant/*')) {
+            return User::whereIn('role', ['renter', 'tenant'])->first()
+                ?? User::where('id', '!=', 18)->first()
+                ?? User::first();
+        }
+
+        return User::where('id', 18)->first() 
             ?? User::where('role', 'landlord')->first();
     }
 
@@ -157,7 +165,7 @@ class AgreementAndInvoiceController extends Controller
      */
     public function tenantSign(Request $request, int $id): JsonResponse
     {
-        $user = $request->user();
+        $user = $request->user() ?? Auth::user();
 
         $data = $request->validate([
             'signer_name' => 'required|string|max:150',

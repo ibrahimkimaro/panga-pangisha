@@ -41,6 +41,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::match(['put', 'patch'], 'landlord/units/{unit}', [HouseController::class, 'updateUnit']);
     Route::delete('landlord/units/{unit}', [HouseController::class, 'destroyUnit']);
 
+    // Compounds & Sites Management
+    Route::get('landlord/compounds', [\App\Http\Controllers\Api\CompoundController::class, 'index']);
+    Route::post('landlord/compounds', [\App\Http\Controllers\Api\CompoundController::class, 'store']);
+    Route::get('landlord/compounds/{compound}', [\App\Http\Controllers\Api\CompoundController::class, 'show']);
+    Route::match(['put', 'patch'], 'landlord/compounds/{compound}', [\App\Http\Controllers\Api\CompoundController::class, 'update']);
+    Route::delete('landlord/compounds/{compound}', [\App\Http\Controllers\Api\CompoundController::class, 'destroy']);
+    Route::post('landlord/compounds/{compound}/houses', [\App\Http\Controllers\Api\CompoundController::class, 'addHouse']);
+
     Route::post('ai/property-assist', [AiAssistController::class, 'property'])->middleware('throttle:30,1');
     Route::get('ai/assistant/conversations', [\App\Http\Controllers\Api\VeyoraAssistantController::class, 'indexConversations']);
     Route::post('ai/assistant/conversations', [\App\Http\Controllers\Api\VeyoraAssistantController::class, 'createConversation']);
@@ -93,8 +101,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('chatApp/token/', [ChatController::class, 'token']);
     Route::get('conversations', [ChatController::class, 'conversations']);
     Route::get('people', [ChatController::class, 'people'])->middleware('throttle:60,1,people');
+    Route::get('chat/tenants', [ChatController::class, 'myTenants']);
     Route::post('chat/groups', [ChatController::class, 'createGroup'])->middleware('throttle:10,60,groups');
     Route::get('chat/groups/{slug}', [ChatController::class, 'group']);
+    Route::post('chat/groups/{slug}/members', [ChatController::class, 'addGroupMembers']);
+    Route::post('chat/clear', [ChatController::class, 'clearOrDeleteRoom']);
 
     Route::get('notifications', [NotificationController::class, 'index']);
     Route::post('notifications/read-all', [NotificationController::class, 'readAll']);

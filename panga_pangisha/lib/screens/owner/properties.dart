@@ -11,6 +11,9 @@ import '../explore.dart';
 import '../listing.dart';
 import '../owner.dart';
 import 'ai_property_workspace.dart';
+import 'compound_detail_screen.dart';
+import 'compound_dialog.dart';
+import 'compound_models.dart';
 import 'rentals.dart';
 
 /// What a landlord calls each listing state, with the colours of its badge.
@@ -92,7 +95,9 @@ class OwnerHomeTab extends StatefulWidget {
 }
 
 class _OwnerHomeTabState extends State<OwnerHomeTab> {
+  String _activeTab = 'compounds'; // 'compounds' | 'houses' | 'shops' | 'universal'
   List<House>? _homes;
+  List<CompoundModel>? _compounds;
   String? _error;
   String _query = '';
   String? _statusIs, _typeIs; // null = all
@@ -112,17 +117,38 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
   }
 
   Future<void> _load() async {
-    if (Api.user.value == null) return setState(() => _homes = []);
+    if (Api.user.value == null) {
+      return setState(() {
+        _homes = [];
+        _compounds = [];
+      });
+    }
     try {
-      final homes = House.list(await Api.get('landlord/getAllHouses/'));
+      final results = await Future.wait([
+        Api.get('landlord/getAllHouses/').catchError((_) => []),
+        Api.get('landlord/compounds').catchError((_) => []),
+      ]);
+      final homes = House.list(results[0]);
+      final compounds = CompoundModel.list(results[1]);
       if (mounted) {
         setState(() {
           _homes = homes;
+          _compounds = compounds;
           _error = null;
         });
       }
     } on ApiError catch (e) {
       if (mounted && _homes == null) setState(() => _error = e.message);
+    } catch (e) {
+      if (mounted && _homes == null) setState(() => _error = e.toString());
+    }
+  }
+
+  Future<void> _addCompound() async {
+    final created = await AddCompoundDialog.show(context);
+    if (created != null && mounted) {
+      _load();
+      toast(context, t('Compound "${created.name}" registered successfully!', 'Compaundi "${created.name}" imesajiliwa!'));
     }
   }
 
@@ -224,6 +250,15 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
     _load(); // whatever changed in there (status, rent, deleted) shows on return
   }
 
+  /// The list of compounds after query filter
+  List<CompoundModel> get _shownCompounds {
+    return [
+      for (final c in _compounds ?? const <CompoundModel>[])
+        if (_query.isEmpty || '${c.name} ${c.fullAddress} ${c.napaNumber}'.toLowerCase().contains(_query))
+          c,
+    ];
+  }
+
   /// The list after search, filters and sort. The server already sends it newest first.
   List<House> get _shown {
     final list = [
@@ -243,9 +278,78 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
     if (picked != null) setState(() => apply(picked.$1));
   }
 
+  Widget _subMenuItem({
+    required String id,
+    required String label,
+    required IconData icon,
+    String? badge,
+    int? count,
+  }) {
+    final active = _activeTab == id;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Press(
+        onTap: () => setState(() {
+          _activeTab = id;
+          _query = '';
+        }),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: active ? C.teal : C.card.withValues(alpha: 0.8),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: active ? C.teal : C.line),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: active ? Colors.white : C.muted),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: body(12.5, weight: FontWeight.w700, color: active ? Colors.white : C.ink),
+              ),
+              if (count != null) ...[
+                const SizedBox(width: 5),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: active ? Colors.white.withValues(alpha: 0.25) : C.chokaa,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: body(10.5, weight: FontWeight.w800, color: active ? Colors.white : C.muted),
+                  ),
+                ),
+              ],
+              if (badge != null) ...[
+                const SizedBox(width: 5),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: active ? Colors.white.withValues(alpha: 0.25) : C.tealLight,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    badge,
+                    style: body(9.5, weight: FontWeight.w800, color: active ? Colors.white : C.teal),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final homes = _homes, shown = _shown;
+    final compounds = _compounds, shownCompounds = _shownCompounds;
+
     return GlassBackdrop(
       child: SafeArea(
         bottom: false,
@@ -254,17 +358,31 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header Row
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 16, 10),
+                  padding: const EdgeInsets.fromLTRB(20, 12, 16, 8),
                   child: Row(
                     children: [
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(t('Properties', 'Nyumba'), style: display(22, weight: FontWeight.w800)),
                             Text(
-                              homes == null ? ' ' : t('${homes.length} properties', 'Nyumba ${homes.length}'),
+                              _activeTab == 'compounds'
+                                  ? t('Compounds & Sites', 'Compaundi & Maeneo')
+                                  : _activeTab == 'houses'
+                                      ? t('All Houses & Units', 'Nyumba & Vyumba Zote')
+                                      : _activeTab == 'shops'
+                                          ? t('Shops & Retail', 'Maduka & Biashara')
+                                          : t('Universal Space', 'Nafasi za Jumla'),
+                              style: display(22, weight: FontWeight.w800),
+                            ),
+                            Text(
+                              _activeTab == 'compounds'
+                                  ? (compounds == null ? ' ' : t('${compounds.length} compounds managed', 'Compaundi ${compounds.length} zinasimamiwa'))
+                                  : _activeTab == 'houses'
+                                      ? (homes == null ? ' ' : t('${homes.length} properties listed', 'Nyumba ${homes.length} zimeorodheshwa'))
+                                      : t('Commercial and versatile spaces', 'Nafasi za kibiashara na matumizi mengine'),
                               style: body(12.5, color: C.muted, height: 1.3),
                             ),
                           ],
@@ -278,102 +396,291 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Glass(
-                    radius: 16,
-                    padding: EdgeInsets.zero,
-                    child: TextField(
-                      onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
-                      style: body(14.5),
-                      decoration: InputDecoration(
-                        filled: false,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 13),
-                        prefixIcon: Icon(Icons.search_rounded, color: C.muted, size: 20),
-                        hintText: t('Search properties', 'Tafuta nyumba'),
-                        hintStyle: body(14, color: C.muted),
-                      ),
-                    ),
-                  ),
-                ),
+
+                // Submenu Bar
                 SizedBox(
-                  height: 54,
+                  height: 44,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     children: [
-                      _filter(
-                        _statusIs == null ? t('All status', 'Hali zote') : _status(_statusIs!).$1,
-                        _statusIs != null,
-                        () => _choose(t('Status', 'Hali'), [
-                          (null, t('All status', 'Hali zote')),
-                          for (final s in ['available', 'rented', 'reserved', 'maintenance', 'suspended']) (s, _status(s).$1),
-                        ], (v) => _statusIs = v),
+                      _subMenuItem(
+                        id: 'compounds',
+                        label: t('Compounds & Sites', 'Compaundi & Eneo'),
+                        icon: Icons.domain_rounded,
+                        count: compounds?.length,
                       ),
-                      _filter(
-                        _typeIs == null ? t('All types', 'Aina zote') : typeName(_typeIs!),
-                        _typeIs != null,
-                        () => _choose(t('Type', 'Aina'), [
-                          (null, t('All types', 'Aina zote')),
-                          for (final type in houseTypes) (type, typeName(type)),
-                        ], (v) => _typeIs = v),
+                      _subMenuItem(
+                        id: 'houses',
+                        label: t('Houses & Units', 'Nyumba & Fleti'),
+                        icon: Icons.home_work_rounded,
+                        count: homes?.length,
                       ),
-                      _filter(
-                        t('Sort: ${_sortName(_sort)}', 'Panga: ${_sortName(_sort)}'),
-                        _sort != 'newest',
-                        () => _choose(t('Sort by', 'Panga kwa'), [for (final s in _sorts) (s, _sortName(s))], (v) => _sort = v ?? 'newest'),
+                      _subMenuItem(
+                        id: 'shops',
+                        label: t('Shops & Retail', 'Maduka'),
+                        icon: Icons.storefront_rounded,
+                        badge: t('Later', 'Baadaye'),
+                      ),
+                      _subMenuItem(
+                        id: 'universal',
+                        label: t('Universal Space', 'Universal'),
+                        icon: Icons.hub_rounded,
+                        badge: t('Later', 'Baadaye'),
                       ),
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 8),
+
+                // Search Bar
+                if (_activeTab == 'compounds' || _activeTab == 'houses')
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Glass(
+                      radius: 16,
+                      padding: EdgeInsets.zero,
+                      child: TextField(
+                        onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+                        style: body(14.5),
+                        decoration: InputDecoration(
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                          prefixIcon: Icon(Icons.search_rounded, color: C.muted, size: 20),
+                          hintText: _activeTab == 'compounds'
+                              ? t('Search compounds, street, or NAPA...', 'Tafuta compaundi, mtaa, au NAPA...')
+                              : t('Search properties', 'Tafuta nyumba'),
+                          hintStyle: body(14, color: C.muted),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Houses Filter row
+                if (_activeTab == 'houses')
+                  SizedBox(
+                    height: 52,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                      children: [
+                        _filter(
+                          _statusIs == null ? t('All status', 'Hali zote') : _status(_statusIs!).$1,
+                          _statusIs != null,
+                          () => _choose(t('Status', 'Hali'), [
+                            (null, t('All status', 'Hali zote')),
+                            for (final s in ['available', 'rented', 'reserved', 'maintenance', 'suspended']) (s, _status(s).$1),
+                          ], (v) => _statusIs = v),
+                        ),
+                        _filter(
+                          _typeIs == null ? t('All types', 'Aina zote') : typeName(_typeIs!),
+                          _typeIs != null,
+                          () => _choose(t('Type', 'Aina'), [
+                            (null, t('All types', 'Aina zote')),
+                            for (final type in houseTypes) (type, typeName(type)),
+                          ], (v) => _typeIs = v),
+                        ),
+                        _filter(
+                          t('Sort: ${_sortName(_sort)}', 'Panga: ${_sortName(_sort)}'),
+                          _sort != 'newest',
+                          () => _choose(t('Sort by', 'Panga kwa'), [for (final s in _sorts) (s, _sortName(s))], (v) => _sort = v ?? 'newest'),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Content View according to active tab
                 Expanded(
                   child: _error != null
                       ? Notice(
                           icon: Icons.cloud_off_outlined,
-                          title: t('Could not load your properties', 'Imeshindwa kupakia nyumba zako'),
+                          title: t('Could not load portfolio', 'Imeshindwa kupakia data zako'),
                           text: _error!,
                           action: t('Try again', 'Jaribu tena'),
                           onAction: _load,
                         )
-                      : homes == null
-                      ? ListView(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          children: const [Bone(height: 98, radius: 22), SizedBox(height: 10), Bone(height: 98, radius: 22), SizedBox(height: 10), Bone(height: 98, radius: 22)],
-                        )
-                      : homes.isEmpty
-                      ? Notice(
-                          icon: Icons.add_home_outlined,
-                          title: t('List your first property', 'Tangaza nyumba yako ya kwanza'),
-                          text: t('It takes about three minutes. Renters contact you directly.', 'Inachukua kama dakika tatu. Wapangaji wanawasiliana nawe moja kwa moja.'),
-                          action: t('Add property', 'Ongeza nyumba'),
-                          onAction: _add,
-                        )
-                      : shown.isEmpty
-                      ? Notice(
-                          icon: Icons.filter_alt_off_outlined,
-                          title: t('Nothing matches', 'Hakuna inayolingana'),
-                          text: t('Change the search or the filters to see more.', 'Badili utafutaji au vichujio kuona zaidi.'),
-                        )
-                      : RefreshIndicator(
-                          color: C.teal,
-                          onRefresh: _load,
-                          child: ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(20, 2, 20, 170),
-                            itemCount: shown.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 10),
-                            itemBuilder: (_, i) => _PropertyCard(
-                              shown[i],
-                              onTap: () => _open(PropertyDetailScreen(shown[i])),
-                            ).reveal(i.clamp(0, 6)),
-                          ),
-                        ),
+                      : _activeTab == 'compounds'
+                          ? compounds == null
+                              ? ListView(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                  children: const [Bone(height: 94, radius: 20), SizedBox(height: 10), Bone(height: 94, radius: 20)],
+                                )
+                              : compounds.isEmpty
+                                  ? Notice(
+                                      icon: Icons.domain_add_rounded,
+                                      title: t('Create your first compound site', 'Sajili compaundi yako ya kwanza'),
+                                      text: t('A compound allows you to group multiple houses, apartments, or rooms under one managed location.',
+                                        'Compaundi inakuwezesha kuweka nyumba au vyumba kadhaa chini ya eneo moja lenye geti na ulinzi.'),
+                                      action: t('+ Add Compound', '+ Ongeza Compaundi'),
+                                      onAction: _addCompound,
+                                    )
+                                  : shownCompounds.isEmpty
+                                      ? Notice(
+                                          icon: Icons.filter_alt_off_outlined,
+                                          title: t('No matching compounds', 'Hakuna compaundi inayolingana'),
+                                          text: t('Change your search keyword to view more sites.', 'Badili neno la utafutaji kuona compaundi zaidi.'),
+                                        )
+                                      : RefreshIndicator(
+                                          color: C.teal,
+                                          onRefresh: _load,
+                                          child: ListView.separated(
+                                            padding: const EdgeInsets.fromLTRB(20, 10, 20, 160),
+                                            itemCount: shownCompounds.length,
+                                            separatorBuilder: (_, _) => const SizedBox(height: 10),
+                                            itemBuilder: (_, i) => _CompoundCard(
+                                              shownCompounds[i],
+                                              onTap: () => _open(CompoundDetailScreen(shownCompounds[i])),
+                                            ).reveal(i.clamp(0, 6)),
+                                          ),
+                                        )
+                          : _activeTab == 'houses'
+                              ? homes == null
+                                  ? ListView(
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                      children: const [Bone(height: 98, radius: 22), SizedBox(height: 10), Bone(height: 98, radius: 22)],
+                                    )
+                                  : homes.isEmpty
+                                      ? Notice(
+                                          icon: Icons.add_home_outlined,
+                                          title: t('List your first property', 'Tangaza nyumba yako ya kwanza'),
+                                          text: t('It takes about three minutes. Renters contact you directly.', 'Inachukua kama dakika tatu. Wapangaji wanawasiliana nawe moja kwa moja.'),
+                                          action: t('Add property', 'Ongeza nyumba'),
+                                          onAction: _add,
+                                        )
+                                      : shown.isEmpty
+                                          ? Notice(
+                                              icon: Icons.filter_alt_off_outlined,
+                                              title: t('Nothing matches', 'Hakuna inayolingana'),
+                                              text: t('Change the search or the filters to see more.', 'Badili utafutaji au vichujio kuona zaidi.'),
+                                            )
+                                          : RefreshIndicator(
+                                              color: C.teal,
+                                              onRefresh: _load,
+                                              child: ListView.separated(
+                                                padding: const EdgeInsets.fromLTRB(20, 6, 20, 170),
+                                                itemCount: shown.length,
+                                                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                                                itemBuilder: (_, i) => _PropertyCard(
+                                                  shown[i],
+                                                  onTap: () => _open(PropertyDetailScreen(shown[i])),
+                                                ).reveal(i.clamp(0, 6)),
+                                              ),
+                                            )
+                              : _activeTab == 'shops'
+                                  ? ListView(
+                                      padding: const EdgeInsets.all(20),
+                                      children: [
+                                        Glass(
+                                          padding: const EdgeInsets.all(20),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.all(10),
+                                                    decoration: BoxDecoration(color: C.tealLight, borderRadius: BorderRadius.circular(12)),
+                                                    child: Icon(Icons.storefront_rounded, color: C.teal, size: 28),
+                                                  ),
+                                                  const SizedBox(width: 14),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            Text(t('Shops & Commercial Retail', 'Maduka & Biashara'), style: display(16, weight: FontWeight.w800)),
+                                                            const SizedBox(width: 8),
+                                                            Container(
+                                                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                              decoration: BoxDecoration(color: C.mkoko, borderRadius: BorderRadius.circular(8)),
+                                                              child: Text(t('Coming Soon', 'Inakuja'), style: body(10.5, color: Colors.white, weight: FontWeight.w700)),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 3),
+                                                        Text(t('Retail spaces, stalls & kiosks', 'Fremu za maduka, vibanda na maduka makubwa'), style: body(12, color: C.muted)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 14),
+                                              Text(
+                                                t('Manage commercial storefronts with foot traffic estimates, multi-year commercial lease agreements, VAT invoicing, and direct retail tenant management.',
+                                                  'Simamia fremu za maduka na biashara zenye mikataba maalum ya kibiashara, ankara za kodi, na usimamizi wa wapangaji wafanyabiashara.'),
+                                                style: body(13, color: C.wino, height: 1.4),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : ListView(
+                                      padding: const EdgeInsets.all(20),
+                                      children: [
+                                        Glass(
+                                          padding: const EdgeInsets.all(20),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.all(10),
+                                                    decoration: BoxDecoration(color: C.tealLight, borderRadius: BorderRadius.circular(12)),
+                                                    child: Icon(Icons.hub_rounded, color: C.teal, size: 28),
+                                                  ),
+                                                  const SizedBox(width: 14),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Row(
+                                                          children: [
+                                                            Text(t('Universal Flexible Space', 'Nafasi za Jumla'), style: display(16, weight: FontWeight.w800)),
+                                                            const SizedBox(width: 8),
+                                                            Container(
+                                                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                              decoration: BoxDecoration(color: C.mkoko, borderRadius: BorderRadius.circular(8)),
+                                                              child: Text(t('Coming Soon', 'Inakuja'), style: body(10.5, color: Colors.white, weight: FontWeight.w700)),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 3),
+                                                        Text(t('Offices, warehouse bays & venues', 'Ofisi, maghala na kumbi za hafla'), style: body(12, color: C.muted)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 14),
+                                              Text(
+                                                t('Flexible spaces support co-working desks, private office suites, storage bays, and event bookings with hourly, daily, or monthly flex-billing arrangements.',
+                                                  'Nafasi zinazobadilika kulingana na mahitaji: meza za pamoja, ofisi binafsi, maghala ya kuhifadhia mizigo, na kumbi zenye malipo ya saa, siku au mwezi.'),
+                                                style: body(13, color: C.wino, height: 1.4),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                 ),
               ],
             ),
-            if (homes != null && homes.isNotEmpty)
+
+            // Floating Action Buttons
+            if (_activeTab == 'compounds')
+              Positioned(
+                right: 20,
+                bottom: 100,
+                child: Button(t('+ Add Compound', '+ Ongeza Compaundi'), icon: Icons.domain_add_rounded, expand: false, onTap: _addCompound),
+              )
+            else if (_activeTab == 'houses' && homes != null && homes.isNotEmpty)
               Positioned(
                 right: 20,
                 bottom: 100,
@@ -403,6 +710,78 @@ class _OwnerHomeTabState extends State<OwnerHomeTab> {
             Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: on ? C.teal : C.muted),
           ],
         ),
+      ),
+    ),
+  );
+}
+
+class _CompoundCard extends StatelessWidget {
+  const _CompoundCard(this.c, {required this.onTap});
+  final CompoundModel c;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Press(
+    onTap: onTap,
+    child: Glass(
+      padding: const EdgeInsets.all(10),
+      child: Row(
+        children: [
+          Hero(
+            tag: 'compound-${c.id}',
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox.square(dimension: 76, child: Photo(c.coverImage, width: 76)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(15, weight: FontWeight.w700)),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: C.goodTint, borderRadius: BorderRadius.circular(16)),
+                      child: Text('${c.occupancyRate}%', style: body(11, color: C.good, weight: FontWeight.w800, height: 1.1)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(c.fullAddress, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted, height: 1.2)),
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    if (c.napaNumber.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(color: C.tealLight, borderRadius: BorderRadius.circular(6)),
+                        child: Text('NAPA: ${c.napaNumber}', style: body(10, color: C.teal, weight: FontWeight.w700)),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Expanded(
+                      child: Text(
+                        '${c.totalHouses} ${c.totalHouses == 1 ? t('house', 'nyumba') : t('houses', 'nyumba')} • ${c.totalUnits} ${t('units', 'vyumba')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: body(11.5, color: C.wino, weight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          Icon(Icons.chevron_right_rounded, size: 20, color: C.muted),
+        ],
       ),
     ),
   );

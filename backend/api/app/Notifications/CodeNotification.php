@@ -22,11 +22,13 @@ class CodeNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject("{$this->code} is your Panga na Kupangisha code")
+            ->subject("{$this->code} — Your Panga Pangisha Password Reset Code")
             ->greeting("Habari {$notifiable->fullname},")
-            ->line('Use this code to reset your password:')
-            ->line("**{$this->code}**")
-            ->line('It expires in 10 minutes. If you did not ask for it, ignore this email and your password stays the same.');
+            ->line('We received a request to reset the password for your Panga na Kupangisha account.')
+            ->line('Enter the 6-digit verification code below on the password reset screen:')
+            ->line("# **{$this->code}**")
+            ->line('This verification code will expire in **10 minutes**.')
+            ->line('If you did not request a password reset, you can safely ignore this email and your password will remain unchanged.');
     }
 
     public static function sms(string $phone, string $text): void

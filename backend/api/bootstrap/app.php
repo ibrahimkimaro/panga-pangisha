@@ -16,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
         // The website (landing page + admin panel) is the `web` group; the mobile API is `api`.
         $middleware->web(append: [\App\Http\Middleware\HandleInertiaRequests::class]);
-        $middleware->validateCsrfTokens(except: ['login', 'logout', 'landlord/*', 'tenant/*', 'api/*', 'mcp/*']);
+        $middleware->validateCsrfTokens(except: ['login', 'logout', 'signup', 'password/*', 'landlord/*', 'tenant/*', 'api/*', 'mcp/*']);
         $middleware->alias(['admin' => \App\Http\Middleware\EnsureAdmin::class]);
         $middleware->redirectGuestsTo('/admin/login');
         $middleware->redirectUsersTo('/admin');

@@ -44,7 +44,8 @@ class PangaApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       navigatorKey: navigator,
       scaffoldMessengerKey: messenger,
-      scrollBehavior: const AppScroll(), // an app, not a web page: no stretch when a list is pulled past its end
+      scrollBehavior:
+          const AppScroll(), // an app, not a web page: no stretch when a list is pulled past its end
       theme: appTheme(),
       builder: fitToSize,
       locale: Locale(lang.value),

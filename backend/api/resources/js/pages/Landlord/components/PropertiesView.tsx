@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Building2, Plus, Search, Filter, LayoutGrid, List,
     MapPin, Bed, Bath, ArrowUpRight, CheckCircle2, ChevronRight,
     Users, Wallet, Eye, MoreHorizontal, FileText, Check, X, Sparkles,
     Zap, Navigation, ExternalLink, ArrowLeft, Edit3, Shield, Droplets,
-    Wifi, Car, Home, Layers, Key, CheckCircle, Info, CalendarCheck
+    Wifi, Car, Home, Layers, Key, CheckCircle, Info, CalendarCheck, Store
 } from 'lucide-react';
 import { TANZANIA_REGIONS } from '../../../data/tanzaniaLocations';
+import CompoundsView, { CompoundItem } from './CompoundsView';
 
 interface Unit {
     id?: number;
@@ -44,15 +45,26 @@ interface Property {
 
 interface PropertiesViewProps {
     properties: Property[];
+    compounds?: CompoundItem[];
+    initialSubmenu?: 'compounds' | 'all_units' | 'shops' | 'universal';
     onOpenAddProperty: () => void;
     onNavigateAgreements: () => void;
 }
 
 export default function PropertiesView({
     properties: initialProperties,
+    compounds = [],
+    initialSubmenu = 'compounds',
     onOpenAddProperty,
     onNavigateAgreements,
 }: PropertiesViewProps) {
+    const [activeSubmenu, setActiveSubmenu] = useState<'compounds' | 'all_units' | 'shops' | 'universal'>(initialSubmenu);
+
+    useEffect(() => {
+        if (initialSubmenu) {
+            setActiveSubmenu(initialSubmenu);
+        }
+    }, [initialSubmenu]);
     const [propertiesList, setPropertiesList] = useState<Property[]>(initialProperties);
     const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
     const [filterCategory, setFilterCategory] = useState<'all' | 'house' | 'apartment' | 'vacant'>('all');
@@ -203,26 +215,63 @@ export default function PropertiesView({
                 )}
             </AnimatePresence>
 
-            {/* Header & Metric Bar */}
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Properties Portfolio</h1>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                        Manage your residential compounds, multi-unit houses, and individual room tenancies
-                    </p>
+            {/* Direct Submenu Rendering - Navigated via Sidebar Accordion */}
+
+            {activeSubmenu === 'shops' ? (
+                <div className="rounded-3xl border border-dashed border-amber-300 bg-amber-50/50 p-12 text-center max-w-2xl mx-auto space-y-4">
+                    <div className="h-14 w-14 rounded-3xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto shadow-xs">
+                        <Store className="h-7 w-7" />
+                    </div>
+                    <div>
+                        <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-3 py-1 text-xs font-bold mb-2">
+                            <span>Feature In Roadmap • Implementation Later</span>
+                        </div>
+                        <h2 className="text-xl font-extrabold text-slate-900">Commercial Shops & Retail Spaces</h2>
+                        <p className="text-xs text-slate-600 max-w-md mx-auto mt-1 leading-relaxed">
+                            Manage commercial stalls, kiosks, retail storefronts, and street-front shopping outlets inside your managed compounds across Tanzania.
+                        </p>
+                    </div>
+                    <div className="pt-2">
+                        <button
+                            onClick={() => setActiveSubmenu('compounds')}
+                            className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-all cursor-pointer"
+                        >
+                            Return to Compounds
+                        </button>
+                    </div>
                 </div>
-
-                <button
-                    onClick={onOpenAddProperty}
-                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-slate-800 transition-all active:scale-95 cursor-pointer"
-                >
-                    <Plus className="h-4 w-4" />
-                    Add New Property
-                </button>
-            </div>
-
-            {/* Quick KPI Strip */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            ) : activeSubmenu === 'universal' ? (
+                <div className="rounded-3xl border border-dashed border-purple-300 bg-purple-50/50 p-12 text-center max-w-2xl mx-auto space-y-4">
+                    <div className="h-14 w-14 rounded-3xl bg-purple-100 text-purple-800 flex items-center justify-center mx-auto shadow-xs">
+                        <Sparkles className="h-7 w-7" />
+                    </div>
+                    <div>
+                        <div className="inline-flex items-center gap-1.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300 px-3 py-1 text-xs font-bold mb-2">
+                            <span>Feature In Roadmap • Implementation Later</span>
+                        </div>
+                        <h2 className="text-xl font-extrabold text-slate-900">Universal Flexible Spaces</h2>
+                        <p className="text-xs text-slate-600 max-w-md mx-auto mt-1 leading-relaxed">
+                            Configure custom rentable spaces, open storage yards, event grounds, co-working spaces, and multi-purpose zones within your property portfolio.
+                        </p>
+                    </div>
+                    <div className="pt-2">
+                        <button
+                            onClick={() => setActiveSubmenu('compounds')}
+                            className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-all cursor-pointer"
+                        >
+                            Return to Compounds
+                        </button>
+                    </div>
+                </div>
+            ) : activeSubmenu === 'compounds' ? (
+                <CompoundsView
+                    compounds={compounds}
+                    onOpenAddStandaloneProperty={onOpenAddProperty}
+                />
+            ) : (
+                <div className="space-y-6">
+                    {/* Quick KPI Strip */}
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
                     <span className="text-[11px] font-semibold text-slate-400 uppercase">Portfolio Size</span>
                     <div className="text-lg font-extrabold text-slate-900 mt-0.5">{propertiesList.length} Properties</div>
@@ -487,6 +536,8 @@ export default function PropertiesView({
                             ))}
                         </tbody>
                     </table>
+                </div>
+            )}
                 </div>
             )}
 

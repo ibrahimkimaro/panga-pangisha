@@ -351,138 +351,6 @@ export default function OverviewView({
                 </div>
             </div>
 
-            {/* CORE COMMAND TOOLS: LEASE AGREEMENTS, INVOICES & BILLS, ROOM OCCUPANCY */}
-            <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-900 flex items-center gap-2">
-                            <Sparkles className="h-4 w-4 text-amber-500" />
-                            {lang === 'sw' ? 'Zana Kuu za Usimamizi' : 'Core Management Suite'}
-                        </h2>
-                        <p className="text-xs text-[#706861]">
-                            {lang === 'sw'
-                                ? 'Mikataba halali ya upangaji, utoaji wa ankara na bili za huduma, na ufuatiliaji wa ukaaji wa vyumba.'
-                                : 'Legally binding lease agreements, utility bills and invoicing, and real-time room occupancy tracking.'}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Tool 1: Lease Agreements */}
-                    <div
-                        onClick={() => onNavigate('agreements')}
-                        className="group relative rounded-3xl border border-[#EBE7E1] bg-white p-5 shadow-2xs hover:border-[#12161A] hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
-                    >
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div className="h-11 w-11 rounded-2xl bg-teal-50 border border-teal-200/80 flex items-center justify-center text-teal-700 group-hover:scale-105 transition-transform">
-                                    <FileText className="h-5 w-5" />
-                                </div>
-                                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-teal-100/70 text-teal-900 border border-teal-200">
-                                    {lang === 'sw' ? 'Kisheria' : 'Legal'}
-                                </span>
-                            </div>
-                            <div>
-                                <h3 className="text-base font-extrabold text-[#12161A] group-hover:text-teal-800 transition-colors">
-                                    {lang === 'sw' ? 'Mikataba ya Upangaji' : 'Lease Agreements'}
-                                </h3>
-                                <p className="text-xs text-[#706861] mt-1 leading-relaxed">
-                                    {lang === 'sw'
-                                        ? 'Andaa rasimu za mikataba ya makazi Tanzania, rekodi vipimo vya awali vya mita, na saini za kidijitali.'
-                                        : 'Draft residential lease agreements, record initial meter readings, and manage digital signatures.'}
-                                </p>
-                            </div>
-                            <div className="pt-2 border-t border-[#F1EFEA] flex items-center justify-between text-xs font-semibold text-slate-700">
-                                <span>{lang === 'sw' ? 'Mikataba Iliyopo:' : 'Active Leases:'}</span>
-                                <span className="font-extrabold text-teal-700">
-                                    {lang === 'sw' ? '12 Hai • 1 Rasimu' : '12 Active • 1 Draft'}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-teal-700 group-hover:translate-x-0.5 transition-transform">
-                            <span>{lang === 'sw' ? 'Fungua Mikataba' : 'View Agreements'}</span>
-                            <ArrowRight className="h-4 w-4" />
-                        </div>
-                    </div>
-
-                    {/* Tool 2: Invoices & Billing */}
-                    <div
-                        onClick={() => onNavigate('invoices')}
-                        className="group relative rounded-3xl border border-[#EBE7E1] bg-white p-5 shadow-2xs hover:border-[#12161A] hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
-                    >
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div className="h-11 w-11 rounded-2xl bg-indigo-50 border border-indigo-200/80 flex items-center justify-center text-indigo-700 group-hover:scale-105 transition-transform">
-                                    <Receipt className="h-5 w-5" />
-                                </div>
-                                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100/70 text-indigo-900 border border-indigo-200">
-                                    {lang === 'sw' ? 'Ankara & Malipo' : 'Invoices & Billing'}
-                                </span>
-                            </div>
-                            <div>
-                                <h3 className="text-base font-extrabold text-[#12161A] group-hover:text-indigo-800 transition-colors">
-                                    {lang === 'sw' ? 'Ankara na Bili' : 'Invoices & Billing'}
-                                </h3>
-                                <p className="text-xs text-[#706861] mt-1 leading-relaxed">
-                                    {lang === 'sw'
-                                        ? 'Toa madai ya kodi, bili za umeme (LUKU) na maji (DAWASA), rekodi malipo ya simu/benki na toa risiti.'
-                                        : 'Issue rent invoices, electricity & water utility bills, record mobile/bank payments, and generate receipts.'}
-                                </p>
-                            </div>
-                            <div className="pt-2 border-t border-[#F1EFEA] flex items-center justify-between text-xs font-semibold text-slate-700">
-                                <span>{lang === 'sw' ? 'Makusanyo:' : 'Collections:'}</span>
-                                <span className="font-extrabold text-indigo-700">
-                                    {lang === 'sw' ? '81% Yamethibitishwa' : '81% Collected'}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-indigo-700 group-hover:translate-x-0.5 transition-transform">
-                            <span>{lang === 'sw' ? 'Simamia Ankara' : 'Manage Invoices'}</span>
-                            <ArrowRight className="h-4 w-4" />
-                        </div>
-                    </div>
-
-                    {/* Tool 3: Room Occupancy */}
-                    <div
-                        onClick={() => onNavigate('occupancy')}
-                        className="group relative rounded-3xl border border-[#EBE7E1] bg-white p-5 shadow-2xs hover:border-[#12161A] hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
-                    >
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div className="h-11 w-11 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-700 group-hover:scale-105 transition-transform">
-                                    <Building2 className="h-5 w-5" />
-                                </div>
-                                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100/70 text-amber-900 border border-amber-200">
-                                    {lang === 'sw' ? 'Ukaaji na Mita' : 'Units & Meters'}
-                                </span>
-                            </div>
-                            <div>
-                                <h3 className="text-base font-extrabold text-[#12161A] group-hover:text-amber-800 transition-colors">
-                                    {lang === 'sw' ? 'Ukaaji wa Vyumba' : 'Room Occupancy'}
-                                </h3>
-                                <p className="text-xs text-[#706861] mt-1 leading-relaxed">
-                                    {lang === 'sw'
-                                        ? 'Fuatilia muda wa ukaaji unaoendelea, tarehe za kuisha, mita za vyumba na historia ya upangaji.'
-                                        : 'Track ongoing tenancy durations, lease expiry dates, unit sub-meters, and tenancy history.'}
-                                </p>
-                            </div>
-                            <div className="pt-2 border-t border-[#F1EFEA] flex items-center justify-between text-xs font-semibold text-slate-700">
-                                <span>{lang === 'sw' ? 'Hali ya Vyumba:' : 'Room Status:'}</span>
-                                <span className="font-extrabold text-amber-800">
-                                    {lang === 'sw' ? '14 Vimepangishwa • 4 Wazi' : '14 Occupied • 4 Vacant'}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-700 group-hover:translate-x-0.5 transition-transform">
-                            <span>{lang === 'sw' ? 'Tazama Vyumba na Mita' : 'View Units & Meters'}</span>
-                            <ArrowRight className="h-4 w-4" />
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             {/* 3. CORE 2-COLUMN LAYOUT: (LEFT: PROPERTIES + ANALYTICS + ACTIVITY | RIGHT: ACTIONS + BOOKINGS + CALENDAR) */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -802,9 +670,8 @@ export default function OverviewView({
                                             </div>
 
                                             <div className="flex items-center gap-2">
-                                                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
-                                                    isPending ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
-                                                }`}>
+                                                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${isPending ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                                                    }`}>
                                                     {isPending ? (lang === 'sw' ? 'Inasubiri' : 'Pending Review') : (lang === 'sw' ? 'Imethibitishwa' : 'Accepted')}
                                                 </span>
                                             </div>
@@ -945,11 +812,10 @@ export default function OverviewView({
                                         </div>
                                     </div>
                                     <span
-                                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                                            b.status === 'Confirmed'
+                                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${b.status === 'Confirmed'
                                                 ? 'bg-stone-200/80 text-[#12161A] border border-stone-300/60'
                                                 : 'bg-stone-100 text-stone-600 border border-stone-200'
-                                        }`}
+                                            }`}
                                     >
                                         {b.status}
                                     </span>
@@ -995,13 +861,12 @@ export default function OverviewView({
                                 return (
                                     <div
                                         key={day}
-                                        className={`py-1.5 rounded-xl text-xs font-semibold relative transition-all cursor-pointer ${
-                                            isCurrent
+                                        className={`py-1.5 rounded-xl text-xs font-semibold relative transition-all cursor-pointer ${isCurrent
                                                 ? 'bg-[#12161A] text-white font-bold shadow-2xs'
                                                 : isBooked
-                                                ? 'bg-[#F4F1EA] text-[#12161A] font-bold'
-                                                : 'text-stone-700 hover:bg-stone-100'
-                                        }`}
+                                                    ? 'bg-[#F4F1EA] text-[#12161A] font-bold'
+                                                    : 'text-stone-700 hover:bg-stone-100'
+                                            }`}
                                     >
                                         <span>{day}</span>
                                         {isBooked && !isCurrent && (

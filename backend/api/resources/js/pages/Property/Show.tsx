@@ -162,7 +162,7 @@ export default function PropertyShowPage({
                 <div className="w-full max-w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-24 py-3.5 flex items-center justify-between">
                     <div className="flex items-center gap-6">
                         <Link href="/" className="flex items-center gap-2 group">
-                            <Logo size="sm" />
+                            <Logo />
                             <div className="flex flex-col">
                                 <span className="font-serif text-lg font-bold tracking-tight text-[#12161A] leading-tight">
                                     Panga Pangisha
@@ -360,7 +360,7 @@ export default function PropertyShowPage({
                                     locationName={locationName}
                                     district={home.district}
                                     ward={home.ward}
-                                    rentDisplay={rent(home.rent_amount)}
+                                    rentDisplay={rent(home.monthly_rent)}
                                     heightClassName="h-full w-full"
                                 />
                                 <div className="absolute bottom-4 left-4 z-[500]">
@@ -1174,7 +1174,7 @@ export default function PropertyShowPage({
                 <div className="w-full max-w-full px-4 sm:px-8 lg:px-12 xl:px-16 2xl:px-24">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-8 border-b border-white/10">
                         <div className="flex items-center gap-3">
-                            <Logo size="sm" />
+                            <Logo />
                             <span className="font-serif text-xl font-bold tracking-tight">
                                 Panga Pangisha
                             </span>

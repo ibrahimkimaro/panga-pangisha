@@ -7,7 +7,7 @@ import {
     ChevronDown, ChevronLeft, ChevronRight, Menu, LogOut, CheckCircle2, ShieldCheck, MapPin,
     CreditCard, ArrowRight, X, Phone, Save, Home, Zap,
     TrendingUp, ArrowUpRight, DollarSign, CalendarCheck, MessageSquare, BarChart3, Wallet, HelpCircle,
-    Heart, Trash2, ExternalLink
+    Heart, Trash2, ExternalLink, Sun, Moon, Store
 } from 'lucide-react';
 
 import OverviewView from './components/OverviewView';
@@ -19,6 +19,21 @@ import RentalAgreementsView from './components/RentalAgreementsView';
 import OccupancyView from './components/OccupancyView';
 import RentPaymentsView from './components/RentPaymentsView';
 import VeyoraAssistantModal from './components/VeyoraAssistantModal';
+import RealtimeChatView from '../../components/chat/RealtimeChatView';
+import { useTheme } from '../../lib/theme';
+import { PhoenixSocketClient, PhoenixChannel } from '../../lib/phoenixSocket';
+
+interface RealtimeBellItem {
+    id: string;
+    topic: string;
+    kind: 'direct' | 'group' | 'system';
+    senderName: string;
+    groupName?: string;
+    text: string;
+    timestamp: string;
+    unreadCount: number;
+    avatar?: string | null;
+}
 
 interface LandlordDashboardProps {
     user?: {
@@ -61,6 +76,7 @@ interface LandlordDashboardProps {
         cover_image: string;
         specs: string;
     }>;
+    compounds?: Array<any>;
     rooms?: Array<{
         id: number;
         room: string;
@@ -134,6 +150,7 @@ export default function LandlordDashboard({
         monthly_growth: 12,
     },
     properties = [],
+    compounds = [],
     rooms = [],
     tenants = [],
     alerts = [],
@@ -141,8 +158,10 @@ export default function LandlordDashboard({
     inquiries = [],
 }: LandlordDashboardProps) {
     const [activeSection, setActiveSection] = useState<
-        'dashboard' | 'properties' | 'bookings' | 'occupancy' | 'tenants' | 'finances' | 'invoices' | 'agreements' | 'rent-payments' | 'messages' | 'reports' | 'utilities' | 'settings'
+        'dashboard' | 'properties' | 'properties-compounds' | 'properties-houses' | 'properties-shops' | 'properties-universal' | 'bookings' | 'occupancy' | 'tenants' | 'finances' | 'invoices' | 'agreements' | 'rent-payments' | 'messages' | 'reports' | 'utilities' | 'settings'
     >('dashboard');
+
+    const [isPropertiesMenuOpen, setIsPropertiesMenuOpen] = useState(true);
 
     // Language state: 'en' is the default per user request. Can be switched to 'sw' (Kiswahili).
     const [lang, setLang] = useState<'en' | 'sw'>(() => {
@@ -161,11 +180,228 @@ export default function LandlordDashboard({
 
     const [prefilledUnitForAgreement, setPrefilledUnitForAgreement] = useState<any>(null);
     const [prefilledUnitForInvoice, setPrefilledUnitForInvoice] = useState<any>(null);
+    const [initialChatPeerQuery, setInitialChatPeerQuery] = useState<string | null>(null);
+    const [initialChatTopic, setInitialChatTopic] = useState<string | null>(null);
+    const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
+    const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
+    const [realtimeBellItems, setRealtimeBellItems] = useState<RealtimeBellItem[]>([]);
+    const [liveChatSocketConnected, setLiveChatSocketConnected] = useState(false);
+    const [liveIncomingToast, setLiveIncomingToast] = useState<RealtimeBellItem | null>(null);
+    const { isDark, setTheme } = useTheme();
 
     const [currentUser, setCurrentUser] = useState(user);
     useEffect(() => {
         if (user) setCurrentUser(user);
     }, [user]);
+
+    // Connect header Notification Bell to Elixir Phoenix WebSocket (`user:<uuid>`) to receive real-time messages anywhere on the dashboard
+    useEffect(() => {
+        let cancelled = false;
+        let sock: PhoenixSocketClient | null = null;
+        let userCh: PhoenixChannel | null = null;
+        let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+        const headers: Record<string, string> = {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+        if (typeof window !== 'undefined') {
+            const bearer = localStorage.getItem('auth_token');
+            if (bearer) headers['Authorization'] = `Bearer ${bearer}`;
+        }
+
+        async function loadInitialBellConversations() {
+            try {
+                const res = await fetch('/landlord/chat/conversations', {
+                    headers,
+                    credentials: 'include',
+                });
+                if (!res.ok || cancelled) return;
+                const convos = await res.json();
+                if (!Array.isArray(convos) || cancelled) return;
+
+                const mapped: RealtimeBellItem[] = convos
+                    .filter((c: any) => c.last_message || (c.unread && c.unread > 0))
+                    .slice(0, 12)
+                    .map((c: any) => ({
+                        id: String(c.topic || c.id),
+                        topic: String(c.topic || ''),
+                        kind: c.kind === 'group' ? 'group' : 'direct',
+                        senderName: c.kind === 'group'
+                            ? String(c.last_author || c.group?.name || 'Group Member')
+                            : String(c.peer?.fullname || 'Resident'),
+                        groupName: c.kind === 'group' ? String(c.group?.name || 'Group') : undefined,
+                        text: String(c.last_message || 'Started a conversation'),
+                        timestamp: String(c.updated_at || new Date().toISOString()),
+                        unreadCount: Number(c.unread || 0),
+                        avatar: c.peer?.profile_image || null,
+                    }));
+
+                setRealtimeBellItems(mapped);
+                const totalUnread = convos.reduce((acc: number, c: any) => acc + Number(c.unread || 0), 0);
+                setUnreadChatCount(totalUnread);
+            } catch {
+                // ignore
+            }
+        }
+
+        async function connectHeaderPhoenixSocket() {
+            try {
+                const res = await fetch('/landlord/chat/token', {
+                    headers,
+                    credentials: 'include',
+                });
+                if (!res.ok || cancelled) return;
+                const info = await res.json();
+                if (cancelled || !info?.ws_url || !info?.token || !info?.user_id) return;
+
+                const myUuid = String(info.user_id);
+                sock = new PhoenixSocketClient(info.ws_url, info.token, (connected) => {
+                    if (!cancelled) setLiveChatSocketConnected(connected);
+                });
+                await sock.connect();
+                if (cancelled) {
+                    sock.disconnect();
+                    return;
+                }
+
+                userCh = sock.channel(`user:${myUuid}`);
+
+                const handleRealtimeMessageNotice = (payload: Record<string, any>, isGroup: boolean) => {
+                    const senderId = String(payload?.author_id || payload?.from || '');
+                    if (senderId && senderId === myUuid) return;
+
+                    const topic = String(
+                        payload?.topic ||
+                        (isGroup && payload?.group ? `room:${payload.group}` : '')
+                    );
+                    const senderName = String(payload?.author_name || payload?.name || 'User');
+                    const groupName = isGroup ? String(payload?.group_name || 'Tenant Group') : undefined;
+                    const text = String(payload?.text || payload?.body || 'Sent you a message');
+                    const timestamp = String(payload?.timestamp || payload?.at || new Date().toISOString());
+
+                    const incomingItem: RealtimeBellItem = {
+                        id: `${topic || 'msg'}-${Date.now()}`,
+                        topic,
+                        kind: isGroup ? 'group' : 'direct',
+                        senderName,
+                        groupName,
+                        text,
+                        timestamp,
+                        unreadCount: 1,
+                    };
+
+                    setRealtimeBellItems((prev) => {
+                        const existingIdx = topic ? prev.findIndex((x) => x.topic === topic) : -1;
+                        if (existingIdx >= 0) {
+                            const existing = prev[existingIdx];
+                            const updated: RealtimeBellItem = {
+                                ...existing,
+                                senderName,
+                                groupName: groupName || existing.groupName,
+                                text,
+                                timestamp,
+                                unreadCount: (existing.unreadCount || 0) + 1,
+                            };
+                            const rest = prev.filter((_, i) => i !== existingIdx);
+                            return [updated, ...rest];
+                        }
+                        return [incomingItem, ...prev.slice(0, 14)];
+                    });
+
+                    setUnreadChatCount((prev) => prev + 1);
+                    setLiveIncomingToast(incomingItem);
+                    if (toastTimer) clearTimeout(toastTimer);
+                    toastTimer = setTimeout(() => {
+                        setLiveIncomingToast(null);
+                    }, 5500);
+                };
+
+                userCh.on('notice', (payload) => handleRealtimeMessageNotice(payload, false));
+                userCh.on('group_notice', (payload) => handleRealtimeMessageNotice(payload, true));
+                userCh.on('notification', (payload) => {
+                    const sysItem: RealtimeBellItem = {
+                        id: String(payload?.id || `sys-${Date.now()}`),
+                        topic: String(payload?.data?.topic || ''),
+                        kind: 'system',
+                        senderName: String(payload?.title || 'System Notification'),
+                        text: String(payload?.body || ''),
+                        timestamp: new Date().toISOString(),
+                        unreadCount: 1,
+                    };
+                    setRealtimeBellItems((prev) => [sysItem, ...prev.slice(0, 14)]);
+                    setUnreadChatCount((prev) => prev + 1);
+                    setLiveIncomingToast(sysItem);
+                    if (toastTimer) clearTimeout(toastTimer);
+                    toastTimer = setTimeout(() => {
+                        setLiveIncomingToast(null);
+                    }, 5500);
+                });
+
+                const joinResp = await userCh.join();
+                if (!cancelled && joinResp?.unread && typeof joinResp.unread === 'object') {
+                    const unreadMap = joinResp.unread as Record<string, number>;
+                    const unreadSum = Object.values(unreadMap).reduce((a, b) => a + Number(b || 0), 0);
+                    if (unreadSum > 0) {
+                        setUnreadChatCount((prev) => Math.max(prev, unreadSum));
+                    }
+                }
+            } catch {
+                // ignore socket error when offline
+            }
+        }
+
+        loadInitialBellConversations();
+        connectHeaderPhoenixSocket();
+
+        const handleSync = (e: Event) => {
+            const custom = e as CustomEvent<{ total?: number; activeTopic?: string | null }>;
+            if (typeof custom.detail?.total === 'number') {
+                setUnreadChatCount(custom.detail.total);
+            }
+            if (custom.detail?.activeTopic) {
+                const activeTopic = custom.detail.activeTopic;
+                setRealtimeBellItems((prev) =>
+                    prev.map((item) => (item.topic === activeTopic ? { ...item, unreadCount: 0 } : item))
+                );
+            }
+        };
+        window.addEventListener('phoenix:unread-sync', handleSync);
+
+        return () => {
+            cancelled = true;
+            if (toastTimer) clearTimeout(toastTimer);
+            window.removeEventListener('phoenix:unread-sync', handleSync);
+            if (userCh) userCh.leave();
+            if (sock) sock.disconnect();
+        };
+    }, []);
+
+    const handleOpenRealtimeMessageFromBell = (item: RealtimeBellItem) => {
+        setRealtimeBellItems((prev) => {
+            const next = prev.map((x) =>
+                (item.topic && x.topic === item.topic) || x.id === item.id
+                    ? { ...x, unreadCount: 0 }
+                    : x
+            );
+            const remainingUnread = next.reduce((acc, x) => acc + (x.unreadCount || 0), 0);
+            setUnreadChatCount(remainingUnread);
+            return next;
+        });
+        setIsNotificationDropdownOpen(false);
+        setLiveIncomingToast(null);
+        if (item.topic) {
+            setInitialChatTopic(item.topic);
+        } else if (item.senderName && item.kind !== 'system') {
+            setInitialChatPeerQuery(item.senderName);
+        }
+        setActiveSection('messages');
+    };
+
+    const handleMarkAllNotificationsRead = () => {
+        setRealtimeBellItems((prev) => prev.map((x) => ({ ...x, unreadCount: 0 })));
+        setUnreadChatCount(0);
+    };
 
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -283,7 +519,27 @@ export default function LandlordDashboard({
     };
 
     // Organized Menu and Submenus into clear, professional categories
-    const navigationGroups = [
+    interface NavItem {
+        id: string;
+        label: string;
+        count?: number;
+        badge?: string;
+        icon: any;
+    }
+
+    interface NavGroup {
+        title: string;
+        items: NavItem[];
+    }
+
+    const propertySubmenuItems: NavItem[] = [
+        { id: 'properties-compounds', label: lang === 'en' ? 'Compounds & Sites' : 'Kambaundi & Maeneo', count: compounds.length || 2, icon: Building2 },
+        { id: 'properties-houses', label: lang === 'en' ? 'Houses & Units' : 'Nyumba & Vyumba', count: properties.length || 4, icon: Home },
+        { id: 'properties-shops', label: lang === 'en' ? 'Shops & Retail' : 'Maduka & Biashara', badge: 'Later', icon: Store },
+        { id: 'properties-universal', label: lang === 'en' ? 'Universal Space' : 'Nafasi Zote', badge: 'Later', icon: Sparkles },
+    ];
+
+    const navigationGroups: NavGroup[] = [
         {
             title: lang === 'en' ? 'Overview' : 'Muhtasari',
             items: [
@@ -297,13 +553,8 @@ export default function LandlordDashboard({
                 { id: 'agreements', label: lang === 'en' ? 'Lease Agreements' : 'Mikataba ya Upangaji', icon: FileText },
                 { id: 'invoices', label: lang === 'en' ? 'Invoices & Billing' : 'Ankara na Bili', icon: Receipt },
                 { id: 'rent-payments', label: lang === 'en' ? 'Rent Payments' : 'Malipo ya Kodi', icon: Wallet },
-            ],
-        },
-        {
-            title: lang === 'en' ? 'Portfolio & Residents' : 'Mali na Wapangaji',
-            items: [
-                { id: 'properties', label: lang === 'en' ? 'Properties' : 'Nyumba Zangu', count: properties.length || 4, icon: Home },
                 { id: 'tenants', label: lang === 'en' ? 'Tenants' : 'Wapangaji', count: tenants.length || 14, icon: Users },
+                { id: 'messages', label: lang === 'en' ? 'Realtime Chat' : 'Mazungumzo Live', count: unreadChatCount > 0 ? unreadChatCount : undefined, icon: MessageSquare },
             ],
         },
         {
@@ -313,6 +564,67 @@ export default function LandlordDashboard({
             ],
         },
     ];
+
+    const renderNavButton = (tab: NavItem, isNested = false) => {
+        const Icon = tab.icon;
+        const isActive = activeSection === tab.id;
+        return (
+            <button
+                key={tab.id}
+                onClick={() => {
+                    setActiveSection(tab.id as any);
+                    setIsMobileSidebarOpen(false);
+                }}
+                title={isSidebarCollapsed ? tab.label : undefined}
+                className={`w-full flex items-center rounded-xl transition-all cursor-pointer group ${
+                    isSidebarCollapsed
+                        ? 'justify-center p-3'
+                        : isNested
+                        ? 'gap-2.5 px-3 py-2'
+                        : 'gap-3 px-3.5 py-2.5'
+                } ${
+                    isActive
+                        ? 'bg-slate-900 text-white font-bold shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                }`}
+            >
+                <Icon
+                    className={`shrink-0 ${
+                        isSidebarCollapsed ? 'h-5 w-5' : isNested ? 'h-4 w-4' : 'h-4.5 w-4.5'
+                    } ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'}`}
+                />
+                {!isSidebarCollapsed && (
+                    <>
+                        <span className="text-xs font-semibold truncate flex-1 text-left">
+                            {tab.label}
+                        </span>
+                        {tab.badge && (
+                            <span
+                                className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                                    isActive
+                                        ? 'bg-amber-400 text-slate-900'
+                                        : 'bg-amber-100 text-amber-800 border border-amber-200'
+                                }`}
+                            >
+                                {tab.badge}
+                            </span>
+                        )}
+                        {tab.count !== undefined && (
+                            <span
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                    isActive
+                                        ? 'bg-white/20 text-white'
+                                        : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
+                                }`}
+                            >
+                                {tab.count}
+                            </span>
+                        )}
+                    </>
+                )}
+            </button>
+        );
+    };
 
     return (
         <div className="min-h-screen bg-[#FBF9F5] text-[#12161A] font-sans antialiased selection:bg-[#12161A] selection:text-white">
@@ -379,56 +691,104 @@ export default function LandlordDashboard({
 
                 {/* 2. Navigation Items Grouped by Submenus */}
                 <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
-                    {navigationGroups.map((group, gIdx) => (
-                        <div key={gIdx} className="space-y-1">
+                    {/* Overview */}
+                    <div className="space-y-1">
+                        {!isSidebarCollapsed && (
+                            <div className="px-3 pt-1 pb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                                {navigationGroups[0].title}
+                            </div>
+                        )}
+                        {navigationGroups[0].items.map((tab) => renderNavButton(tab))}
+                    </div>
+
+                    {/* Properties & Sites Accordion with Open / Close Slide Animation */}
+                    <div className="space-y-1">
+                        {!isSidebarCollapsed && (
+                            <div className="px-3 pt-1 pb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                                {lang === 'en' ? 'Properties & Sites' : 'Mali na Maeneo'}
+                            </div>
+                        )}
+
+                        <button
+                            onClick={() => {
+                                if (isSidebarCollapsed) {
+                                    setIsSidebarCollapsed(false);
+                                    setIsPropertiesMenuOpen(true);
+                                } else {
+                                    setIsPropertiesMenuOpen(!isPropertiesMenuOpen);
+                                }
+                            }}
+                            title={isSidebarCollapsed ? (lang === 'en' ? 'Properties & Sites' : 'Mali na Maeneo') : undefined}
+                            className={`w-full flex items-center rounded-xl transition-all cursor-pointer group ${
+                                isSidebarCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-2.5'
+                            } ${
+                                activeSection.startsWith('properties')
+                                    ? 'bg-slate-100 text-slate-900 font-bold'
+                                    : 'text-slate-700 hover:bg-slate-100/80 hover:text-slate-900'
+                            }`}
+                        >
+                            <div className="flex items-center gap-3 min-w-0">
+                                <Building2
+                                    className={`shrink-0 ${isSidebarCollapsed ? 'h-5 w-5' : 'h-4.5 w-4.5'} ${
+                                        activeSection.startsWith('properties') ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-800'
+                                    }`}
+                                />
+                                {!isSidebarCollapsed && (
+                                    <span className="text-xs font-bold truncate">
+                                        {lang === 'en' ? 'Properties & Sites' : 'Mali na Maeneo'}
+                                    </span>
+                                )}
+                            </div>
+
                             {!isSidebarCollapsed && (
-                                <div className="px-3 pt-1 pb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                                    {group.title}
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="rounded-full bg-slate-200/80 px-1.5 py-0.2 text-[9px] font-bold text-slate-700">
+                                        {(compounds.length || 2) + (properties.length || 4)}
+                                    </span>
+                                    <ChevronDown
+                                        className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${
+                                            isPropertiesMenuOpen ? 'rotate-180' : ''
+                                        }`}
+                                    />
                                 </div>
                             )}
-                            {group.items.map((tab) => {
-                                const Icon = tab.icon;
-                                const isActive = activeSection === tab.id;
-                                return (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => {
-                                            setActiveSection(tab.id as any);
-                                            setIsMobileSidebarOpen(false);
-                                        }}
-                                        title={isSidebarCollapsed ? tab.label : undefined}
-                                        className={`w-full flex items-center rounded-xl transition-all cursor-pointer group ${isSidebarCollapsed ? 'justify-center p-3' : 'gap-3 px-3.5 py-2.5'
-                                            } ${isActive
-                                                ? 'bg-slate-900 text-white font-bold shadow-xs'
-                                                : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-                                            }`}
-                                    >
-                                        <Icon
-                                            className={`shrink-0 ${isSidebarCollapsed ? 'h-5 w-5' : 'h-4.5 w-4.5'
-                                                } ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'}`}
-                                        />
-                                        {!isSidebarCollapsed && (
-                                            <>
-                                                <span className="text-xs font-semibold truncate flex-1 text-left">
-                                                    {tab.label}
-                                                </span>
-                                                {tab.count !== undefined && (
-                                                    <span
-                                                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isActive
-                                                            ? 'bg-white/20 text-white'
-                                                            : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
-                                                            }`}
-                                                    >
-                                                        {tab.count}
-                                                    </span>
-                                                )}
-                                            </>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    ))}
+                        </button>
+
+                        {/* Collapsible Submenus with Slide Animation */}
+                        <AnimatePresence initial={false}>
+                            {isPropertiesMenuOpen && !isSidebarCollapsed && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.22, ease: 'easeInOut' }}
+                                    className="overflow-hidden pl-2.5 space-y-1 mt-1 border-l-2 border-slate-200 ml-4"
+                                >
+                                    {propertySubmenuItems.map((tab) => renderNavButton(tab, true))}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    {/* Tenancy & Operations */}
+                    <div className="space-y-1">
+                        {!isSidebarCollapsed && (
+                            <div className="px-3 pt-1 pb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                                {navigationGroups[1].title}
+                            </div>
+                        )}
+                        {navigationGroups[1].items.map((tab) => renderNavButton(tab))}
+                    </div>
+
+                    {/* Preferences */}
+                    <div className="space-y-1">
+                        {!isSidebarCollapsed && (
+                            <div className="px-3 pt-1 pb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                                {navigationGroups[2].title}
+                            </div>
+                        )}
+                        {navigationGroups[2].items.map((tab) => renderNavButton(tab))}
+                    </div>
                 </div>
 
                 {/* 3. Host Profile & Support Widget at Bottom */}
@@ -540,8 +900,8 @@ export default function LandlordDashboard({
                         </div>
                     </div>
 
-                    {/* Right: Language Switcher, Favorite Button, Notification Bell, User Profile, + Add Property */}
-                    <div className="flex items-center gap-1.5 sm:gap-3">
+                    {/* Right: Language Switcher, Theme Toggle, Favorite Button, Realtime Notification Bell, User Profile */}
+                    <div className="flex items-center gap-1.5 sm:gap-2.5">
                         {/* Language Switcher Toggle (English default / Kiswahili option) */}
                         <div className="flex items-center rounded-full border border-[#EBE7E1] bg-[#FBF9F5] p-0.5 text-xs">
                             <button
@@ -570,6 +930,20 @@ export default function LandlordDashboard({
                             </button>
                         </div>
 
+                        {/* Quick Dark / Light Theme Toggle */}
+                        <button
+                            onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                            className="relative h-8 w-8 sm:h-9 sm:w-9 rounded-full border border-[#EBE7E1] flex items-center justify-center text-stone-600 hover:text-[#12161A] hover:bg-stone-50 transition-colors cursor-pointer shrink-0"
+                            title={isDark ? (lang === 'sw' ? 'Weka Mwanga (Light Mode)' : 'Switch to Light Mode') : (lang === 'sw' ? 'Weka Giza (Dark Mode)' : 'Switch to Dark Mode')}
+                            aria-label="Toggle Dark or Light Mode"
+                        >
+                            {isDark ? (
+                                <Sun className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400" />
+                            ) : (
+                                <Moon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            )}
+                        </button>
+
                         {/* Favorite Properties Button */}
                         <button
                             onClick={() => setIsFavoritesModalOpen(true)}
@@ -585,20 +959,193 @@ export default function LandlordDashboard({
                             )}
                         </button>
 
-                        {/* Notification Bell */}
-                        <button
-                            className="relative h-8 w-8 sm:h-9 sm:w-9 rounded-full border border-[#EBE7E1] flex items-center justify-center text-stone-600 hover:text-[#12161A] hover:bg-stone-50 transition-colors cursor-pointer shrink-0"
-                            title="Notifications"
-                            aria-label="Notifications"
-                        >
-                            <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            <span className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 h-2 w-2 rounded-full bg-[#12161A]" />
-                        </button>
+                        {/* Realtime Notification Bell (Receives Live Messages & System Alerts) */}
+                        <div className="relative shrink-0">
+                            <button
+                                onClick={() => {
+                                    setIsNotificationDropdownOpen(!isNotificationDropdownOpen);
+                                    setUserDropdownOpen(false);
+                                }}
+                                className="relative h-8 w-8 sm:h-9 sm:w-9 rounded-full border border-[#EBE7E1] flex items-center justify-center text-stone-600 hover:text-[#12161A] hover:bg-stone-50 transition-colors cursor-pointer shrink-0"
+                                title={lang === 'sw' ? 'Arifa na Jumbe za Moja kwa Moja' : 'Realtime Messages & Notifications'}
+                                aria-label="Realtime Notifications"
+                            >
+                                <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                {unreadChatCount > 0 ? (
+                                    <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-extrabold flex items-center justify-center shadow-xs animate-pulse">
+                                        {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                                    </span>
+                                ) : (
+                                    <span
+                                        className={`absolute top-1.5 right-1.5 sm:top-2 sm:right-2 h-2 w-2 rounded-full ${
+                                            liveChatSocketConnected ? 'bg-emerald-500' : 'bg-[#12161A]'
+                                        }`}
+                                    />
+                                )}
+                            </button>
+
+                            <AnimatePresence>
+                                {isNotificationDropdownOpen && (
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                                        className="fixed inset-x-3 top-18 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 rounded-3xl border border-slate-200 bg-white shadow-2xl z-50 overflow-hidden text-xs"
+                                    >
+                                        {/* Dropdown Header */}
+                                        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="font-extrabold text-sm text-slate-900">
+                                                        {lang === 'sw' ? 'Jumbe & Arifa Mpya' : 'Realtime Messages & Alerts'}
+                                                    </h4>
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-[9px] font-extrabold">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                                        Live
+                                                    </span>
+                                                </div>
+                                                <p className="text-[11px] text-slate-500 mt-0.5">
+                                                    {unreadChatCount > 0
+                                                        ? lang === 'sw'
+                                                            ? `Jumbe ${unreadChatCount} mpya hazijasomwa`
+                                                            : `${unreadChatCount} unread realtime message(s)`
+                                                        : lang === 'sw'
+                                                            ? 'Jumbe za moja kwa moja kupitia Phoenix'
+                                                            : 'Instant updates via Phoenix WebSocket'}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                {unreadChatCount > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleMarkAllNotificationsRead}
+                                                        className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 transition-colors cursor-pointer"
+                                                    >
+                                                        {lang === 'sw' ? 'Soma Zote' : 'Mark read'}
+                                                    </button>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsNotificationDropdownOpen(false)}
+                                                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Realtime Messages List */}
+                                        <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                                            {realtimeBellItems.length === 0 ? (
+                                                <div className="p-8 text-center space-y-2">
+                                                    <div className="h-11 w-11 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                                                        <MessageSquare className="h-5 w-5" />
+                                                    </div>
+                                                    <p className="font-bold text-slate-800 text-xs">
+                                                        {lang === 'sw' ? 'Hakuna jumbe mpya kwa sasa' : 'No new messages right now'}
+                                                    </p>
+                                                    <p className="text-[11px] text-slate-500">
+                                                        {lang === 'sw'
+                                                            ? 'Ujumbe mpya ukiingia utaonekana hapa papo hapo.'
+                                                            : 'When someone sends you a message, it appears here instantly.'}
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                realtimeBellItems.map((item) => {
+                                                    const isUnread = (item.unreadCount || 0) > 0;
+                                                    const timeLabel = (() => {
+                                                        const d = new Date(item.timestamp);
+                                                        if (Number.isNaN(d.getTime())) return '';
+                                                        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                                    })();
+
+                                                    return (
+                                                        <button
+                                                            key={item.id}
+                                                            type="button"
+                                                            onClick={() => handleOpenRealtimeMessageFromBell(item)}
+                                                            className={`w-full text-left p-3.5 flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer ${
+                                                                isUnread ? 'bg-teal-50/40' : ''
+                                                            }`}
+                                                        >
+                                                            <div className="relative shrink-0 mt-0.5">
+                                                                {item.kind === 'group' ? (
+                                                                    <div className="h-9 w-9 rounded-2xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold">
+                                                                        <Users className="h-4 w-4" />
+                                                                    </div>
+                                                                ) : item.avatar ? (
+                                                                    <img
+                                                                        src={item.avatar}
+                                                                        alt={item.senderName}
+                                                                        className="h-9 w-9 rounded-full object-cover border border-slate-200"
+                                                                    />
+                                                                ) : (
+                                                                    <div className="h-9 w-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-extrabold text-xs">
+                                                                        {(item.senderName || 'U').charAt(0).toUpperCase()}
+                                                                    </div>
+                                                                )}
+                                                                {isUnread && (
+                                                                    <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+                                                                )}
+                                                            </div>
+
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                                        <span className="font-extrabold text-slate-900 truncate">
+                                                                            {item.kind === 'group' ? item.groupName : item.senderName}
+                                                                        </span>
+                                                                        {item.kind === 'group' && (
+                                                                            <span className="px-1.5 py-0.2 rounded bg-teal-100 text-teal-800 text-[9px] font-bold uppercase shrink-0">
+                                                                                Group
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <span className="text-[10px] text-slate-400 shrink-0">{timeLabel}</span>
+                                                                </div>
+
+                                                                <p className={`mt-0.5 text-[11px] line-clamp-2 ${isUnread ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
+                                                                    {item.kind === 'group' ? `${item.senderName}: ${item.text}` : item.text}
+                                                                </p>
+                                                            </div>
+
+                                                            {isUnread && (
+                                                                <span className="shrink-0 mt-1 rounded-full bg-emerald-500 px-1.5 py-0.5 text-[9px] font-extrabold text-white">
+                                                                    {item.unreadCount}
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+
+                                        {/* Dropdown Footer */}
+                                        <div className="p-3 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsNotificationDropdownOpen(false);
+                                                    setActiveSection('messages');
+                                                }}
+                                                className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-2.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                                            >
+                                                <MessageSquare className="h-3.5 w-3.5" />
+                                                <span>{lang === 'sw' ? 'Fungua Jumbe Zote (Realtime Chat)' : 'Open All Realtime Messages'}</span>
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
 
                         {/* Host User Menu Dropdown */}
                         <div className="relative shrink-0">
                             <button
-                                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                                onClick={() => {
+                                    setUserDropdownOpen(!userDropdownOpen);
+                                    setIsNotificationDropdownOpen(false);
+                                }}
                                 className="flex items-center gap-2 rounded-full border border-[#EBE7E1] p-1 sm:p-1.5 sm:pr-3 hover:border-stone-400 transition-all cursor-pointer bg-[#FBF9F5]"
                                 aria-label="User Profile"
                             >
@@ -667,21 +1214,50 @@ export default function LandlordDashboard({
                                 )}
                             </AnimatePresence>
                         </div>
-
-                        {/* Primary Action Button: + Add Property (Icon only on mobile, text on tablet/desktop) */}
-                        <button
-                            onClick={() => setIsAddPropertyModalOpen(true)}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-[#12161A] p-2 sm:px-4 sm:py-2.5 text-xs font-bold text-white shadow-xs hover:bg-stone-800 transition-all active:scale-95 cursor-pointer shrink-0"
-                            title={lang === 'sw' ? 'Ongeza Nyumba' : 'Add Property'}
-                        >
-                            <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                            <span className="hidden sm:inline">{lang === 'sw' ? 'Ongeza Nyumba' : 'Add Property'}</span>
-                        </button>
                     </div>
                 </header>
 
+                {/* Live Incoming Realtime Message Banner Toast */}
+                <AnimatePresence>
+                    {liveIncomingToast && activeSection !== 'messages' && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -16, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -16, scale: 0.96 }}
+                            className="fixed top-20 right-4 z-50 w-80 sm:w-96 rounded-2xl border border-teal-500/30 bg-white p-3.5 shadow-2xl flex items-start gap-3 text-xs"
+                        >
+                            <div className="h-9 w-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0">
+                                <MessageSquare className="h-4 w-4" />
+                            </div>
+                            <div
+                                onClick={() => handleOpenRealtimeMessageFromBell(liveIncomingToast)}
+                                className="flex-1 min-w-0 cursor-pointer"
+                            >
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="font-extrabold text-slate-900 truncate">
+                                        {liveIncomingToast.kind === 'group'
+                                            ? `${liveIncomingToast.groupName} (${liveIncomingToast.senderName})`
+                                            : liveIncomingToast.senderName}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-teal-600 shrink-0">
+                                        {lang === 'sw' ? 'Jibu Sasa →' : 'Reply →'}
+                                    </span>
+                                </div>
+                                <p className="text-slate-600 line-clamp-2 mt-0.5">{liveIncomingToast.text}</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setLiveIncomingToast(null)}
+                                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 {/* 3. MAIN DASHBOARD CONTENT */}
-                <main className="w-full max-w-full px-4 sm:px-8 lg:px-10 py-6 sm:py-8 flex-1">
+                <main className="w-full max-w-full overflow-x-hidden px-3 sm:px-6 lg:px-10 py-5 sm:py-8 flex-1">
                     {activeSection === 'dashboard' && (
                         <OverviewView
                             lang={lang}
@@ -699,9 +1275,19 @@ export default function LandlordDashboard({
                         />
                     )}
 
-                    {activeSection === 'properties' && (
+                    {(activeSection === 'properties' || activeSection.startsWith('properties-')) && (
                         <PropertiesView
                             properties={properties}
+                            compounds={compounds}
+                            initialSubmenu={
+                                activeSection === 'properties-houses'
+                                    ? 'all_units'
+                                    : activeSection === 'properties-shops'
+                                    ? 'shops'
+                                    : activeSection === 'properties-universal'
+                                    ? 'universal'
+                                    : 'compounds'
+                            }
                             onOpenAddProperty={() => setIsAddPropertyModalOpen(true)}
                             onNavigateAgreements={() => setActiveSection('agreements')}
                         />
@@ -727,6 +1313,10 @@ export default function LandlordDashboard({
                             onOpenAddTenant={() => setIsAddTenantModalOpen(true)}
                             onNavigateInvoices={() => setActiveSection('invoices')}
                             onNavigateAgreements={() => setActiveSection('agreements')}
+                            onOpenChatWithTenant={(phoneOrName) => {
+                                setInitialChatPeerQuery(phoneOrName);
+                                setActiveSection('messages');
+                            }}
                         />
                     )}
 
@@ -757,15 +1347,14 @@ export default function LandlordDashboard({
                     )}
 
                     {activeSection === 'messages' && (
-                        <div className="rounded-3xl border border-[#EBE7E1] bg-white p-8 text-center space-y-4">
-                            <div className="h-12 w-12 rounded-2xl bg-[#F4F1EA] text-[#12161A] flex items-center justify-center mx-auto border border-[#EBE7E1]">
-                                <MessageSquare className="h-6 w-6" />
-                            </div>
-                            <h3 className="text-lg font-bold text-[#12161A]">Guest & Resident Messages</h3>
-                            <p className="text-xs text-[#706861] max-w-md mx-auto">
-                                Real-time direct conversations with your booked guests, verified tenants, and property inquiries.
-                            </p>
-                        </div>
+                        <RealtimeChatView
+                            lang={lang}
+                            initialPeerPhoneOrName={initialChatPeerQuery}
+                            onClearInitialPeer={() => setInitialChatPeerQuery(null)}
+                            initialTopic={initialChatTopic}
+                            onClearInitialTopic={() => setInitialChatTopic(null)}
+                            onUnreadTotalChange={(total) => setUnreadChatCount(total)}
+                        />
                     )}
 
                     {activeSection === 'settings' && (

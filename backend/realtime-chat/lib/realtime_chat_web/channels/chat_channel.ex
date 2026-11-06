@@ -136,7 +136,22 @@ defmodule RealtimeChatWeb.ChatChannel do
     }
     broadcast_from!(socket, "user_typing", ev)
     # DMs: also to the other person's app, so their chat list shows "typing…" when this chat isn't open.
-    if socket.assigns.recipient, do: Endpoint.broadcast("user:" <> socket.assigns.recipient, "typing", ev)
+    if socket.assigns.recipient do
+      Endpoint.broadcast("user:" <> socket.assigns.recipient, "typing", ev)
+    else
+      case socket.topic do
+        "room:" <> slug ->
+          Task.start(fn ->
+            case Messages.group_recipients(slug, socket.assigns.user_id) do
+              {_name, ids} -> Enum.each(ids, &Endpoint.broadcast("user:" <> &1, "typing", ev))
+              _ -> :ok
+            end
+          end)
+
+        _ ->
+          :ok
+      end
+    end
     # Admin: a count of typers; the ref is an opaque hash, not a user or chat id.
     Endpoint.broadcast("admin:monitor", "typing", %{ref: :erlang.phash2({socket.assigns.user_id, socket.topic}), on: typing})
     {:noreply, socket}
@@ -208,6 +223,31 @@ defmodule RealtimeChatWeb.ChatChannel do
     else
       {:error, reason} -> {:reply, {:error, %{reason: reason}}, socket}
       _ -> {:reply, {:error, %{reason: "invalid message"}}, socket}
+    end
+  end
+
+  # Clears all messages in the room for the current user (or deletes the room when requested).
+  def handle_in("clear_chat", _payload, socket) do
+    case Messages.clear_chat(socket.topic, socket.assigns.user_id) do
+      {:ok, up_to} ->
+        {:reply, {:ok, %{cleared_up_to: up_to, topic: socket.topic}}, assign(socket, :cleared_up_to, up_to)}
+
+      {:error, reason} ->
+        {:reply, {:error, %{reason: reason}}, socket}
+    end
+  end
+
+  def handle_in("delete_room", _payload, socket) do
+    case Messages.delete_room(socket.topic, socket.assigns.user_id) do
+      {:ok, :deleted_group} ->
+        broadcast!(socket, "room_deleted", %{topic: socket.topic, by: socket.assigns.user_id})
+        {:reply, {:ok, %{deleted: true, topic: socket.topic}}, socket}
+
+      {:ok, up_to} ->
+        {:reply, {:ok, %{cleared_up_to: up_to, topic: socket.topic}}, assign(socket, :cleared_up_to, up_to)}
+
+      {:error, reason} ->
+        {:reply, {:error, %{reason: reason}}, socket}
     end
   end
 

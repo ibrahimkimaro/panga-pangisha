@@ -29,10 +29,13 @@ type SignupStep = 'signup' | 'verification' | 'waiting' | 'welcome';
 type VerificationMethod = 'nida_number' | 'nida_card' | 'driving_licence' | 'voter_id';
 
 export default function UniversalSignup({ initialRole }: { initialRole?: string }) {
-    const isLandlordDefault = initialRole === 'landlord';
-    const [selectedRole, setSelectedRole] = useState<'renter' | 'landlord'>(
-        isLandlordDefault ? 'landlord' : 'renter'
-    );
+    const defaultRole: 'landlord' | 'renter' | 'investor' =
+        initialRole === 'landlord'
+            ? 'landlord'
+            : initialRole === 'investor'
+                ? 'investor'
+                : 'renter';
+    const [selectedRole, setSelectedRole] = useState<'landlord' | 'renter' | 'investor'>(defaultRole);
 
     // Current Step
     const [step, setStep] = useState<SignupStep>('signup');
@@ -125,9 +128,16 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
         const fullPhone = `${selectedCountry.dial}${rawPhone}`;
 
         try {
-            const response = await fetch('/api/user/register/', {
+            const csrfToken =
+                document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            const response = await fetch('/signup', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
                 body: JSON.stringify({
                     fullname: form.fullname.trim(),
                     email: form.email.trim() || null,
@@ -138,9 +148,10 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
                 }),
             });
 
-            const data = await response.json();
+            const data = await response.json().catch(() => ({}));
             if (!response.ok) {
                 const message =
+                    data.detail ||
                     data.message ||
                     (data.errors ? Object.values(data.errors).flat().join(', ') : 'Registration failed');
                 throw new Error(message);
@@ -158,7 +169,13 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
                 phone: fullPhone,
             });
 
-            // Transition to Verification Screen
+            // Tenants go directly to their Welcome & Tenant Dashboard; Landlords/Investors can verify NIDA or proceed
+            if (selectedRole === 'renter') {
+                window.location.href = '/tenant/dashboard';
+                return;
+            }
+
+            // Transition to Verification Screen for Landlord / Investor
             setStep('verification');
         } catch (err: any) {
             setError(err.message || 'Something went wrong. Please check your information.');
@@ -188,7 +205,7 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
 
         try {
             const token = authToken || localStorage.getItem('auth_token');
-            const headers: Record<string, string> = {};
+            const headers: Record<string, string> = { Accept: 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
             let res: Response;
@@ -256,7 +273,7 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
                         setStep('verification');
                     }
                 }
-            } catch {}
+            } catch { }
         };
 
         pollTimerRef.current = setInterval(checkStatus, 3000);
@@ -298,10 +315,10 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
     }, []);
 
     const finishAndRedirect = () => {
-        if (selectedRole === 'landlord') {
-            router.visit('/landlord/dashboard');
+        if (selectedRole === 'renter') {
+            window.location.href = '/tenant/dashboard';
         } else {
-            router.visit('/tenant/dashboard');
+            window.location.href = '/landlord/dashboard';
         }
     };
 
@@ -343,7 +360,6 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
                     className="inline-flex items-center gap-2 rounded-full bg-black/40 hover:bg-black/60 px-4 py-2 text-xs uppercase tracking-wider font-bold backdrop-blur-md border border-white/15 transition-all text-stone-200 hover:text-white"
                 >
                     <ArrowLeft className="h-4 w-4" />
-                    <span>Back to Sanctuaries</span>
                 </Link>
 
                 <Link href="/" className="flex items-center gap-2.5">
@@ -373,29 +389,37 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
                             </p>
                         </div>
 
-                        {/* Role Selector Pill */}
-                        <div className="mb-6 flex rounded-full bg-[#EAE5DD] p-1 text-xs">
-                            <button
-                                type="button"
-                                onClick={() => setSelectedRole('renter')}
-                                className={`flex-1 rounded-full py-2 font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                                    selectedRole === 'renter'
-                                        ? 'bg-[#12161A] text-white shadow-xs'
-                                        : 'text-stone-600 hover:text-[#12161A]'
-                                }`}
-                            >
-                                Resident
-                            </button>
+                        {/* Role Selector Pill: 3 Roles (Landlord, Tenant, Investor) */}
+                        <div className="mb-6 grid grid-cols-3 gap-1 rounded-full bg-[#EAE5DD] p-1 text-xs">
                             <button
                                 type="button"
                                 onClick={() => setSelectedRole('landlord')}
-                                className={`flex-1 rounded-full py-2 font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                                    selectedRole === 'landlord'
-                                        ? 'bg-[#12161A] text-white shadow-xs'
-                                        : 'text-stone-600 hover:text-[#12161A]'
-                                }`}
+                                className={`rounded-full py-2.5 font-bold uppercase tracking-wider transition-all cursor-pointer ${selectedRole === 'landlord'
+                                    ? 'bg-[#12161A] text-white shadow-xs'
+                                    : 'text-stone-600 hover:text-[#12161A]'
+                                    }`}
                             >
                                 Landlord
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedRole('renter')}
+                                className={`rounded-full py-2.5 font-bold uppercase tracking-wider transition-all cursor-pointer ${selectedRole === 'renter'
+                                    ? 'bg-[#12161A] text-white shadow-xs'
+                                    : 'text-stone-600 hover:text-[#12161A]'
+                                    }`}
+                            >
+                                Tenant
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedRole('investor')}
+                                className={`rounded-full py-2.5 font-bold uppercase tracking-wider transition-all cursor-pointer ${selectedRole === 'investor'
+                                    ? 'bg-[#12161A] text-white shadow-xs'
+                                    : 'text-stone-600 hover:text-[#12161A]'
+                                    }`}
+                            >
+                                Investor
                             </button>
                         </div>
 
@@ -573,11 +597,10 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
                                     setVerificationMethod('nida_number');
                                     setError(null);
                                 }}
-                                className={`p-3 rounded-2xl text-center border text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1.5 ${
-                                    verificationMethod === 'nida_number'
-                                        ? 'bg-[#12161A] text-white border-[#12161A] shadow-xs'
-                                        : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
-                                }`}
+                                className={`p-3 rounded-2xl text-center border text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1.5 ${verificationMethod === 'nida_number'
+                                    ? 'bg-[#12161A] text-white border-[#12161A] shadow-xs'
+                                    : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
+                                    }`}
                             >
                                 <CreditCard className="h-4 w-4" />
                                 <span className="text-[11px] leading-tight">NIDA Number</span>
@@ -589,11 +612,10 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
                                     setVerificationMethod('nida_card');
                                     setError(null);
                                 }}
-                                className={`p-3 rounded-2xl text-center border text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1.5 ${
-                                    verificationMethod === 'nida_card'
-                                        ? 'bg-[#12161A] text-white border-[#12161A] shadow-xs'
-                                        : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
-                                }`}
+                                className={`p-3 rounded-2xl text-center border text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1.5 ${verificationMethod === 'nida_card'
+                                    ? 'bg-[#12161A] text-white border-[#12161A] shadow-xs'
+                                    : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
+                                    }`}
                             >
                                 <FileText className="h-4 w-4" />
                                 <span className="text-[11px] leading-tight">NIDA Card</span>
@@ -605,11 +627,10 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
                                     setVerificationMethod('driving_licence');
                                     setError(null);
                                 }}
-                                className={`p-3 rounded-2xl text-center border text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1.5 ${
-                                    verificationMethod === 'driving_licence'
-                                        ? 'bg-[#12161A] text-white border-[#12161A] shadow-xs'
-                                        : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
-                                }`}
+                                className={`p-3 rounded-2xl text-center border text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1.5 ${verificationMethod === 'driving_licence'
+                                    ? 'bg-[#12161A] text-white border-[#12161A] shadow-xs'
+                                    : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
+                                    }`}
                             >
                                 <Shield className="h-4 w-4" />
                                 <span className="text-[11px] leading-tight">Passport / Licence</span>
@@ -621,11 +642,10 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
                                     setVerificationMethod('voter_id');
                                     setError(null);
                                 }}
-                                className={`p-3 rounded-2xl text-center border text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1.5 ${
-                                    verificationMethod === 'voter_id'
-                                        ? 'bg-[#12161A] text-white border-[#12161A] shadow-xs'
-                                        : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
-                                }`}
+                                className={`p-3 rounded-2xl text-center border text-xs font-bold transition-all cursor-pointer flex flex-col items-center gap-1.5 ${verificationMethod === 'voter_id'
+                                    ? 'bg-[#12161A] text-white border-[#12161A] shadow-xs'
+                                    : 'bg-white text-stone-600 border-stone-200 hover:border-stone-400'
+                                    }`}
                             >
                                 <UserCheck className="h-4 w-4" />
                                 <span className="text-[11px] leading-tight">Voter ID</span>
@@ -858,14 +878,18 @@ export default function UniversalSignup({ initialRole }: { initialRole?: string 
                         <p className="mt-3 text-xs text-stone-600 leading-relaxed">
                             {selectedRole === 'landlord'
                                 ? 'Your landlord credentials have been verified by the compliance desk. You have complete access to post homes, generate official leases, and manage STS prepaid electricity submeters.'
-                                : 'Your resident identity is verified. You can now schedule viewings directly with landlords, sign digital rental agreements, and enjoy 0% broker fee living across Tanzania.'}
+                                : selectedRole === 'investor'
+                                    ? 'Your investor profile is verified. You can now co-invest in verified East African real estate portfolios, monitor yields, and partner directly with property owners.'
+                                    : 'Your tenant identity is verified. You can now schedule viewings directly with landlords, sign digital rental agreements, and enjoy 0% broker fee living across Tanzania.'}
                         </p>
 
                         {/* Verified Credential Summary Card */}
                         <div className="my-6 rounded-2xl bg-white p-4 border border-stone-200 text-left text-xs space-y-2">
                             <div className="flex items-center justify-between py-1 border-b border-stone-100">
                                 <span className="text-stone-500">Account Type</span>
-                                <span className="font-bold text-[#12161A] capitalize">{selectedRole}</span>
+                                <span className="font-bold text-[#12161A] capitalize">
+                                    {selectedRole === 'renter' ? 'Tenant' : selectedRole}
+                                </span>
                             </div>
                             <div className="flex items-center justify-between py-1 border-b border-stone-100">
                                 <span className="text-stone-500">Verified Phone</span>

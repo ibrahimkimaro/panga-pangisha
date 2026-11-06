@@ -19,9 +19,15 @@ interface Invoice {
     tenancy_id?: number;
     agreement_id?: number;
     property_name?: string;
+    property_address?: string;
     unit_number?: string;
+    agreement_reference?: string;
     tenant_name?: string;
     tenant_phone?: string;
+    tenant_email?: string;
+    tenant_reference?: string;
+    period_start?: string;
+    period_end?: string;
     billing_period: string;
     issue_date: string;
     due_date: string;

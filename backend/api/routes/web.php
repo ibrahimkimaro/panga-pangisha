@@ -33,17 +33,26 @@ Route::get('login', fn () => Inertia::render('Auth/Login'))->name('login');
 Route::post('login', [\App\Http\Controllers\Landlord\DashboardController::class, 'webLogin'])->name('web.login');
 Route::post('logout', [\App\Http\Controllers\Landlord\DashboardController::class, 'webLogout'])->name('web.logout');
 Route::get('signup', fn () => Inertia::render('Auth/Signup'))->name('signup');
+Route::post('signup', [\App\Http\Controllers\Landlord\DashboardController::class, 'webRegister'])->name('web.signup');
+Route::post('password/forgot', [\App\Http\Controllers\Api\AuthController::class, 'forgot'])->name('web.password.forgot');
+Route::post('password/reset', [\App\Http\Controllers\Api\AuthController::class, 'reset'])->name('web.password.reset');
 
 // Tenant space
 Route::prefix('tenant')->group(function () {
-    Route::get('dashboard', fn () => Inertia::render('Tenant/Dashboard'))->name('tenant.dashboard');
+    Route::get('dashboard', [\App\Http\Controllers\Landlord\DashboardController::class, 'tenantDashboard'])->name('tenant.dashboard');
     Route::get('agreements', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'listAgreements']);
     Route::get('agreements/{id}', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'showAgreement']);
     Route::get('agreements/{id}/print', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'printAgreementHtml'])->name('tenant.agreements.print');
     Route::post('agreements/{id}/sign-tenant', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'tenantSign']);
     Route::get('invoices', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'listInvoices']);
     Route::get('invoices/{id}', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'showInvoice']);
+    Route::post('invoices/{id}/pay', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'recordPayment']);
     Route::get('invoices/{id}/print', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'printInvoiceHtml'])->name('tenant.invoices.print');
+    Route::post('maintenance', [\App\Http\Controllers\Landlord\DashboardController::class, 'createTenantMaintenance']);
+    Route::post('viewings', [\App\Http\Controllers\Landlord\DashboardController::class, 'createTenantViewing']);
+    Route::post('profile/update', [\App\Http\Controllers\Landlord\DashboardController::class, 'updateTenantProfile']);
+    Route::post('profile/password', [\App\Http\Controllers\Landlord\DashboardController::class, 'updatePassword']);
+    Route::post('switch-role', [\App\Http\Controllers\Landlord\DashboardController::class, 'switchTenantRole']);
 });
 
 // Landlord space
@@ -58,6 +67,14 @@ Route::prefix('landlord')->group(function () {
     Route::match(['post', 'delete'], 'profile/avatar/remove', [\App\Http\Controllers\Landlord\DashboardController::class, 'removeAvatar'])->name('landlord.profile.avatar.remove');
     Route::post('profile/password', [\App\Http\Controllers\Landlord\DashboardController::class, 'updatePassword'])->name('landlord.profile.password');
     Route::post('settings/update', [\App\Http\Controllers\Landlord\DashboardController::class, 'updateSettings'])->name('landlord.settings.update');
+
+    // Compounds & Sites Management
+    Route::get('compounds', [\App\Http\Controllers\Api\CompoundController::class, 'index']);
+    Route::post('compounds', [\App\Http\Controllers\Api\CompoundController::class, 'store']);
+    Route::get('compounds/{compound}', [\App\Http\Controllers\Api\CompoundController::class, 'show']);
+    Route::match(['put', 'patch'], 'compounds/{compound}', [\App\Http\Controllers\Api\CompoundController::class, 'update']);
+    Route::delete('compounds/{compound}', [\App\Http\Controllers\Api\CompoundController::class, 'destroy']);
+    Route::post('compounds/{compound}/houses', [\App\Http\Controllers\Api\CompoundController::class, 'addHouse']);
 
     // Rental Agreements (Mkataba wa Nyumba)
     Route::get('agreements', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'listAgreements']);
@@ -77,6 +94,16 @@ Route::prefix('landlord')->group(function () {
 
     // Occupancy & Duration tracking
     Route::get('occupancy-metrics', [\App\Http\Controllers\Api\AgreementAndInvoiceController::class, 'occupancyMetrics']);
+
+    // Realtime Chat (Phoenix WebSocket + Conversations & Tenant Groups)
+    Route::get('chat/token', [\App\Http\Controllers\Api\ChatController::class, 'token']);
+    Route::get('chat/conversations', [\App\Http\Controllers\Api\ChatController::class, 'conversations']);
+    Route::get('chat/people', [\App\Http\Controllers\Api\ChatController::class, 'people']);
+    Route::get('chat/tenants', [\App\Http\Controllers\Api\ChatController::class, 'myTenants']);
+    Route::post('chat/groups', [\App\Http\Controllers\Api\ChatController::class, 'createGroup']);
+    Route::get('chat/groups/{slug}', [\App\Http\Controllers\Api\ChatController::class, 'group']);
+    Route::post('chat/groups/{slug}/members', [\App\Http\Controllers\Api\ChatController::class, 'addGroupMembers']);
+    Route::post('chat/clear', [\App\Http\Controllers\Api\ChatController::class, 'clearOrDeleteRoom']);
 });
 
 Route::prefix('admin')->group(function () {

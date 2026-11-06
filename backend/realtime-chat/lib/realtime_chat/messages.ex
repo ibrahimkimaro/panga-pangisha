@@ -129,6 +129,42 @@ defmodule RealtimeChat.Messages do
     end
   end
 
+  @doc "Clears all messages up to the current highest id in `topic` for `user_id`."
+  def clear_chat(topic, user_id) do
+    sql = """
+    INSERT INTO chat_clears (user_id, topic, up_to, cleared_at)
+    VALUES ($1::text::uuid, $2, COALESCE((SELECT max(id) FROM chat_messages WHERE topic = $2), 0), now())
+    ON CONFLICT (user_id, topic) DO UPDATE SET up_to = EXCLUDED.up_to, cleared_at = now()
+    RETURNING up_to
+    """
+
+    case Postgrex.query(@db, sql, [user_id, topic]) do
+      {:ok, %{rows: [[up_to]]}} ->
+        clear_notification(user_id, topic)
+        {:ok, up_to}
+
+      {:error, err} ->
+        Logger.error("chat clear failed: #{Exception.message(err)}")
+        {:error, "could not clear chat"}
+    end
+  end
+
+  @doc "Deletes an entire group room and its messages (admin only) or clears direct chat messages."
+  def delete_room("room:" <> slug = topic, user_id) do
+    if group_admin?(slug, user_id) do
+      _ = Postgrex.query(@db, "DELETE FROM chat_messages WHERE topic = $1", [topic])
+      _ = Postgrex.query(@db, "DELETE FROM chat_groups WHERE slug = $1", [slug])
+      {:ok, :deleted_group}
+    else
+      _ = Postgrex.query(@db, "DELETE FROM chat_group_members WHERE user_id = $1::text::uuid AND group_id IN (SELECT id FROM chat_groups WHERE slug = $2)", [user_id, slug])
+      clear_chat(topic, user_id)
+    end
+  end
+
+  def delete_room(topic, user_id) do
+    clear_chat(topic, user_id)
+  end
+
   @doc """
   May this member write in the discussion room's live chat right now? Mirrors can_contribute in the
   backend's app/services/rooms.py (closed rooms, viewers, "selected" and "moderators only" rooms):

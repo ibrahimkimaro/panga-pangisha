@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class House extends Model
 {
-    protected $guarded = ['id', 'owner_id'];
+    protected $guarded = ['id'];
     protected $casts = ['amenities' => 'array', 'verified_at' => 'datetime', 'availability_confirmed_at' => 'datetime'];
 
     public function owner(): BelongsTo { return $this->belongsTo(User::class, 'owner_id'); }
+    public function compound(): BelongsTo { return $this->belongsTo(Compound::class); }
     public function units(): HasMany { return $this->hasMany(Unit::class); }
     public function images(): HasMany { return $this->hasMany(HouseImage::class); }
     public function viewingRequests(): HasMany { return $this->hasMany(ViewingRequest::class); }

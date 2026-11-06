@@ -23,6 +23,7 @@ interface TenantsViewProps {
     onOpenAddTenant: () => void;
     onNavigateInvoices: () => void;
     onNavigateAgreements: () => void;
+    onOpenChatWithTenant?: (phoneOrName: string) => void;
 }
 
 export default function TenantsView({
@@ -30,6 +31,7 @@ export default function TenantsView({
     onOpenAddTenant,
     onNavigateInvoices,
     onNavigateAgreements,
+    onOpenChatWithTenant,
 }: TenantsViewProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterProperty, setFilterProperty] = useState('all');
@@ -175,6 +177,16 @@ export default function TenantsView({
                                 </td>
                                 <td className="py-3.5 px-4 text-right">
                                     <div className="inline-flex items-center gap-1.5">
+                                        {onOpenChatWithTenant && (
+                                            <button
+                                                onClick={() => onOpenChatWithTenant(tenant.phone || tenant.name)}
+                                                className="inline-flex items-center gap-1 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1 text-[11px] font-bold text-teal-700 hover:bg-teal-100 transition-all shadow-2xs cursor-pointer"
+                                                title="Open Realtime Chat"
+                                            >
+                                                <MessageSquare className="h-3 w-3" />
+                                                Chat
+                                            </button>
+                                        )}
                                         <button
                                             onClick={onNavigateInvoices}
                                             className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-2xs"

@@ -14,7 +14,6 @@ import '../../../l10n.dart';
 import '../../../ui.dart';
 import '../../customecontrols/RegionsDistrict.dart';
 import '../../customecontrols/pickers.dart';
-import '../../listing.dart';
 import '../ai_property_workspace.dart';
 import 'wizard_models.dart';
 
@@ -39,9 +38,9 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
   String _unitSearchQuery = '';
 
   final _stepTitles = [
-    (t('Property Type', 'Aina ya Nyumba'), Icons.home_work_outlined),
-    (t('Property Details', 'Maelezo ya Nyumba'), Icons.description_outlined),
-    (t('Interactive Map', 'Ramani ya Mahali'), Icons.map_outlined),
+    (t('Rental Mode & Category', 'Njia ya Upangishaji & Aina'), Icons.home_work_outlined),
+    (t('Property Details & Amenities', 'Maelezo ya Nyumba & Vifaa'), Icons.description_outlined),
+    (t('Tanzania Location & NAPA Code', 'Mahali, Anwani & NAPA'), Icons.map_outlined),
     (t('Property Structure', 'Muundo wa Nyumba'), Icons.apartment_outlined),
     (t('Unit Templates', 'Violezo vya Vyumba'), Icons.style_outlined),
     (t('Review Units', 'Kagua Vyumba'), Icons.meeting_room_outlined),
@@ -124,8 +123,8 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
       return;
     }
     if (_step == 2 && _draft.locationPin == null) {
-      setState(() => _error = t('Please tap the map to set the exact property location.', 'Tafadhali gusa ramani kuweka mahali halisi.'));
-      return;
+      _draft.locationPin = const LatLng(-6.7924, 39.2083);
+      _draft.mapAddressConfirmed = '-6.7924, 39.2083';
     }
     if (_step == 4) {
       _draft.generateUnitsFromTemplates();
@@ -169,6 +168,8 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
       final Map<String, String> body = {
         'property_name': _draft.propertyName.trim(),
         'property_type': _draft.propertyType.name,
+        'rental_mode': _draft.rentalMode.code,
+        if (_draft.compoundId != null) 'compound_id': '${_draft.compoundId}',
         'property_category': _draft.propertyCategory,
         'advertiser_role': _draft.advertiserRole,
         'country': _draft.country,
@@ -743,17 +744,65 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
   }
 
   // =========================================================================
-  // SCREEN 2 — Property Details & Address
+  // SCREEN 2 — Property Details & Amenities ("Merties")
   // =========================================================================
   Widget _step2PropertyDetails() {
+    final amenitiesList = [
+      ('LUKU', Icons.electric_meter_outlined, 'STS LUKU Meter', 'Mita ya LUKU'),
+      ('Water', Icons.water_drop_outlined, 'DAWASA & Borehole Water', 'Maji ya DAWASA/Kisima'),
+      ('Security', Icons.shield_outlined, '24/7 Security Guard', 'Mlinzi Masaa 24'),
+      ('Fence', Icons.fence_outlined, 'Perimeter Fence & Gate', 'Ua na Geti'),
+      ('Generator', Icons.bolt_outlined, 'Standby Generator', 'Jenereta ya Umeme'),
+      ('Parking', Icons.directions_car_outlined, 'Dedicated Parking', 'Maegesho ya Ndani'),
+      ('AC', Icons.ac_unit_rounded, 'Air Conditioning (AC)', 'Kiyoyozi'),
+      ('Tiles', Icons.grid_on_rounded, 'Ceramic Tiles & Gypsum', 'Vigae (Tiles) & Gypsum'),
+      ('WiFi', Icons.wifi_rounded, 'High-Speed WiFi', 'Mtandao wa WiFi'),
+      ('Balcony', Icons.balcony_outlined, 'Private Balcony', 'Ubaraza wa Kibinafsi'),
+      ('Kitchen', Icons.countertops_outlined, 'Fitted Modern Kitchen', 'Jiko la Kisasa'),
+      ('Pool', Icons.pool_rounded, 'Swimming Pool', 'Bwawa la Kuogelea'),
+      ('Lift', Icons.elevator_outlined, 'Passenger Lift', 'Lifti ya Jengo'),
+      ('Garden', Icons.yard_outlined, 'Garden & Lawn', 'Bustani'),
+      ('Shared Kitchen', Icons.kitchen_outlined, 'Shared Kitchen', 'Jiko la Pamoja'),
+      ('Cabro', Icons.view_comfy_outlined, 'Paved Cabro Compound', 'Uwanja wa Paving Blocks'),
+      ('Garbage', Icons.delete_sweep_outlined, 'Waste Disposal', 'Uzoaaji Taka'),
+    ];
+
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       children: [
-        Text(t('Property Details & Address', 'Maelezo na Mahali pa Nyumba'), style: display(18, weight: FontWeight.w800)),
+        Text(t('Property Details & Amenities', 'Maelezo na Vifaa vya Nyumba'), style: display(18, weight: FontWeight.w800)),
         const SizedBox(height: 4),
-        Text(t('Provide clear identification, address details, and NAPA postal codes.',
-          'Weka jina wazi la utambulisho, anwani na namba ya NAPA.'), style: body(13, color: C.muted)),
+        Text(t('Name your building, write an attractive description, and select all amenities available.',
+          'Weka jina la nyumba, maelezo mazuri, na chagua vifaa na huduma zilizopo.'), style: body(13, color: C.muted)),
         const SizedBox(height: 14),
+
+        if (_draft.compoundName != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: C.tealLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: C.teal.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.domain_rounded, color: C.teal, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: t('Compound: ', 'Compaundi: '), style: body(12, color: C.muted)),
+                        TextSpan(text: _draft.compoundName!, style: body(12.5, color: C.teal, weight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
 
         Text(t('Property Display Name', 'Jina la Nyumba'), style: body(12.5, color: C.muted)),
         const SizedBox(height: 4),
@@ -762,12 +811,12 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
           onChanged: (v) => _draft.propertyName = v,
           style: body(14.5),
           decoration: InputDecoration(
-            hintText: t('e.g. Kimaro Modern Residence, Sunrise Heights', 'mf. Nyumba ya Kisasa ya Kimaro'),
+            hintText: t('e.g. Kimaro Modern Residence, Bungalow A', 'mf. Nyumba ya Kisasa ya Kimaro'),
           ),
         ),
 
         const SizedBox(height: 14),
-        Text(t('Description', 'Maelezo ya Jumla'), style: body(12.5, color: C.muted)),
+        Text(t('General Description', 'Maelezo ya Jumla'), style: body(12.5, color: C.muted)),
         const SizedBox(height: 4),
         TextField(
           controller: TextEditingController(text: _draft.description)..selection = TextSelection.collapsed(offset: _draft.description.length),
@@ -780,10 +829,142 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
           ),
         ),
 
-        const SizedBox(height: 16),
-        Text(t('Location & Address (Tanzania Conventions)', 'Mahali & Anwani'), style: display(15, weight: FontWeight.w800)),
+        const SizedBox(height: 18),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(t('Shared Facilities & Amenities', 'Vifaa & Huduma za Nyumba'), style: display(15, weight: FontWeight.w800)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: C.card, borderRadius: BorderRadius.circular(10), border: Border.all(color: C.line)),
+              child: Text(
+                '${_draft.sharedAmenities.length} selected',
+                style: body(11, color: C.teal, weight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          t('Select all utilities and perks renters will enjoy.',
+            'Chagua huduma zote na vifaa ambavyo mpangaji atapata.'),
+          style: body(12, color: C.muted),
+        ),
         const SizedBox(height: 10),
 
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final (key, icon, enLabel, swLabel) in amenitiesList) ...[
+              Press(
+                onTap: () {
+                  setState(() {
+                    if (_draft.sharedAmenities.contains(key)) {
+                      _draft.sharedAmenities.remove(key);
+                    } else {
+                      _draft.sharedAmenities.add(key);
+                    }
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _draft.sharedAmenities.contains(key) ? C.tealLight : C.card,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: _draft.sharedAmenities.contains(key) ? C.teal : C.line,
+                      width: _draft.sharedAmenities.contains(key) ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 15,
+                        color: _draft.sharedAmenities.contains(key) ? C.teal : C.muted,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        t(enLabel, swLabel),
+                        style: body(
+                          12.5,
+                          color: _draft.sharedAmenities.contains(key) ? C.teal : C.wino,
+                          weight: _draft.sharedAmenities.contains(key) ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                      if (_draft.sharedAmenities.contains(key)) ...[
+                        const SizedBox(width: 5),
+                        Icon(Icons.check_circle_rounded, size: 14, color: C.teal),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  // =========================================================================
+  // SCREEN 3 — Tanzania Location, Address & NAPA Postal Code + Map Pin
+  // =========================================================================
+  Widget _step3InteractiveMap() {
+    final pin = _draft.locationPin ?? const LatLng(-6.7924, 39.2083); // Dar center fallback
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      children: [
+        Text(t('Tanzania Location & NAPA Code', 'Mahali, Anwani & Namba ya NAPA'), style: display(18, weight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        Text(
+          t('Enter local administrative address, NAPA code, and pinpoint the exact GPS location.',
+            'Weka mkoa, wilaya, mtaa, namba ya NAPA na dondosha alama kwenye ramani.'),
+          style: body(13, color: C.muted),
+        ),
+        const SizedBox(height: 12),
+
+        // NAPA Info Card
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: C.tealLight.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: C.teal.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.qr_code_2_rounded, color: C.teal, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t('National Addressing System (NAPA)', 'Mfumo wa Anwani za Makazi (NAPA)'),
+                      style: body(12.5, color: C.teal, weight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      t('In Tanzania, every house/plot now has an official NAPA postal code plaque (e.g. 14111-KIN-GOB-0418) for exact parcel verification.',
+                        'Nchini Tanzania, kila nyumba/kiwanja ina namba rasmi ya NAPA (mf. 14111-KIN-GOB-0418) inayotambua eneo kwa usahihi wa kiserikali.'),
+                      style: body(11.5, color: C.muted, height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Cascading Region & District
         Row(
           children: [
             Expanded(
@@ -813,7 +994,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(_draft.region, style: body(14, weight: FontWeight.w600)),
+                          Expanded(child: Text(_draft.region.isNotEmpty ? _draft.region : 'Dar es Salaam', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w600))),
                           Icon(Icons.keyboard_arrow_down, size: 18, color: C.muted),
                         ],
                       ),
@@ -831,7 +1012,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
                   const SizedBox(height: 4),
                   Press(
                     onTap: () async {
-                      final list = regionDistrictMap[_draft.region] ?? ['Kinondoni', 'Ilala'];
+                      final list = regionDistrictMap[_draft.region] ?? ['Kinondoni', 'Ilala', 'Ubungo', 'Kigamboni', 'Temeke'];
                       final picked = await pickFrom<String>(
                         context,
                         title: t('Select District', 'Chagua Wilaya'),
@@ -846,7 +1027,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(child: Text(_draft.district, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w600))),
+                          Expanded(child: Text(_draft.district.isNotEmpty ? _draft.district : 'Kinondoni', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w600))),
                           Icon(Icons.keyboard_arrow_down, size: 18, color: C.muted),
                         ],
                       ),
@@ -865,13 +1046,13 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(t('Ward / Neighborhood', 'Kata / Mtaa'), style: body(12, color: C.muted)),
+                  Text(t('Ward (Kata)', 'Kata'), style: body(12, color: C.muted)),
                   const SizedBox(height: 4),
                   TextField(
                     controller: TextEditingController(text: _draft.ward)..selection = TextSelection.collapsed(offset: _draft.ward.length),
                     onChanged: (v) => _draft.ward = v,
                     style: body(14),
-                    decoration: InputDecoration(hintText: t('e.g. Mbezi Beach', 'mf. Mbezi Beach')),
+                    decoration: InputDecoration(hintText: t('e.g. Goba, Sinza', 'mf. Goba')),
                   ),
                 ],
               ),
@@ -881,13 +1062,13 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(t('Street Name', 'Jina la Barabara / Mtaa'), style: body(12, color: C.muted)),
+                  Text(t('Street (Mtaa)', 'Mtaa'), style: body(12, color: C.muted)),
                   const SizedBox(height: 4),
                   TextField(
                     controller: TextEditingController(text: _draft.street)..selection = TextSelection.collapsed(offset: _draft.street.length),
                     onChanged: (v) => _draft.street = v,
                     style: body(14),
-                    decoration: InputDecoration(hintText: t('e.g. Africana Rd', 'mf. Africana Rd')),
+                    decoration: InputDecoration(hintText: t('e.g. Tegeta A Rd', 'mf. Tegeta A')),
                   ),
                 ],
               ),
@@ -899,6 +1080,7 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
         Row(
           children: [
             Expanded(
+              flex: 3,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -907,24 +1089,28 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
                   TextField(
                     controller: TextEditingController(text: _draft.napaNumber)..selection = TextSelection.collapsed(offset: _draft.napaNumber.length),
                     onChanged: (v) => _draft.napaNumber = v.toUpperCase(),
-                    style: body(14),
-                    decoration: const InputDecoration(hintText: '14111-MBZ-042'),
+                    style: body(14, weight: FontWeight.w600),
+                    decoration: const InputDecoration(
+                      hintText: '14111-KIN-GOB-0418',
+                      prefixIcon: Icon(Icons.tag_rounded, size: 18),
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
+              flex: 2,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(t('House / Plot No.', 'Namba ya Nyumba/Kiwanja'), style: body(12, color: C.muted)),
+                  Text(t('Plot / House No.', 'Nyumba / Kiwanja'), style: body(12, color: C.muted)),
                   const SizedBox(height: 4),
                   TextField(
                     controller: TextEditingController(text: _draft.houseNumber)..selection = TextSelection.collapsed(offset: _draft.houseNumber.length),
                     onChanged: (v) => _draft.houseNumber = v,
                     style: body(14),
-                    decoration: const InputDecoration(hintText: 'Plot 42'),
+                    decoration: const InputDecoration(hintText: 'Plot 418'),
                   ),
                 ],
               ),
@@ -933,128 +1119,108 @@ class _PropertyWizardScreenState extends State<PropertyWizardScreen> {
         ),
 
         const SizedBox(height: 18),
-        Text(t('Shared Facilities & Amenities', 'Vifaa & Huduma za Pamoja'), style: display(15, weight: FontWeight.w800)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            for (final a in ['Water', 'LUKU', 'Parking', 'Security', 'Fence', 'Tiles', 'AC', 'WiFi', 'Generator', 'Garden', 'Lift', 'Pool', 'Shared Kitchen'])
-              Press(
-                onTap: () {
-                  setState(() {
-                    if (_draft.sharedAmenities.contains(a)) {
-                      _draft.sharedAmenities.remove(a);
-                    } else {
-                      _draft.sharedAmenities.add(a);
-                    }
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _draft.sharedAmenities.contains(a) ? C.tealLight : C.card,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _draft.sharedAmenities.contains(a) ? C.teal : C.line),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _draft.sharedAmenities.contains(a) ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded,
-                        size: 15,
-                        color: _draft.sharedAmenities.contains(a) ? C.teal : C.muted,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(amenityName(a), style: body(12.5, color: _draft.sharedAmenities.contains(a) ? C.teal : C.wino, weight: FontWeight.w600)),
-                    ],
-                  ),
+            Text(t('Interactive Map Pin', 'Weka Alama kwenye Ramani'), style: display(15, weight: FontWeight.w800)),
+            if (_draft.locationPin != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: C.tealLight, borderRadius: BorderRadius.circular(8)),
+                child: Text(
+                  '${_draft.locationPin!.latitude.toStringAsFixed(4)}, ${_draft.locationPin!.longitude.toStringAsFixed(4)}',
+                  style: body(11, color: C.teal, weight: FontWeight.w700),
                 ),
               ),
           ],
         ),
-      ],
-    );
-  }
+        const SizedBox(height: 4),
+        Text(t('Tap directly on the map to pinpoint the exact compound or building entrance.',
+          'Gusa moja kwa moja kwenye ramani kuweka geti au eneo sahihi.'), style: body(12, color: C.muted)),
+        const SizedBox(height: 8),
 
-  // =========================================================================
-  // SCREEN 3 — Interactive Map
-  // =========================================================================
-  Widget _step3InteractiveMap() {
-    final pin = _draft.locationPin ?? const LatLng(-6.7924, 39.2083); // Dar center fallback
-    return Stack(
-      children: [
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: pin,
-            initialZoom: 15,
-            onTap: (_, latlng) {
-              setState(() {
-                _draft.locationPin = latlng;
-                _draft.mapAddressConfirmed = '${latlng.latitude.toStringAsFixed(4)}, ${latlng.longitude.toStringAsFixed(4)}';
-              });
-            },
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.panga.panga_pangisha',
+        // Embedded Map Container
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            height: 240,
+            decoration: BoxDecoration(
+              border: Border.all(color: C.line),
+              borderRadius: BorderRadius.circular(16),
             ),
-            if (_draft.locationPin != null)
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: _draft.locationPin!,
-                    width: 48,
-                    height: 48,
-                    child: Icon(Icons.location_on, size: 44, color: C.hibiscus),
-                  ),
-                ],
-              ),
-          ],
-        ),
-
-        // Controls overlay
-        Positioned(
-          top: 16,
-          left: 16,
-          right: 16,
-          child: Glass(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
+            child: Stack(
               children: [
-                Icon(Icons.touch_app_outlined, size: 20, color: C.teal),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _draft.locationPin != null
-                        ? t('Location set: (${_draft.locationPin!.latitude.toStringAsFixed(4)}, ${_draft.locationPin!.longitude.toStringAsFixed(4)})',
-                            'Mahali pamewekwa: (${_draft.locationPin!.latitude.toStringAsFixed(4)}, ${_draft.locationPin!.longitude.toStringAsFixed(4)})')
-                        : t('Tap on the map to set the exact property marker', 'Gusa ramani kuweka alama ya nyumba'),
-                    style: body(13, weight: FontWeight.w600),
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: pin,
+                    initialZoom: 15,
+                    onTap: (_, latlng) {
+                      setState(() {
+                        _draft.locationPin = latlng;
+                        _draft.mapAddressConfirmed = '${latlng.latitude.toStringAsFixed(4)}, ${_draft.locationPin!.longitude.toStringAsFixed(4)}';
+                      });
+                    },
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.panga.panga_pangisha',
+                    ),
+                    if (_draft.locationPin != null)
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _draft.locationPin!,
+                            width: 44,
+                            height: 44,
+                            child: Icon(Icons.location_on, size: 40, color: C.hibiscus),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+                Positioned(
+                  bottom: 12,
+                  right: 12,
+                  child: FloatingActionButton.small(
+                    heroTag: 'gps_btn_step3',
+                    backgroundColor: C.card,
+                    elevation: 3,
+                    onPressed: _locateMe,
+                    child: Icon(Icons.my_location, color: C.teal, size: 20),
+                  ),
+                ),
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: C.card.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.touch_app_outlined, size: 14, color: C.teal),
+                        const SizedBox(width: 4),
+                        Text(
+                          _draft.locationPin != null
+                              ? t('Pin placed', 'Alama imewekwa')
+                              : t('Tap map to drop pin', 'Gusa ramani kuweka alama'),
+                          style: body(11, weight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         ),
-
-        Positioned(
-          bottom: 20,
-          right: 16,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FloatingActionButton.small(
-                heroTag: 'gps_btn',
-                backgroundColor: C.card,
-                onPressed: _locateMe,
-                child: Icon(Icons.my_location, color: C.teal),
-              ),
-            ],
-          ),
-        ),
+        const SizedBox(height: 20),
       ],
     );
   }

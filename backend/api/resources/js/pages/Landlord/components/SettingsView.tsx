@@ -2,8 +2,10 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Lock, Wallet, Bell, Camera, Trash2, Check, AlertCircle,
-    Eye, EyeOff, Save, ShieldCheck, Smartphone, Building, RefreshCw
+    Eye, EyeOff, Save, ShieldCheck, Smartphone, Building, RefreshCw,
+    Sun, Moon, Monitor, Palette
 } from 'lucide-react';
+import { useTheme, ThemeMode } from '../../../lib/theme';
 
 interface SettingsViewProps {
     user: {
@@ -22,7 +24,8 @@ interface SettingsViewProps {
 }
 
 export default function SettingsView({ user, onUserUpdated }: SettingsViewProps) {
-    const [activeTab, setActiveTab] = useState<'profile' | 'payout' | 'security' | 'notifications'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'payout' | 'security' | 'notifications'>('profile');
+    const { theme, isDark, setTheme } = useTheme();
 
     // Profile state
     const [profileForm, setProfileForm] = useState({
@@ -242,13 +245,33 @@ export default function SettingsView({ user, onUserUpdated }: SettingsViewProps)
         }
     };
 
+    const handleThemeSelect = async (nextTheme: ThemeMode) => {
+        setTheme(nextTheme);
+        showMessage('success', `Appearance switched to ${nextTheme === 'dark' ? 'Dark' : nextTheme === 'light' ? 'Light' : 'System'} theme.`);
+        try {
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            };
+            const token = localStorage.getItem('auth_token');
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            await fetch('/landlord/settings/update', {
+                method: 'POST',
+                headers,
+                credentials: 'include',
+                body: JSON.stringify({ theme: nextTheme }),
+            });
+        } catch {}
+    };
+
     return (
         <div className="space-y-6 pb-12 max-w-4xl">
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">Host Settings & Account</h1>
                 <p className="text-xs text-slate-500 mt-0.5">
-                    Manage your landlord profile, disbursement accounts, security credentials, and alerts
+                    Manage your landlord profile, dark & light appearance theme, disbursement accounts, security credentials, and alerts
                 </p>
             </div>
 
@@ -261,8 +284,8 @@ export default function SettingsView({ user, onUserUpdated }: SettingsViewProps)
                         exit={{ opacity: 0, y: -8 }}
                         className={`rounded-xl p-3.5 text-xs font-semibold flex items-center gap-2 ${
                             feedback.type === 'success'
-                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                : 'bg-red-50 text-red-800 border border-red-200'
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-800'
+                                : 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-950/60 dark:text-red-200 dark:border-red-800'
                         }`}
                     >
                         {feedback.type === 'success' ? (
@@ -276,12 +299,12 @@ export default function SettingsView({ user, onUserUpdated }: SettingsViewProps)
             </AnimatePresence>
 
             {/* Tabbed Navigation (Stripe Style) */}
-            <div className="flex border-b border-slate-200 text-xs font-semibold">
+            <div className="flex flex-wrap border-b border-slate-200 text-xs font-semibold">
                 <button
                     onClick={() => setActiveTab('profile')}
-                    className={`flex items-center gap-2 border-b-2 py-3 px-4 transition-all ${
+                    className={`flex items-center gap-2 border-b-2 py-3 px-4 transition-all cursor-pointer ${
                         activeTab === 'profile'
-                            ? 'border-slate-900 text-slate-900 font-bold'
+                            ? 'border-slate-900 dark:border-teal-400 text-slate-900 dark:text-white font-bold'
                             : 'border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                 >
@@ -289,10 +312,21 @@ export default function SettingsView({ user, onUserUpdated }: SettingsViewProps)
                     Host Profile
                 </button>
                 <button
+                    onClick={() => setActiveTab('appearance')}
+                    className={`flex items-center gap-2 border-b-2 py-3 px-4 transition-all cursor-pointer ${
+                        activeTab === 'appearance'
+                            ? 'border-slate-900 dark:border-teal-400 text-slate-900 dark:text-white font-bold'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                >
+                    <Palette className="h-4 w-4" />
+                    Dark & Light Theme
+                </button>
+                <button
                     onClick={() => setActiveTab('payout')}
-                    className={`flex items-center gap-2 border-b-2 py-3 px-4 transition-all ${
+                    className={`flex items-center gap-2 border-b-2 py-3 px-4 transition-all cursor-pointer ${
                         activeTab === 'payout'
-                            ? 'border-slate-900 text-slate-900 font-bold'
+                            ? 'border-slate-900 dark:border-teal-400 text-slate-900 dark:text-white font-bold'
                             : 'border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                 >
@@ -301,9 +335,9 @@ export default function SettingsView({ user, onUserUpdated }: SettingsViewProps)
                 </button>
                 <button
                     onClick={() => setActiveTab('security')}
-                    className={`flex items-center gap-2 border-b-2 py-3 px-4 transition-all ${
+                    className={`flex items-center gap-2 border-b-2 py-3 px-4 transition-all cursor-pointer ${
                         activeTab === 'security'
-                            ? 'border-slate-900 text-slate-900 font-bold'
+                            ? 'border-slate-900 dark:border-teal-400 text-slate-900 dark:text-white font-bold'
                             : 'border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                 >
@@ -312,9 +346,9 @@ export default function SettingsView({ user, onUserUpdated }: SettingsViewProps)
                 </button>
                 <button
                     onClick={() => setActiveTab('notifications')}
-                    className={`flex items-center gap-2 border-b-2 py-3 px-4 transition-all ${
+                    className={`flex items-center gap-2 border-b-2 py-3 px-4 transition-all cursor-pointer ${
                         activeTab === 'notifications'
-                            ? 'border-slate-900 text-slate-900 font-bold'
+                            ? 'border-slate-900 dark:border-teal-400 text-slate-900 dark:text-white font-bold'
                             : 'border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                 >
@@ -326,6 +360,44 @@ export default function SettingsView({ user, onUserUpdated }: SettingsViewProps)
             {/* TAB 1: Profile Details */}
             {activeTab === 'profile' && (
                 <div className="space-y-6">
+                    {/* Quick Appearance / Dark & Light Theme Card right in Profile Settings */}
+                    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <Palette className="h-4 w-4 text-teal-600" />
+                                <h3 className="text-sm font-bold text-slate-900">Display Appearance (Dark & Light Theme)</h3>
+                            </div>
+                            <p className="text-xs text-slate-500">
+                                Switch between Light Mode, Dark Mode, or automatic system preference across the portal
+                            </p>
+                        </div>
+                        <div className="inline-flex items-center rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-1 gap-1 shrink-0">
+                            {[
+                                { id: 'light' as ThemeMode, label: 'Light', icon: Sun },
+                                { id: 'dark' as ThemeMode, label: 'Dark', icon: Moon },
+                                { id: 'system' as ThemeMode, label: 'System', icon: Monitor },
+                            ].map((opt) => {
+                                const Icon = opt.icon;
+                                const active = theme === opt.id;
+                                return (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => handleThemeSelect(opt.id)}
+                                        className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all cursor-pointer ${
+                                            active
+                                                ? 'bg-slate-900 dark:bg-teal-600 text-white shadow-2xs'
+                                                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        <Icon className="h-3.5 w-3.5" />
+                                        <span>{opt.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
                     {/* Avatar Card (Airbnb warmth) */}
                     <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
                         <h3 className="text-sm font-bold text-slate-900 mb-4">Profile Photo</h3>
@@ -455,6 +527,94 @@ export default function SettingsView({ user, onUserUpdated }: SettingsViewProps)
                             </button>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {/* TAB 1B: Appearance (Dark & Light Theme) */}
+            {activeTab === 'appearance' && (
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-6">
+                    <div>
+                        <h3 className="text-sm font-bold text-slate-900">Interface Theme & Color Scheme</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                            Choose how Panga Pangisha looks to you. Your preference is saved immediately and applies across all dashboard views and Phoenix Realtime Chat.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {[
+                            {
+                                id: 'light' as ThemeMode,
+                                title: 'Light Mode',
+                                subtitle: 'Warm ivory background with crisp white executive cards',
+                                icon: Sun,
+                                previewBg: 'bg-[#FBF9F5] border-stone-200',
+                                previewCard: 'bg-white border-stone-200 text-slate-900',
+                            },
+                            {
+                                id: 'dark' as ThemeMode,
+                                title: 'Dark Mode',
+                                subtitle: 'Deep midnight slate surfaces optimized for low-light work',
+                                icon: Moon,
+                                previewBg: 'bg-[#0B1120] border-slate-800',
+                                previewCard: 'bg-[#111827] border-slate-700 text-white',
+                            },
+                            {
+                                id: 'system' as ThemeMode,
+                                title: 'System Preference',
+                                subtitle: 'Automatically switches between Light and Dark with your OS',
+                                icon: Monitor,
+                                previewBg: 'bg-gradient-to-r from-[#FBF9F5] to-[#0B1120] border-slate-300',
+                                previewCard: 'bg-slate-800 border-slate-600 text-white',
+                            },
+                        ].map((item) => {
+                            const Icon = item.icon;
+                            const isSelected = theme === item.id;
+                            return (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => handleThemeSelect(item.id)}
+                                    className={`text-left rounded-2xl border-2 p-4 transition-all cursor-pointer flex flex-col justify-between gap-4 ${
+                                        isSelected
+                                            ? 'border-teal-600 dark:border-teal-400 ring-2 ring-teal-500/20'
+                                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                                    }`}
+                                >
+                                    <div className={`h-24 w-full rounded-xl border p-3 flex flex-col justify-between ${item.previewBg}`}>
+                                        <div className="flex items-center justify-between">
+                                            <div className={`h-6 w-6 rounded-lg flex items-center justify-center border ${item.previewCard}`}>
+                                                <Icon className="h-3.5 w-3.5" />
+                                            </div>
+                                            {isSelected && (
+                                                <span className="h-5 w-5 rounded-full bg-teal-600 text-white flex items-center justify-center">
+                                                    <Check className="h-3 w-3" />
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-bold ${item.previewCard}`}>
+                                            Panga Pangisha UI
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-extrabold text-slate-900">{item.title}</span>
+                                            {isSelected && (
+                                                <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400">Active</span>
+                                            )}
+                                        </div>
+                                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{item.subtitle}</p>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                        <span>
+                            Currently active appearance: <strong className="text-slate-900">{isDark ? 'Dark Theme' : 'Light Theme'}</strong>
+                        </span>
+                    </div>
                 </div>
             )}
 

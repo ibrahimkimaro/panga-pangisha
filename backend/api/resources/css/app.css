@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @source '../js';
+@custom-variant dark (&:where(.dark, .dark *));
 
 @font-face { font-family: 'Bricolage'; src: url('../fonts/Bricolage.ttf') format('truetype'); font-weight: 200 800; font-stretch: 75% 100%; font-display: swap; }
 @font-face { font-family: 'Figtree'; src: url('../fonts/Figtree.ttf') format('truetype'); font-weight: 300 900; font-display: swap; }
@@ -31,8 +32,12 @@
 }
 
 @layer base {
+    :root {
+        color-scheme: light dark;
+    }
     html { scroll-behavior: smooth; }
     body { @apply bg-paper font-sans text-ink antialiased; }
+    html.dark body { background-color: #0b1120; color: #f1f5f9; }
     h1, h2, h3 { @apply font-display; letter-spacing: -0.02em; }
     :focus-visible { outline: 2px solid var(--color-teal); outline-offset: 2px; border-radius: 6px; }
     dialog::backdrop { background: rgb(11 27 43 / 0.55); }
@@ -40,6 +45,320 @@
         html { scroll-behavior: auto; }
         *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
     }
+}
+
+/* Global Dark Mode surface adaptation for dashboard cards, inner containers, headers, sidebars, inputs, and tables */
+html.dark .bg-\[\#FBF9F5\],
+html.dark .bg-\[\#F8FAFC\] {
+    background-color: #0b1120 !important;
+    color: #f1f5f9 !important;
+}
+
+/* Primary elevated surfaces (Cards, Modals, Sidebars, Top Header) */
+html.dark .bg-white,
+html.dark .bg-white\/95,
+html.dark .bg-white\/90,
+html.dark .bg-white\/80 {
+    background-color: #111827 !important;
+    color: #f1f5f9 !important;
+}
+
+/* Inner containers inside cards/sidebars/headers (Meter boxes, Tenant boxes, Activity items, Search inputs, Unit pills) */
+html.dark .bg-white .bg-\[\#FBF9F5\],
+html.dark aside .bg-\[\#FBF9F5\],
+html.dark header .bg-\[\#FBF9F5\],
+html.dark .bg-\[\#F4F1EA\],
+html.dark .bg-\[\#F4F1EA\]\/60,
+html.dark .bg-slate-50,
+html.dark .bg-slate-50\/40,
+html.dark .bg-slate-50\/50,
+html.dark .bg-slate-50\/60,
+html.dark .bg-slate-50\/70,
+html.dark .bg-slate-50\/80,
+html.dark .bg-slate-50\/90,
+html.dark .bg-slate-100,
+html.dark .bg-slate-100\/50,
+html.dark .bg-slate-100\/60,
+html.dark .bg-slate-100\/70,
+html.dark .bg-slate-100\/80,
+html.dark .bg-slate-100\/90,
+html.dark .bg-stone-50,
+html.dark .bg-stone-50\/50,
+html.dark .bg-stone-50\/70,
+html.dark .bg-stone-50\/80,
+html.dark .bg-stone-100,
+html.dark .bg-stone-100\/60,
+html.dark .bg-stone-100\/80,
+html.dark .bg-gray-50,
+html.dark .bg-gray-100 {
+    background-color: #1e293b !important;
+    color: #f1f5f9 !important;
+}
+
+/* Tertiary / Badge / Hover neutral containers */
+html.dark .bg-slate-200,
+html.dark .bg-slate-200\/60,
+html.dark .bg-slate-200\/80,
+html.dark .bg-stone-200,
+html.dark .bg-stone-200\/60,
+html.dark .bg-stone-200\/80,
+html.dark .bg-gray-200 {
+    background-color: #334155 !important;
+    color: #f8fafc !important;
+}
+
+/* Active navigation buttons, filter tabs, and primary dark buttons in Dark Mode */
+html.dark button.bg-slate-900,
+html.dark button.bg-\[\#12161A\],
+html.dark a.bg-slate-900,
+html.dark a.bg-\[\#12161A\] {
+    background-color: #0d9488 !important;
+    color: #ffffff !important;
+    border-color: #14b8a6 !important;
+}
+
+html.dark button.bg-slate-900:hover,
+html.dark button.bg-\[\#12161A\]:hover,
+html.dark a.bg-slate-900:hover,
+html.dark a.bg-\[\#12161A\]:hover {
+    background-color: #0f766e !important;
+}
+
+/* Hover states on dark containers */
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-100:hover,
+html.dark .hover\:bg-slate-100\/80:hover,
+html.dark .hover\:bg-stone-50:hover,
+html.dark .hover\:bg-stone-100:hover,
+html.dark .hover\:bg-white:hover {
+    background-color: #263449 !important;
+}
+
+/* Tinted Inner Containers & Status Badges in Dark Mode */
+/* 1. Amber (LUKU meters, Expiring soon alerts, Pending badges) */
+html.dark .bg-amber-50,
+html.dark .bg-amber-50\/40,
+html.dark .bg-amber-50\/50,
+html.dark .bg-amber-50\/60,
+html.dark .bg-amber-50\/70,
+html.dark .bg-amber-50\/80,
+html.dark .bg-amber-100,
+html.dark .bg-amber-100\/80 {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+}
+html.dark .bg-amber-200 {
+    background-color: rgba(245, 158, 11, 0.26) !important;
+}
+html.dark .border-amber-100,
+html.dark .border-amber-200,
+html.dark .border-amber-200\/80,
+html.dark .border-amber-300 {
+    border-color: rgba(245, 158, 11, 0.35) !important;
+}
+html.dark .text-amber-950,
+html.dark .text-amber-900,
+html.dark .text-amber-800,
+html.dark .text-amber-700 {
+    color: #fcd34d !important;
+}
+
+/* 2. Blue (DAWASA meters, Tenancy duration boxes, Vacant badges) */
+html.dark .bg-blue-50,
+html.dark .bg-blue-50\/40,
+html.dark .bg-blue-50\/50,
+html.dark .bg-blue-50\/60,
+html.dark .bg-blue-50\/70,
+html.dark .bg-blue-50\/80,
+html.dark .bg-blue-100,
+html.dark .bg-blue-100\/80 {
+    background-color: rgba(59, 130, 246, 0.14) !important;
+}
+html.dark .border-blue-100,
+html.dark .border-blue-200,
+html.dark .border-blue-200\/80,
+html.dark .border-blue-300 {
+    border-color: rgba(59, 130, 246, 0.35) !important;
+}
+html.dark .text-blue-950,
+html.dark .text-blue-900,
+html.dark .text-blue-800,
+html.dark .text-blue-700 {
+    color: #93c5fd !important;
+}
+
+/* 3. Emerald / Green (Occupied badges, Paid status, Active tenancy) */
+html.dark .bg-emerald-50,
+html.dark .bg-emerald-50\/40,
+html.dark .bg-emerald-50\/50,
+html.dark .bg-emerald-50\/60,
+html.dark .bg-emerald-50\/70,
+html.dark .bg-emerald-50\/80,
+html.dark .bg-emerald-100,
+html.dark .bg-emerald-100\/80 {
+    background-color: rgba(16, 185, 129, 0.14) !important;
+}
+html.dark .border-emerald-100,
+html.dark .border-emerald-200,
+html.dark .border-emerald-200\/80,
+html.dark .border-emerald-300 {
+    border-color: rgba(16, 185, 129, 0.35) !important;
+}
+html.dark .text-emerald-950,
+html.dark .text-emerald-900,
+html.dark .text-emerald-800,
+html.dark .text-emerald-700 {
+    color: #6ee7b7 !important;
+}
+
+/* 4. Teal */
+html.dark .bg-teal-50,
+html.dark .bg-teal-50\/40,
+html.dark .bg-teal-50\/50,
+html.dark .bg-teal-50\/70,
+html.dark .bg-teal-50\/80,
+html.dark .bg-teal-100 {
+    background-color: rgba(20, 184, 166, 0.15) !important;
+}
+html.dark .border-teal-100,
+html.dark .border-teal-200,
+html.dark .border-teal-300 {
+    border-color: rgba(20, 184, 166, 0.35) !important;
+}
+html.dark .text-teal-950,
+html.dark .text-teal-900,
+html.dark .text-teal-800,
+html.dark .text-teal-700 {
+    color: #5eead4 !important;
+}
+
+/* 5. Indigo & Purple (Issue Invoice button, badges) */
+html.dark .bg-indigo-50,
+html.dark .bg-indigo-50\/50,
+html.dark .bg-indigo-100,
+html.dark .bg-purple-50,
+html.dark .bg-purple-100 {
+    background-color: rgba(99, 102, 241, 0.16) !important;
+}
+html.dark .border-indigo-100,
+html.dark .border-indigo-200,
+html.dark .border-purple-200 {
+    border-color: rgba(99, 102, 241, 0.35) !important;
+}
+html.dark .text-indigo-950,
+html.dark .text-indigo-900,
+html.dark .text-indigo-800,
+html.dark .text-indigo-700,
+html.dark .text-purple-800,
+html.dark .text-purple-700 {
+    color: #a5b4fc !important;
+}
+
+/* 6. Rose & Red (Alerts, Delete, Favorites) */
+html.dark .bg-rose-50,
+html.dark .bg-rose-50\/50,
+html.dark .bg-rose-50\/60,
+html.dark .bg-rose-100,
+html.dark .bg-red-50,
+html.dark .bg-red-100 {
+    background-color: rgba(244, 63, 94, 0.15) !important;
+}
+html.dark .border-rose-100,
+html.dark .border-rose-200,
+html.dark .border-red-100,
+html.dark .border-red-200 {
+    border-color: rgba(244, 63, 94, 0.35) !important;
+}
+html.dark .text-rose-950,
+html.dark .text-rose-900,
+html.dark .text-rose-800,
+html.dark .text-rose-700,
+html.dark .text-red-950,
+html.dark .text-red-900,
+html.dark .text-red-800,
+html.dark .text-red-700 {
+    color: #fda4af !important;
+}
+
+/* Borders & Dividers in Dark Mode */
+html.dark .border-\[\#EBE7E1\],
+html.dark .border-slate-300,
+html.dark .border-slate-200,
+html.dark .border-slate-200\/90,
+html.dark .border-slate-200\/80,
+html.dark .border-slate-200\/60,
+html.dark .border-slate-100,
+html.dark .border-stone-300,
+html.dark .border-stone-300\/60,
+html.dark .border-stone-200,
+html.dark .border-stone-200\/60,
+html.dark .border-stone-200\/50,
+html.dark .border-stone-100,
+html.dark .border-gray-200,
+html.dark .border-gray-100 {
+    border-color: #263346 !important;
+}
+
+html.dark .divide-slate-100 > :not(:last-child),
+html.dark .divide-slate-200 > :not(:last-child),
+html.dark .divide-stone-100 > :not(:last-child) {
+    border-color: #263346 !important;
+}
+
+/* Typography Hierarchy in Dark Mode */
+html.dark .text-\[\#12161A\],
+html.dark .text-slate-950,
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-stone-900,
+html.dark .text-stone-800,
+html.dark .text-gray-900,
+html.dark .text-gray-800 {
+    color: #f8fafc !important;
+}
+
+html.dark .text-slate-700,
+html.dark .text-stone-700,
+html.dark .text-gray-700 {
+    color: #e2e8f0 !important;
+}
+
+html.dark .text-\[\#706861\],
+html.dark .text-\[\#8C827A\],
+html.dark .text-slate-600,
+html.dark .text-slate-500,
+html.dark .text-stone-600,
+html.dark .text-stone-500,
+html.dark .text-gray-600,
+html.dark .text-gray-500 {
+    color: #94a3b8 !important;
+}
+
+html.dark .text-slate-400,
+html.dark .text-stone-400,
+html.dark .text-gray-400 {
+    color: #64748b !important;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f8fafc !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+    color: #64748b !important;
+}
+
+/* Utility to hide scrollbars cleanly on horizontal mobile filter strips */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }

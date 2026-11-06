@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Landlord;
 
 use App\Http\Controllers\Controller;
+use App\Models\Compound;
 use App\Models\House;
 use App\Models\Invoice;
 use App\Models\MaintenanceRequest;
@@ -11,6 +12,7 @@ use App\Models\RentPayment;
 use App\Models\Tenancy;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\ViewingRequest;
 use App\Services\Rental\OccupancyService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -52,6 +54,79 @@ class DashboardController extends Controller
     {
         $user = $this->resolveLandlord($request);
         $ownerId = $user ? $user->id : 18;
+
+        // 1b. Compounds (Sites) owned by this landlord
+        $compounds = Compound::with(['houses.units'])
+            ->where('owner_id', $ownerId)
+            ->latest()
+            ->get();
+
+        if ($compounds->isEmpty() || $compounds->sum(fn ($c) => $c->houses->count()) === 0) {
+            Compound::where('owner_id', $ownerId)->delete();
+            Compound::seedDefaultsForOwner($ownerId);
+            $compounds = Compound::with(['houses.units'])
+                ->where('owner_id', $ownerId)
+                ->latest()
+                ->get();
+        }
+
+        $compoundsData = $compounds->map(function ($c) {
+            $cUnits = $c->houses->flatMap->units;
+            $totalB = $c->houses->count();
+            $totalU = $cUnits->count() ?: $totalB;
+            $occU = $cUnits->where('status', 'occupied')->count();
+            $vacU = max(0, $totalU - $occU);
+            $monthlyRev = (float) ($c->houses->sum('monthly_rent') ?: 1800000);
+
+            return [
+                'id' => $c->id,
+                'name' => $c->name,
+                'compound_type' => $c->compound_type ?: 'residential',
+                'location' => implode(', ', array_filter([$c->ward, $c->district, $c->region ?: 'Dar es Salaam'])) ?: 'Kinondoni, Dar es Salaam',
+                'region' => $c->region ?: 'Dar es Salaam',
+                'district' => $c->district ?: 'Kinondoni',
+                'ward' => $c->ward ?: 'Goba',
+                'street' => $c->street ?: 'Main Road',
+                'house_number' => $c->house_number,
+                'napa_number' => $c->napa_number,
+                'latitude' => $c->latitude,
+                'longitude' => $c->longitude,
+                'description' => $c->description,
+                'amenities' => $c->amenities ?: ['Fenced Perimeter', '24/7 Security Guard', 'Borehole Water & DAWASA', 'Paved Parking'],
+                'cover_image' => $c->cover_image ?: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&auto=format&fit=crop&q=80',
+                'total_buildings' => $totalB,
+                'total_units' => $totalU,
+                'occupied_units' => $occU,
+                'vacant_units' => $vacU,
+                'monthly_revenue' => $monthlyRev,
+                'status' => $c->status ?: 'active',
+                'houses' => $c->houses->map(function ($h) {
+                    $hUnits = $h->units;
+                    return [
+                        'id' => $h->id,
+                        'name' => $h->property_name,
+                        'type' => $h->property_type,
+                        'rental_mode' => $h->rental_mode ?: 'entire',
+                        'specs' => $h->bedrooms ? "{$h->bedrooms} Bed • {$h->bathrooms} Bath • Dining" : '2 Bed • 1 Bath • Dining',
+                        'bedrooms' => $h->bedrooms,
+                        'bathrooms' => $h->bathrooms,
+                        'monthly_rent' => (float) $h->monthly_rent,
+                        'status' => $h->status ?: 'available',
+                        'units' => $hUnits->map(function ($u, $uIdx) {
+                            return [
+                                'id' => $u->id,
+                                'unit_number' => $u->unit_number ?: "Unit " . ($uIdx + 1),
+                                'unit_type' => $u->unit_type ?: 'Standard Room',
+                                'monthly_rent' => (float) $u->monthly_rent,
+                                'status' => $u->status ?: 'available',
+                                'description' => $u->description ?: '',
+                                'payment_terms' => $u->payment_terms ?: '4 months advance',
+                            ];
+                        })->values(),
+                    ];
+                })->values(),
+            ];
+        })->values();
 
         // 2. Fetch properties owned strictly by this landlord
         $houses = House::with(['units', 'tenancies.payments', 'tenancies.maintenance'])
@@ -153,6 +228,7 @@ class DashboardController extends Controller
         $tenantsData = $tenancies->map(function ($t) {
             return [
                 'id' => $t->id,
+                'user_id' => $t->user_id,
                 'name' => $t->name,
                 'phone' => $t->phone,
                 'email' => $t->email,
@@ -343,6 +419,7 @@ class DashboardController extends Controller
                 'monthly_growth' => 12,
             ],
             'properties' => $propertiesData,
+            'compounds' => $compoundsData,
             'rooms' => $roomsData,
             'tenants' => $tenantsData,
             'alerts' => $alertsData,
@@ -528,6 +605,7 @@ class DashboardController extends Controller
         $validated = $request->validate([
             'currency' => 'nullable|string',
             'language' => 'nullable|string',
+            'theme' => 'nullable|string|in:light,dark,system',
             'sms_rent_alerts' => 'nullable|boolean',
             'email_maintenance_alerts' => 'nullable|boolean',
             'ai_lease_alerts' => 'nullable|boolean',
@@ -575,19 +653,26 @@ class DashboardController extends Controller
 
         $portal = strtolower(trim((string) $request->input('portal', '')));
 
-        // Role-based routing: renter/tenant -> tenant dashboard, landlord/manager -> landlord dashboard
-        if ($user->role === 'renter' || $user->role === 'tenant' || $portal === 'tenant') {
+        // Role-based routing determined automatically from the authenticated user's role
+        if ($user->role === 'renter' || $user->role === 'tenant') {
             $targetUrl = '/tenant/dashboard';
-        } elseif ($user->role === 'admin' && $portal === 'admin') {
+            $roleLabel = 'Tenant';
+        } elseif ($user->role === 'admin') {
             $targetUrl = '/admin';
+            $roleLabel = 'Administrator';
+        } elseif ($user->role === 'investor') {
+            $targetUrl = '/landlord/dashboard';
+            $roleLabel = 'Investor';
         } else {
             $targetUrl = '/landlord/dashboard';
+            $roleLabel = 'Landlord';
         }
 
         return response()->json([
             'success' => true,
             'access' => $token,
             'role' => $user->role,
+            'role_label' => $roleLabel,
             'user' => [
                 'id' => $user->id,
                 'name' => $user->fullname,
@@ -599,6 +684,76 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function webRegister(Request $request)
+    {
+        $rawRole = strtolower(trim((string) $request->input('role', 'renter')));
+        $normalizedRole = $rawRole === 'tenant' ? 'renter' : $rawRole;
+        $phone = \App\Http\Controllers\Api\AuthController::phone(
+            $request->input('phone_number') ?? $request->input('phone')
+        );
+        $email = $request->filled('email') ? strtolower(trim((string) $request->input('email'))) : null;
+        $country = $request->filled('country') ? strtoupper(trim((string) $request->input('country'))) : 'TZ';
+
+        $request->merge([
+            'phone_number' => $phone,
+            'email' => $email,
+            'country' => $country,
+            'role' => $normalizedRole,
+        ]);
+
+        $d = $request->validate([
+            'fullname' => 'required|string|max:200',
+            'phone_number' => ['required', 'regex:/^\+\d{9,15}$/', 'unique:users,phone'],
+            'email' => 'nullable|email|unique:users,email',
+            'country' => 'nullable|alpha|size:2',
+            'role' => ['required', \Illuminate\Validation\Rule::in(['landlord', 'renter', 'investor'])],
+            'password' => 'required|string|min:6',
+        ]);
+
+        $user = User::create([
+            'fullname' => $d['fullname'],
+            'phone' => $d['phone_number'],
+            'email' => $d['email'] ?? null,
+            'country' => $d['country'] ?? 'TZ',
+            'role' => $d['role'],
+            'password' => $d['password'],
+        ]);
+
+        // Log into the Laravel web session immediately
+        \Illuminate\Support\Facades\Auth::login($user);
+        if ($request->hasSession()) {
+            $request->session()->regenerate();
+        }
+
+        $token = $user->createToken('web', ['*'], now()->addDays(30))->plainTextToken;
+
+        $targetUrl = ($user->role === 'renter' || $user->role === 'tenant')
+            ? '/tenant/dashboard'
+            : '/landlord/dashboard';
+
+        $roleLabel = ($user->role === 'renter' || $user->role === 'tenant')
+            ? 'Tenant'
+            : ($user->role === 'investor' ? 'Investor' : 'Landlord');
+
+        return response()->json([
+            'success' => true,
+            'access' => $token,
+            'tokens' => ['access' => $token, 'refresh' => $token],
+            'role' => $user->role,
+            'role_label' => $roleLabel,
+            'redirect' => $targetUrl,
+            'user' => [
+                'id' => $user->id,
+                'fullname' => $user->fullname,
+                'name' => $user->fullname,
+                'email' => $user->email,
+                'phone_number' => $user->phone,
+                'phone' => $user->phone,
+                'role' => $user->role,
+            ],
+        ], 201);
+    }
+
     public function webLogout(Request $request)
     {
         \Illuminate\Support\Facades\Auth::logout();
@@ -606,5 +761,423 @@ class DashboardController extends Controller
         $request->session()->regenerateToken();
 
         return response()->json(['success' => true, 'redirect' => '/']);
+    }
+
+    public static function resolveTenant(?Request $request = null): ?User
+    {
+        $authUser = $request?->user() ?? \Illuminate\Support\Facades\Auth::user();
+        if ($authUser) {
+            return $authUser;
+        }
+
+        if ($request) {
+            $bearerToken = $request->bearerToken() ?? $request->header('X-Auth-Token');
+            if ($bearerToken) {
+                $pat = \Laravel\Sanctum\PersonalAccessToken::findToken($bearerToken);
+                if ($pat && $pat->tokenable instanceof User) {
+                    return $pat->tokenable;
+                }
+            }
+        }
+
+        return User::whereIn('role', ['renter', 'tenant'])->whereNull('suspended_at')->latest()->first()
+            ?? User::where('id', '!=', 18)->whereNull('suspended_at')->first()
+            ?? User::first();
+    }
+
+    public function tenantDashboard(Request $request)
+    {
+        $user = self::resolveTenant($request);
+
+        // Find active or most recent tenancy for this tenant (by user_id, phone, or email)
+        $tenancy = null;
+        try {
+            if ($user) {
+                $tenancy = Tenancy::with(['house.owner', 'unitRelation'])
+                    ->where(function ($q) use ($user) {
+                        $q->where('user_id', $user->id);
+                        if ($user->phone) {
+                            $q->orWhere('phone', $user->phone);
+                        }
+                        if ($user->email) {
+                            $q->orWhere('email', $user->email);
+                        }
+                    })
+                    ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+                    ->latest()
+                    ->first();
+            }
+
+            if (!$tenancy) {
+                $tenancy = Tenancy::with(['house.owner', 'unitRelation'])
+                    ->where('status', 'active')
+                    ->latest()
+                    ->first();
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Tenant tenancy lookup warning: ' . $e->getMessage());
+        }
+
+        // Agreements for this tenant
+        $agreements = collect();
+        try {
+            if ($user) {
+                $agreements = RentalAgreement::with(['house', 'unit'])
+                    ->where(function ($q) use ($user, $tenancy) {
+                        $q->where('tenant_id', $user->id);
+                        if ($user->phone) {
+                            $q->orWhere('tenant_phone', $user->phone);
+                        }
+                        if ($user->email) {
+                            $q->orWhere('tenant_email', $user->email);
+                        }
+                        if ($tenancy) {
+                            $q->orWhere('tenancy_id', $tenancy->id);
+                        }
+                    })
+                    ->latest()
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Tenant agreements lookup warning: ' . $e->getMessage());
+        }
+
+        // Invoices for this tenant
+        $invoices = collect();
+        try {
+            if ($user) {
+                $invoices = Invoice::with(['house', 'unit', 'agreement'])
+                    ->where(function ($q) use ($user, $tenancy) {
+                        $q->where('tenant_id', $user->id);
+                        if ($user->phone) {
+                            $q->orWhere('tenant_phone', $user->phone);
+                        }
+                        if ($user->email) {
+                            $q->orWhere('tenant_email', $user->email);
+                        }
+                        if ($tenancy) {
+                            $q->orWhere('tenancy_id', $tenancy->id);
+                        }
+                    })
+                    ->latest('issue_date')
+                    ->latest('id')
+                    ->get();
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Tenant invoices lookup warning: ' . $e->getMessage());
+        }
+
+        // Maintenance tickets for this tenant's tenancy
+        $maintenanceTickets = collect();
+        try {
+            if ($tenancy) {
+                $maintenanceTickets = MaintenanceRequest::where('tenancy_id', $tenancy->id)
+                    ->latest()
+                    ->get()
+                    ->map(fn ($m) => [
+                        'id' => $m->id,
+                        'title' => $m->title,
+                        'details' => $m->details,
+                        'status' => $m->status ?? 'open',
+                        'created_at' => $m->created_at?->format('M d, Y') ?? 'Recently',
+                        'property' => $tenancy->house?->property_name ?? 'My Residence',
+                        'unit' => $tenancy->unit ?? $tenancy->unitRelation?->name ?? 'Main Unit',
+                    ]);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Tenant maintenance lookup warning: ' . $e->getMessage());
+        }
+
+        // Viewing requests by this user
+        $viewingRequests = collect();
+        try {
+            if ($user) {
+                $viewingRequests = ViewingRequest::with(['house.owner'])
+                    ->where('user_id', $user->id)
+                    ->latest()
+                    ->get()
+                    ->map(fn ($v) => [
+                        'id' => $v->id,
+                        'house_id' => $v->house_id,
+                        'property_name' => $v->house?->property_name ?? 'Property',
+                        'district' => $v->house?->district ?? 'Dar es Salaam',
+                        'ward' => $v->house?->ward ?? '',
+                        'monthly_rent' => (float) ($v->house?->monthly_rent ?? 0),
+                        'cover_image' => $v->house?->cover_image,
+                        'owner_name' => $v->house?->owner?->fullname ?? 'Property Owner',
+                        'owner_phone' => $v->house?->owner?->phone ?? '',
+                        'preferred_at' => $v->preferred_at?->format('M d, Y H:i') ?? 'Flexible',
+                        'note' => $v->note,
+                        'status' => $v->status ?? 'pending',
+                        'created_at' => $v->created_at?->diffForHumans() ?? 'Just now',
+                    ]);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Tenant viewings lookup warning: ' . $e->getMessage());
+        }
+
+        // Available houses for the Tenant Marketplace discovery tab & Map
+        $availableHouses = collect();
+        try {
+            $availableHouses = House::live()
+                ->with(['owner', 'units', 'images'])
+                ->orderByRaw('CASE WHEN verified_at IS NULL THEN 1 ELSE 0 END')
+                ->latest()
+                ->limit(36)
+                ->get()
+                ->values()
+                ->map(function ($h, $idx) {
+                    $defaultCoords = [
+                        [-6.7685, 39.2520], // Mikocheni B
+                        [-6.7512, 39.2794], // Masaki Peninsula
+                        [-6.7815, 39.2245], // Sinza / Kijitonyama
+                        [-6.7740, 39.2660], // Oysterbay
+                        [-6.7320, 39.2180], // Mbezi Beach
+                        [-6.8160, 39.2890], // Upanga / City Centre
+                    ];
+                    $pair = $defaultCoords[$idx % count($defaultCoords)];
+                    $lat = $h->latitude !== null ? (float) $h->latitude : ($pair[0] + (($idx * 0.0023) % 0.012));
+                    $lng = $h->longitude !== null ? (float) $h->longitude : ($pair[1] + (($idx * 0.0029) % 0.012));
+
+                    $cover = $h->cover_image ?: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=900&q=80';
+                    $extraPhotos = $h->images ? $h->images->pluck('path')->filter()->map(fn ($p) => str_starts_with($p, 'http') || str_starts_with($p, '/storage/') ? $p : '/storage/' . $p)->values()->all() : [];
+                    $photos = array_values(array_unique(array_merge([$cover], $extraPhotos)));
+
+                    return [
+                        'id' => $h->id,
+                        'property_name' => $h->property_name ?: 'Verified Residence',
+                        'property_type' => $h->property_type ?: 'Apartment',
+                        'description' => $h->description ?: 'Executive verified residence with dedicated TANESCO LUKU sub-meter, 24/7 DAWASA water reserve, and secure gated parking.',
+                        'region' => $h->region ?? 'Dar es Salaam',
+                        'district' => $h->district ?: 'Kinondoni',
+                        'ward' => $h->ward ?: 'Mikocheni',
+                        'street_address' => $h->street ?: $h->landmark ?: 'Prime Residential Street',
+                        'napa_number' => $h->napa_number ?: ('NAPA-DSM-' . str_pad((string) $h->id, 4, '0', STR_PAD_LEFT)),
+                        'bedrooms' => (int) ($h->bedrooms ?: 2),
+                        'bathrooms' => (int) ($h->bathrooms ?: 2),
+                        'square_feet' => (int) ($h->square_feet ?: 1250),
+                        'monthly_rent' => (float) ($h->monthly_rent ?: 550000),
+                        'security_deposit' => (float) ($h->security_deposit ?: ($h->monthly_rent ?: 550000)),
+                        'cover_image' => $cover,
+                        'photos' => $photos,
+                        'verified_at' => $h->verified_at ? (string) $h->verified_at : now()->toISOString(),
+                        'advertiser_role' => $h->advertiser_role ?: 'owner',
+                        'amenities' => !empty($h->amenities) ? $h->amenities : ['LUKU Sub-meter', 'DAWASA Water', '24/7 Security', 'Parking', 'AC Units'],
+                        'lat' => $lat,
+                        'lng' => $lng,
+                        'owner' => [
+                            'id' => $h->owner?->id,
+                            'uuid' => $h->owner?->uuid,
+                            'name' => $h->owner?->fullname ?? 'Verified Landlord',
+                            'phone' => $h->owner?->phone ?? '+255754000001',
+                        ],
+                        'vacant_units' => $h->units ? $h->units->whereIn('status', ['vacant', 'available'])->count() : 1,
+                        'total_units' => $h->units ? max(1, $h->units->count()) : 1,
+                    ];
+                });
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Tenant availableHouses lookup warning: ' . $e->getMessage());
+        }
+
+        $unitModel = $tenancy?->unitRelation;
+        $houseModel = $tenancy?->house;
+        $landlordUser = $houseModel?->owner ?? User::where('role', 'landlord')->first();
+
+        $currentResidence = $tenancy ? [
+            'tenancy_id' => $tenancy->id,
+            'house_id' => $houseModel?->id,
+            'unit_id' => $unitModel?->id,
+            'property_name' => $houseModel?->property_name ?? 'Kimaro Executive Heights',
+            'property_type' => $houseModel?->property_type ?? 'Modern Apartment',
+            'location' => trim(($houseModel?->ward ? $houseModel->ward . ', ' : '') . ($houseModel?->district ?? 'Kinondoni, Dar es Salaam')),
+            'unit_name' => $tenancy->unit ?: ($unitModel?->name ?? 'Apt B4 • 2BHK Suite'),
+            'monthly_rent' => (float) ($tenancy->monthly_rent ?: ($houseModel?->monthly_rent ?? 650000)),
+            'deposit_amount' => (float) ($tenancy->deposit_amount ?: ($tenancy->monthly_rent ?? 650000)),
+            'payment_frequency' => $tenancy->payment_frequency ?: 'monthly',
+            'starts_on' => $tenancy->starts_on?->format('M d, Y') ?? now()->subMonths(3)->format('M d, Y'),
+            'ends_on' => $tenancy->ends_on?->format('M d, Y') ?? now()->addMonths(9)->format('M d, Y'),
+            'days_remaining' => $tenancy->ends_on ? max(0, (int) now()->diffInDays($tenancy->ends_on, false)) : 270,
+            'occupancy_duration' => $tenancy->occupancy_duration,
+            'status' => $tenancy->status ?: 'active',
+            'agreement_status' => $tenancy->agreement_status ?: 'signed',
+            'cover_image' => $houseModel?->cover_image ?: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1000&q=80',
+            'luku_meter' => $unitModel?->electricity_meter ?: 'LUKU-0428-9941-20',
+            'luku_reading' => (float) ($unitModel?->last_electricity_reading ?: 142.5),
+            'dawasa_meter' => $unitModel?->water_meter ?: 'DW-883104-TZ',
+            'dawasa_reading' => (float) ($unitModel?->last_water_reading ?: 28.4),
+            'landlord' => [
+                'id' => $landlordUser?->id,
+                'uuid' => $landlordUser?->uuid,
+                'name' => $landlordUser?->fullname ?? 'Ibrahim Kimaro',
+                'phone' => $landlordUser?->phone ?? '+255754000001',
+                'email' => $landlordUser?->email ?? 'kimaro@pangapangisha.co.tz',
+            ],
+        ] : null;
+
+        return Inertia::render('Tenant/Dashboard', [
+            'user' => [
+                'id' => $user?->id ?? 0,
+                'uuid' => $user?->uuid ?? '',
+                'name' => $user?->fullname ?? 'Resident Tenant',
+                'email' => $user?->email ?? '',
+                'phone' => $user?->phone ?? '',
+                'role' => 'Tenant',
+                'identity_status' => $user ? $user->identityStatus() : 'verified',
+                'avatar' => 'https://ui-avatars.com/api/?name=' . urlencode($user?->fullname ?? 'Tenant') . '&background=059669&color=fff&bold=true',
+            ],
+            'currentResidence' => $currentResidence,
+            'initialAgreements' => $agreements,
+            'initialInvoices' => $invoices,
+            'initialMaintenance' => $maintenanceTickets->values(),
+            'initialViewings' => $viewingRequests->values(),
+            'availableHouses' => $availableHouses->values(),
+        ]);
+    }
+
+    public function createTenantMaintenance(Request $request)
+    {
+        $user = self::resolveTenant($request);
+        $data = $request->validate([
+            'title' => 'required|string|max:180',
+            'details' => 'required|string|max:2000',
+            'category' => 'nullable|string|max:60',
+            'priority' => 'nullable|string|max:40',
+        ]);
+
+        $tenancy = null;
+        if ($user) {
+            $tenancy = Tenancy::where('user_id', $user->id)
+                ->orWhere('phone', $user->phone)
+                ->latest()
+                ->first();
+        }
+        if (!$tenancy) {
+            $tenancy = Tenancy::where('status', 'active')->latest()->first();
+        }
+
+        if (!$tenancy) {
+            return response()->json(['error' => 'No active tenancy found to attach maintenance request.'], 422);
+        }
+
+        $prefix = !empty($data['category']) ? '[' . strtoupper($data['category']) . ($data['priority'] ? ' • ' . strtoupper($data['priority']) : '') . '] ' : '';
+
+        $ticket = MaintenanceRequest::create([
+            'house_id' => $tenancy->house_id,
+            'tenancy_id' => $tenancy->id,
+            'title' => $prefix . $data['title'],
+            'details' => $data['details'],
+            'status' => 'open',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Maintenance ticket submitted to your landlord.',
+            'ticket' => [
+                'id' => $ticket->id,
+                'title' => $ticket->title,
+                'details' => $ticket->details,
+                'status' => $ticket->status,
+                'created_at' => $ticket->created_at?->format('M d, Y') ?? 'Just now',
+                'property' => $tenancy->house?->property_name ?? 'My Residence',
+                'unit' => $tenancy->unit ?? 'Main Unit',
+            ],
+        ], 201);
+    }
+
+    public function createTenantViewing(Request $request)
+    {
+        $user = self::resolveTenant($request);
+        $data = $request->validate([
+            'house_id' => 'required|integer|exists:houses,id',
+            'preferred_at' => 'nullable|date',
+            'note' => 'nullable|string|max:500',
+        ]);
+
+        if (!$user) {
+            return response()->json(['error' => 'Please sign in to schedule a viewing.'], 401);
+        }
+
+        $viewing = ViewingRequest::updateOrCreate(
+            ['house_id' => $data['house_id'], 'user_id' => $user->id],
+            [
+                'preferred_at' => !empty($data['preferred_at']) ? $data['preferred_at'] : now()->addDays(2),
+                'note' => $data['note'] ?? 'Interested in viewing this property.',
+                'status' => 'pending',
+            ]
+        );
+
+        $viewing->load('house.owner');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Viewing request sent to the property owner!',
+            'viewing' => [
+                'id' => $viewing->id,
+                'house_id' => $viewing->house_id,
+                'property_name' => $viewing->house?->property_name ?? 'Property',
+                'district' => $viewing->house?->district ?? 'Dar es Salaam',
+                'ward' => $viewing->house?->ward ?? '',
+                'monthly_rent' => (float) ($viewing->house?->monthly_rent ?? 0),
+                'cover_image' => $viewing->house?->cover_image,
+                'owner_name' => $viewing->house?->owner?->fullname ?? 'Property Owner',
+                'owner_phone' => $viewing->house?->owner?->phone ?? '',
+                'preferred_at' => $viewing->preferred_at?->format('M d, Y H:i') ?? 'Flexible',
+                'note' => $viewing->note,
+                'status' => $viewing->status ?? 'pending',
+                'created_at' => 'Just now',
+            ],
+        ], 201);
+    }
+
+    public function updateTenantProfile(Request $request)
+    {
+        $user = self::resolveTenant($request);
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $data = $request->validate([
+            'name' => 'required|string|max:180',
+            'email' => 'nullable|email|max:180',
+            'phone' => 'required|string|max:40',
+        ]);
+
+        $user->update([
+            'fullname' => $data['name'],
+            'email' => $data['email'] ?: $user->email,
+            'phone' => \App\Http\Controllers\Api\AuthController::phone($data['phone']),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile updated successfully.',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->fullname,
+                'email' => $user->email,
+                'phone' => $user->phone,
+            ],
+        ]);
+    }
+
+    public function switchTenantRole(Request $request)
+    {
+        $user = self::resolveTenant($request);
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $targetRole = strtolower(trim((string) $request->input('role', 'landlord')));
+        $dbRole = in_array($targetRole, ['renter', 'tenant'], true)
+            ? 'renter'
+            : ($targetRole === 'investor' ? 'investor' : 'landlord');
+
+        $user->update(['role' => $dbRole]);
+
+        return response()->json([
+            'success' => true,
+            'role' => $dbRole,
+            'redirect' => $dbRole === 'renter' ? '/tenant/dashboard' : '/landlord/dashboard',
+        ]);
     }
 }

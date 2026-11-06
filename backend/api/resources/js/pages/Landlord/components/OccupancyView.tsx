@@ -237,7 +237,7 @@ export default function OccupancyView({
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState<'all' | 'occupied' | 'vacant' | 'under_maintenance' | 'expiring_soon'>('all');
     const [searchQuery, setSearchQuery] = useState('');
-    
+
     // Modals
     const [selectedRoomHistory, setSelectedRoomHistory] = useState<RoomOccupancy | null>(null);
     const [selectedRoomForUtilities, setSelectedRoomForUtilities] = useState<RoomOccupancy | null>(null);
@@ -270,6 +270,57 @@ export default function OccupancyView({
         setTimeout(() => setNotification(null), 4500);
     };
 
+    const normalizeRoom = (r: any): RoomOccupancy => {
+        const status = (r.occupancy_status || r.status || (r.current_tenancy || r.current_tenant ? 'occupied' : 'vacant')) as RoomOccupancy['occupancy_status'];
+        const ct = r.current_tenancy || r.current_tenant;
+        const normalizedTenancy = ct
+            ? {
+                id: ct.id ?? 1,
+                tenant_name: ct.tenant_name || ct.name || 'Active Resident',
+                tenant_phone: ct.tenant_phone || ct.phone || '+255 700 000 000',
+                tenant_email: ct.tenant_email || ct.email,
+                start_date: ct.start_date || ct.starts_on || '-',
+                end_date: ct.end_date || ct.ends_on || '-',
+                is_ongoing: ct.is_ongoing ?? true,
+                duration_human: ct.duration_human || ct.duration || 'Ongoing',
+                days_remaining: ct.days_remaining ?? ct.days_left,
+                expiring_soon: Boolean(ct.expiring_soon ?? ct.is_expiring_soon),
+                payment_status: ct.payment_status || 'paid',
+                outstanding_balance: Number(ct.outstanding_balance ?? 0),
+            }
+            : undefined;
+
+        return {
+            unit_id: r.unit_id ?? r.id ?? Date.now(),
+            unit_number: r.unit_number || r.room || 'Unit',
+            property_name: r.property_name || 'Property',
+            property_id: r.property_id ?? r.house_id,
+            occupancy_status: status,
+            monthly_rent: Number(r.monthly_rent ?? 450000),
+            current_tenancy: normalizedTenancy,
+            utilities: r.utilities || {
+                luku: {
+                    meter_number: `241289${String(r.unit_id ?? 100).padStart(5, '0')}`,
+                    meter_type: 'Sub-meter ya Chumba',
+                    current_units: 50,
+                    tariff_per_unit: 350,
+                    low_unit_threshold: 15,
+                    status: 'online',
+                },
+                water: {
+                    meter_number: `DW-00${String((r.unit_id ?? 100) + 9800)}`,
+                    meter_type: 'Mita ya DAWASA',
+                    current_reading: 12.0,
+                    previous_reading: 10.0,
+                    tariff_per_m3: 1800,
+                },
+            },
+            vacancy_duration: r.vacancy_duration,
+            specs: r.specs || r.unit_type || 'Modern Unit',
+            historical_tenancies: r.historical_tenancies || r.history || [],
+        };
+    };
+
     const fetchOccupancyMetrics = async () => {
         try {
             const res = await fetch('/landlord/occupancy-metrics', {
@@ -279,9 +330,9 @@ export default function OccupancyView({
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data) && data.length > 0) {
-                    setRooms(data);
+                    setRooms(data.map(normalizeRoom));
                 } else if (data.rooms && Array.isArray(data.rooms) && data.rooms.length > 0) {
-                    setRooms(data.rooms);
+                    setRooms(data.rooms.map(normalizeRoom));
                 }
             }
         } catch (err) {
@@ -455,11 +506,10 @@ export default function OccupancyView({
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className={`p-4 rounded-2xl flex items-center justify-between text-xs sm:text-sm font-semibold shadow-sm ${
-                            notification.type === 'success'
-                                ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
-                                : 'bg-red-50 text-red-900 border border-red-200'
-                        }`}
+                        className={`p-4 rounded-2xl flex items-center justify-between text-xs sm:text-sm font-semibold shadow-sm ${notification.type === 'success'
+                            ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+                            : 'bg-red-50 text-red-900 border border-red-200'
+                            }`}
                     >
                         <div className="flex items-center gap-2.5">
                             <Sparkles className="size-4.5 shrink-0 text-emerald-600" />
@@ -560,11 +610,10 @@ export default function OccupancyView({
                         <button
                             key={tab.id}
                             onClick={() => setFilter(tab.id as any)}
-                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                                filter === tab.id
-                                    ? 'bg-slate-900 text-white shadow-xs'
-                                    : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
-                            }`}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${filter === tab.id
+                                ? 'bg-slate-900 text-white shadow-xs'
+                                : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50'
+                                }`}
                         >
                             {tab.label}
                         </button>
@@ -598,7 +647,7 @@ export default function OccupancyView({
                     </p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredRooms.map((room) => {
                         const isOccupied = room.occupancy_status === 'occupied';
                         const ten = room.current_tenancy;
@@ -609,163 +658,121 @@ export default function OccupancyView({
                         return (
                             <div
                                 key={room.unit_id}
-                                className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between"
+                                className="group relative flex flex-col overflow-hidden rounded-2xl border w-200 border-slate-200 bg-white transition-shadow hover:shadow-lg hover:shadow-slate-200/70"
                             >
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-slate-100 text-slate-900 border border-slate-200">
-                                            {room.unit_number}
-                                        </span>
+                                {/* Status edge */}
+                                <span
+                                    className={`absolute inset-y-0 left-0 w-1 ${!isOccupied ? 'bg-slate-300' : ten?.expiring_soon ? 'bg-amber-400' : 'bg-emerald-500'
+                                        }`}
+                                />
+
+                                <div className="flex flex-1 flex-col gap-3 p-4 pl-5">
+                                    {/* Header: unit + property + status */}
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <h3 className="text-xl font-black leading-none tracking-tight text-slate-900">
+                                                {room.unit_number}
+                                            </h3>
+                                            <p className="mt-1 truncate text-xs text-slate-500">{room.property_name}</p>
+                                        </div>
                                         {getStatusBadge(room.occupancy_status, ten?.expiring_soon)}
                                     </div>
 
-                                    <div>
-                                        <h3 className="font-extrabold text-base text-slate-900 leading-snug">{room.property_name}</h3>
-                                        <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
-                                            <span>{room.specs || (lang === 'sw' ? 'Chumba cha Kisasa' : 'Modern Unit')}</span>
-                                            <span className="font-extrabold text-slate-900">
-                                                TZS {Number(room.monthly_rent).toLocaleString()} / {t('month', 'mwezi')}
-                                            </span>
-                                        </div>
-                                    </div>
+                                    {/* Rent */}
+                                    <p className="text-sm text-slate-500">
+                                        <span className="text-base font-bold text-slate-900">
+                                            TZS {Number(room.monthly_rent).toLocaleString()}
+                                        </span>{' '}
+                                        / {t('month', 'mwezi')}
+                                    </p>
 
-                                    {/* Occupancy Duration or Vacancy Notice */}
+                                    {/* Tenant or vacancy */}
                                     {isOccupied && ten ? (
-                                        <div className="space-y-2.5">
-                                            <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200/80 space-y-1">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[10px] uppercase font-bold text-blue-800 tracking-wider">
-                                                        {t('Tenancy Duration', 'Muda wa Ukaaji')}
-                                                    </span>
-                                                    <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white font-black text-[10px] tracking-wide">
-                                                        {t('ONGOING', 'INAENDELEA')}
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm font-extrabold text-blue-950">
-                                                    {ten.duration_human}
-                                                </p>
-                                                <p className="text-[11px] text-blue-800">
-                                                    {t('Started:', 'Alianza:')} {ten.start_date} • {t('Expires:', 'Mwisho:')} {ten.end_date}
-                                                </p>
+                                        <div className="rounded-xl bg-slate-50 p-3">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="truncate text-sm font-semibold text-slate-800">{ten.tenant_name}</p>
+                                                <span className="shrink-0 text-xs text-slate-500">{ten.tenant_phone}</span>
                                             </div>
-
-                                            {/* Tenant info & balance */}
-                                            <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-slate-50 text-xs border border-slate-100">
-                                                <div>
-                                                    <span className="text-[10px] text-slate-400 block font-medium">{t('Current Tenant', 'Mpangaji wa Sasa')}</span>
-                                                    <span className="font-bold text-slate-800 truncate block">{ten.tenant_name}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-[10px] text-slate-400 block font-medium">{t('Phone', 'Simu')}</span>
-                                                    <span className="font-medium text-slate-600 truncate block">{ten.tenant_phone}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-[10px] text-slate-400 block font-medium">{t('Payment Status', 'Hali ya Malipo')}</span>
-                                                    <span className="font-bold text-emerald-700 capitalize">
-                                                        {ten.payment_status || (lang === 'sw' ? 'Imelipwa' : 'Paid')}
-                                                    </span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-[10px] text-slate-400 block font-medium">{t('Outstanding Balance', 'Deni Lililobaki')}</span>
-                                                    <span className={`font-extrabold ${Number(ten.outstanding_balance) > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
-                                                        TZS {Number(ten.outstanding_balance || 0).toLocaleString()}
-                                                    </span>
-                                                </div>
+                                            <div className="mt-2 flex items-center justify-between text-xs">
+                                                <span className="text-slate-500">
+                                                    {t('Ends', 'Mwisho')} {ten.end_date}
+                                                </span>
+                                                <span
+                                                    className={`font-bold ${Number(ten.outstanding_balance) > 0 ? 'text-amber-700' : 'text-emerald-700'
+                                                        }`}
+                                                >
+                                                    {Number(ten.outstanding_balance) > 0
+                                                        ? `${t('Owes', 'Deni')} TZS ${Number(ten.outstanding_balance).toLocaleString()}`
+                                                        : t('Paid up', 'Hana deni')}
+                                                </span>
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-1.5">
-                                            <div className="flex items-center gap-2 text-slate-700 font-semibold">
-                                                <Key className="size-4 text-blue-500 shrink-0" />
-                                                <span>{t('Unit is vacant and ready for tenancy.', 'Chumba kipo wazi na tayari kupangishwa.')}</span>
-                                            </div>
-                                            {room.vacancy_duration && (
-                                                <p className="text-[11px] text-slate-500">
-                                                    {t('Status:', 'Hali:')} <strong>{room.vacancy_duration}</strong>
-                                                </p>
-                                            )}
+                                        <div className="flex items-center gap-2 rounded-xl border border-dashed border-slate-200 p-3 text-xs text-slate-500">
+                                            <Key className="size-4 shrink-0 text-slate-400" />
+                                            <span>
+                                                {room.vacancy_duration
+                                                    ? `${t('Vacant for', 'Wazi kwa')} ${room.vacancy_duration}`
+                                                    : t('Ready for a new tenant.', 'Tayari kupangishwa.')}
+                                            </span>
                                         </div>
                                     )}
 
-                                    {/* Utilities & Meter Readings */}
-                                    <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
-                                        <div className={`p-2.5 rounded-xl border flex flex-col justify-between ${
-                                            isLowLuku ? 'bg-amber-50/80 border-amber-300' : 'bg-slate-50/80 border-slate-200'
-                                        }`}>
-                                            <div className="flex items-center justify-between text-[10px] font-bold">
-                                                <span className="flex items-center gap-1 text-amber-700">
-                                                    <Zap className="size-3" /> {t('LUKU Meter', 'Mita ya LUKU')}
-                                                </span>
-                                                {isLowLuku && (
-                                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 font-bold">
-                                                        {t('Low', 'Chini')}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="mt-1">
-                                                <span className="font-extrabold text-slate-900 text-sm">
-                                                    {luku?.current_units ?? 50} <span className="text-[10px] font-semibold text-slate-500">kWh</span>
-                                                </span>
-                                                <span className="text-[9px] text-slate-400 truncate block mt-0.5">
-                                                    #{luku?.meter_number || (lang === 'sw' ? 'Mita ya Chumba' : 'Room Meter')}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <div className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200 flex flex-col justify-between">
-                                            <div className="flex items-center justify-between text-[10px] font-bold text-blue-700">
-                                                <span className="flex items-center gap-1">
-                                                    <Droplets className="size-3" /> {t('DAWASA Meter', 'Mita ya DAWASA')}
-                                                </span>
-                                            </div>
-                                            <div className="mt-1">
-                                                <span className="font-extrabold text-slate-900 text-sm">
-                                                    {water?.current_reading ?? 12.0} <span className="text-[10px] font-semibold text-slate-500">m³</span>
-                                                </span>
-                                                <span className="text-[9px] text-slate-400 truncate block mt-0.5">
-                                                    #{water?.meter_number || (lang === 'sw' ? 'Mita ya Maji' : 'Water Meter')}
-                                                </span>
-                                            </div>
-                                        </div>
+                                    {/* Meters: one slim line */}
+                                    <div className="mt-auto flex items-center gap-2 text-[11px] font-semibold">
+                                        <span
+                                            className={`flex items-center gap-1 rounded-lg px-2 py-1 ${isLowLuku ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
+                                                }`}
+                                        >
+                                            <Zap className="size-3" />
+                                            {luku?.current_units ?? 50} kWh
+                                            {isLowLuku && <span className="ml-0.5">· {t('Low', 'Chini')}</span>}
+                                        </span>
+                                        <span className="flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-slate-700">
+                                            <Droplets className="size-3" />
+                                            {water?.current_reading ?? 12.0} m³
+                                        </span>
                                     </div>
                                 </div>
 
-                                {/* Card Footer Actions */}
-                                <div className="mt-5 pt-3.5 border-t border-slate-100 space-y-2">
-                                    <div className="flex items-center justify-between gap-2">
+                                {/* Footer: main action + 2 icon buttons */}
+                                <div className="flex items-center gap-2 border-t border-slate-100 p-3 pl-5">
+                                    {isOccupied ? (
                                         <button
-                                            onClick={() => handleOpenMeterModal(room)}
-                                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                                            title={t('Read and record utility meter figures', 'Soma na rekodi vipimo vipya vya mita ya umeme na maji')}
+                                            onClick={() => onGenerateInvoice?.(room)}
+                                            className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700"
                                         >
-                                            <Sliders className="size-3.5 text-slate-500" /> {t('Meter Readings', 'Soma Mita')}
+                                            <Receipt className="size-3.5" /> {t('Issue invoice', 'Toa ankara')}
                                         </button>
-
+                                    ) : (
                                         <button
-                                            onClick={() => setSelectedRoomHistory(room)}
-                                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                                            onClick={() => onPrepareAgreement?.(room)}
+                                            className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-teal-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-teal-700"
                                         >
-                                            <History className="size-3.5 text-slate-500" /> {t('History', 'Historia')} ({room.historical_tenancies?.length || 0})
+                                            <FileText className="size-3.5" /> {t('Draft lease', 'Andaa mkataba')}
                                         </button>
-                                    </div>
+                                    )}
 
-                                    <div className="pt-1">
-                                        {isOccupied ? (
-                                            <button
-                                                onClick={() => onGenerateInvoice?.(room)}
-                                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition-colors cursor-pointer"
-                                            >
-                                                <Receipt className="size-3.5" /> {t('Issue Invoice for Unit', 'Toa Ankara ya Chumba Hiki')}
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={() => onPrepareAgreement?.(room)}
-                                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs transition-colors shadow-xs cursor-pointer"
-                                            >
-                                                <FileText className="size-3.5" /> {t('Draft Lease Agreement', 'Andaa Mkataba wa Upangaji')}
-                                            </button>
+                                    <button
+                                        onClick={() => handleOpenMeterModal(room)}
+                                        className="cursor-pointer rounded-xl border border-slate-200 p-2 text-slate-600 transition-colors hover:bg-slate-100"
+                                        title={t('Record meter readings', 'Soma mita')}
+                                    >
+                                        <Sliders className="size-4" />
+                                    </button>
+
+                                    <button
+                                        onClick={() => setSelectedRoomHistory(room)}
+                                        className="relative cursor-pointer rounded-xl border border-slate-200 p-2 text-slate-600 transition-colors hover:bg-slate-100"
+                                        title={t('Tenancy history', 'Historia')}
+                                    >
+                                        <History className="size-4" />
+                                        {!!room.historical_tenancies?.length && (
+                                            <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-slate-900 px-1 text-[9px] font-bold text-white">
+                                                {room.historical_tenancies.length}
+                                            </span>
                                         )}
-                                    </div>
+                                    </button>
                                 </div>
                             </div>
                         );

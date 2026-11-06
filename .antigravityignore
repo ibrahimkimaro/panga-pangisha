@@ -1,0 +1,9 @@
+.git/
+.dart_tool/
+.idea/
+.gradle/
+build/
+backend/
+node_modules/
+*.lock
+CLAUDE.md
